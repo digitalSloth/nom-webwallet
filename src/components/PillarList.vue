@@ -1,0 +1,156 @@
+<script setup lang="ts">
+import type {PillarWithApr} from '@/core'
+import {formatNumber} from '@/core'
+import {Button, Item, ItemContent, ItemDescription, ItemTitle} from '@nom/ui'
+import {addNumberDecimals} from 'znn-typescript-sdk'
+
+export interface PillarListProps {
+  pillars: PillarWithApr[]
+  currentDelegatedPillar: string | null
+  isDelegating?: boolean
+  delegatingToPillar?: string | null
+  isWalletLocked?: boolean
+  searchQuery?: string
+}
+
+withDefaults(defineProps<PillarListProps>(), {
+  isDelegating: false,
+  delegatingToPillar: null,
+  isWalletLocked: false,
+  searchQuery: '',
+})
+
+const emit = defineEmits<{
+  delegate: [pillarName: string]
+}>()
+
+function formatApr(apr: number): string {
+  if (apr === 0) return 'N/A'
+  return `${apr.toFixed(2)}%`
+}
+
+function formatWeight(weight: string): string {
+  weight = addNumberDecimals(weight, 8)
+  return formatNumber(weight, { decimals: 2, compact: true })
+}
+</script>
+
+<template>
+  <div v-if="pillars.length === 0" class="text-center py-8 text-muted-foreground">
+    <p v-if="searchQuery">No pillars found matching "{{ searchQuery }}"</p>
+    <p v-else>No pillars available</p>
+  </div>
+
+  <Item
+      v-for="pillarInfo in pillars"
+      :key="pillarInfo.name"
+      variant="muted"
+      :class="[
+        'border-border transition-colors',
+        currentDelegatedPillar === pillarInfo.name
+          ? 'bg-primary/10 border-primary/50'
+          : ''
+      ]"
+  >
+    <ItemContent>
+      <!-- Mobile: Stack layout -->
+      <div class="flex flex-col sm:hidden space-y-3">
+        <!-- Top row: Name and rank -->
+        <div class="flex items-start justify-between">
+          <div>
+            <ItemDescription class="text-xs mb-1">
+              Rank #{{ pillarInfo.rank + 1 }}
+            </ItemDescription>
+            <ItemTitle>
+              {{ pillarInfo.name }}
+            </ItemTitle>
+          </div>
+        </div>
+
+        <!-- Stats row -->
+        <div class="grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <ItemDescription class="text-xs mb-1">Est. APR</ItemDescription>
+            <div class="font-medium font-mono text-green-600 dark:text-green-400">
+              {{ formatApr(pillarInfo.delegateApr) }}
+            </div>
+          </div>
+          <div>
+            <ItemDescription class="text-xs mb-1">Weight</ItemDescription>
+            <div class="font-medium font-mono">
+              {{ formatWeight(pillarInfo.weight.toString()) }} ZNN
+            </div>
+          </div>
+        </div>
+
+        <!-- Button row -->
+        <Button
+            @click="emit('delegate', pillarInfo.name)"
+            :disabled="
+              isDelegating ||
+              isWalletLocked ||
+              currentDelegatedPillar === pillarInfo.name
+            "
+            size="sm"
+            class="w-full"
+            :variant="currentDelegatedPillar === pillarInfo.name ? 'secondary' : 'default'"
+        >
+          <span v-if="delegatingToPillar === pillarInfo.name">Delegating...</span>
+          <span v-else-if="currentDelegatedPillar === pillarInfo.name">Delegated</span>
+          <span v-else>Delegate</span>
+        </Button>
+      </div>
+
+      <!-- Desktop: Grid layout -->
+      <div class="hidden sm:grid grid-cols-4 gap-4 items-center">
+        <!-- Pillar Name -->
+        <div class="text-left">
+          <ItemDescription class="text-xs mb-1">
+            Rank #{{ pillarInfo.rank + 1 }}
+          </ItemDescription>
+          <ItemTitle>
+            {{ pillarInfo.name }}
+          </ItemTitle>
+        </div>
+
+        <!-- Est. APR -->
+        <div class="text-center">
+          <ItemDescription class="text-xs mb-1" title="Estimated annual return for delegators">
+            Est. APR
+          </ItemDescription>
+          <div class="font-medium font-mono text-sm text-green-600 dark:text-green-400">
+            {{ formatApr(pillarInfo.delegateApr) }}
+          </div>
+        </div>
+
+        <!-- Weight -->
+        <div class="text-center">
+          <ItemDescription class="text-xs mb-1" title="Total delegated weight">
+            Weight
+          </ItemDescription>
+          <div class="font-medium font-mono text-sm">
+            {{ formatWeight(pillarInfo.weight.toString()) }} ZNN
+          </div>
+        </div>
+
+        <!-- Delegate Button -->
+        <div class="text-right">
+          <Button
+              @click="emit('delegate', pillarInfo.name)"
+              :disabled="
+                isDelegating ||
+                isWalletLocked ||
+                currentDelegatedPillar === pillarInfo.name
+              "
+              size="sm"
+              :variant="currentDelegatedPillar === pillarInfo.name ? 'secondary' : 'default'"
+          >
+            <span v-if="delegatingToPillar === pillarInfo.name">Delegating...</span>
+            <span v-else-if="currentDelegatedPillar === pillarInfo.name">Delegated</span>
+            <span v-else>Delegate</span>
+          </Button>
+        </div>
+      </div>
+    </ItemContent>
+  </Item>
+</template>

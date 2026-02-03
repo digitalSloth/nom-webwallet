@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-extension
+.DS_Store
+*.local
+.vscode
+.idea
+*.log
+.env
+.air

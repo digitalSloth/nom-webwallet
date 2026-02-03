@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "./dist",
+    "baseUrl": ".",
+    "paths": {
+      "@nom/ui": ["./src"],
+      "@nom/ui/*": ["./src/*"]
+    }
+  },
+  "include": ["src"]
+}

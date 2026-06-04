@@ -240,50 +240,50 @@ async function handleCancel(fusionId: string) {
         <!-- Left: fuse from your own wallet -->
         <section class="space-y-4">
           <div class="font-semibold">Fuse from your wallet</div>
-        <!-- Beneficiary Address -->
-        <div class="space-y-2">
-          <label for="fuse-beneficiary" class="text-sm font-medium">Beneficiary Address</label>
-          <Input
-              id="fuse-beneficiary"
-              v-model="beneficiaryAddress"
-              placeholder="z1..."
-              :disabled="plasma.isFusing.value"
-          />
-          <div class="text-xs text-muted-foreground">
-            The address that will receive the plasma (defaults to your current account)
+          <!-- Beneficiary Address -->
+          <div class="space-y-2">
+            <label for="fuse-beneficiary" class="text-sm font-medium">Beneficiary Address</label>
+            <Input
+                id="fuse-beneficiary"
+                v-model="beneficiaryAddress"
+                placeholder="z1..."
+                :disabled="plasma.isFusing.value"
+            />
+            <div class="text-xs text-muted-foreground">
+              The address that will receive the plasma (defaults to your current account)
+            </div>
           </div>
-        </div>
 
-        <!-- Amount -->
-        <div class="space-y-2">
-          <label for="fuse-amount" class="text-sm font-medium">Amount (QSR)</label>
-          <Input
-              id="fuse-amount"
-              v-model="fuseAmount"
-              type="number"
-              step="any"
-              :min="minFuseAmount"
-              placeholder="10.00"
-              :disabled="plasma.isFusing.value"
-          />
-          <div class="text-xs text-muted-foreground">
-            Available: {{ qsrBalance }} QSR | Minimum: {{ minFuseAmount }} QSR
+          <!-- Amount -->
+          <div class="space-y-2">
+            <label for="fuse-amount" class="text-sm font-medium">Amount (QSR)</label>
+            <Input
+                id="fuse-amount"
+                v-model="fuseAmount"
+                type="number"
+                step="any"
+                :min="minFuseAmount"
+                placeholder="10.00"
+                :disabled="plasma.isFusing.value"
+            />
+            <div class="text-xs text-muted-foreground">
+              Available: {{ qsrBalance }} QSR | Minimum: {{ minFuseAmount }} QSR
+            </div>
           </div>
-        </div>
 
-        <!-- Error Message -->
-        <Alert v-if="formError" variant="destructive">
-          <AlertDescription>{{ formError }}</AlertDescription>
-        </Alert>
+          <!-- Error Message -->
+          <Alert v-if="formError" variant="destructive">
+            <AlertDescription>{{ formError }}</AlertDescription>
+          </Alert>
 
-        <!-- Fuse Button -->
-        <Button
-            @click="handleFuse"
-            class="w-full"
-            :disabled="plasma.isFusing.value || isWalletLocked"
-        >
-          {{ plasma.isFusing.value ? 'Fusing...' : 'Fuse Plasma' }}
-        </Button>
+          <!-- Fuse Button -->
+          <Button
+              @click="handleFuse"
+              class="w-full"
+              :disabled="plasma.isFusing.value || isWalletLocked"
+          >
+            {{ plasma.isFusing.value ? 'Fusing...' : 'Fuse Plasma' }}
+          </Button>
         </section>
 
         <!-- Right: free plasma from plasma.bot -->

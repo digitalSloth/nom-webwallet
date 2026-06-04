@@ -189,33 +189,34 @@ function goBack() {
                 v-for="block in unreceivedBlocks"
                 :key="block.hash.toString()"
                 variant="muted"
-                class="border-border"
+                class="border-border flex-col items-stretch sm:flex-row sm:items-center"
               >
-                <ItemContent class="flex-1">
+                <ItemContent class="flex-1 min-w-0">
                   <ItemTitle>
                     {{ addNumberDecimals(block.amount, block.token.decimals) }}
                     {{ block.token?.symbol || 'Unknown' }}
                   </ItemTitle>
-                  <ItemDescription class="space-y-0.5 line-clamp-none">
+                  <ItemDescription class="space-y-2 line-clamp-none">
                     <div>
-                      <span class="font-medium">From:</span>
-                      <span class="font-mono ml-1">{{ block.address.toString() }}</span>
+                      <div class="text-xs font-medium text-muted-foreground">From</div>
+                      <div class="font-mono break-all text-foreground">{{ block.address.toString() }}</div>
                     </div>
                     <div>
-                      <span class="font-medium">ZTS:</span>
-                      <span class="ml-1">{{ block.tokenStandard.toString() }}</span>
+                      <div class="text-xs font-medium text-muted-foreground">ZTS</div>
+                      <div class="font-mono break-all text-foreground">{{ block.tokenStandard.toString() }}</div>
                     </div>
                     <div>
-                      <span class="font-medium">Time:</span>
-                      <span class="ml-1">{{ formatDate(block.confirmationDetail?.momentumTimestamp || 0) }}</span>
+                      <div class="text-xs font-medium text-muted-foreground">Time</div>
+                      <div class="text-foreground">{{ formatDate(block.confirmationDetail?.momentumTimestamp || 0) }}</div>
                     </div>
                   </ItemDescription>
                 </ItemContent>
-                <ItemActions>
+                <ItemActions class="shrink-0">
                   <Button
                     @click="handleReceive(block)"
                     :disabled="currentlyReceivingHash === block.hash.toString()"
                     size="sm"
+                    class="w-full sm:w-auto"
                   >
                     <span v-if="currentlyReceivingHash === block.hash.toString()">Receiving...</span>
                     <span v-else>Receive</span>

@@ -112,6 +112,7 @@ async function handleRequest() {
 
       <DialogFooter>
         <Button
+            class="w-full"
             :disabled="plasmaBot.isFusing.value || !activeAccountAddress"
             @click="handleRequest"
         >

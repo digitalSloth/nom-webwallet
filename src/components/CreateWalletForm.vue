@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {computed, ref} from 'vue'
-import {useWallet} from '@/core'
-import {estimatePasswordStrength} from '@/core/password-strength'
+import {estimatePasswordStrength, useWallet} from '@/core'
 import {
   Button,
   Field,

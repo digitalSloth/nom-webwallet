@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {computed} from 'vue'
-import type {PasswordStrength} from '@/core/password-strength'
+import type {PasswordStrength} from '@/core'
 
 const props = defineProps<{strength: PasswordStrength}>()
 

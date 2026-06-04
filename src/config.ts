@@ -100,7 +100,16 @@ export const KDF_PARAMS_V2: KdfParams = {
 /** Current KDF version applied to new/upgraded wallets. */
 export const CURRENT_KDF_VERSION = 2
 
+/**
+ * KDF params keyed by wallet version. Add an entry here when introducing a new
+ * version so {@link kdfParamsForVersion} resolves it (rather than falling back).
+ */
+const KDF_PARAMS_BY_VERSION: Record<number, KdfParams> = {
+  1: KDF_PARAMS_V1,
+  2: KDF_PARAMS_V2
+}
+
 /** Resolve the KDF params for a stored wallet's kdfVersion (absent ⇒ legacy V1). */
 export function kdfParamsForVersion(version: number | undefined): KdfParams {
-  return version === 2 ? KDF_PARAMS_V2 : KDF_PARAMS_V1
+  return KDF_PARAMS_BY_VERSION[version ?? 1] ?? KDF_PARAMS_V1
 }

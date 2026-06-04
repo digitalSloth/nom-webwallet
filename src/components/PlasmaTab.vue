@@ -202,8 +202,8 @@ async function handleCancel(fusionId: string) {
           class="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 p-4"
       >
         <div class="text-sm">
-          <div class="font-medium">No plasma yet?</div>
-          <div class="text-muted-foreground">Get some for free from plazma.bot.</div>
+          <div class="font-medium">No QSR for plasma?</div>
+          <div class="text-muted-foreground">Get some plasma from plazma.bot</div>
         </div>
         <Button type="button" @click="botDialogOpen = true">Get free plasma</Button>
       </div>

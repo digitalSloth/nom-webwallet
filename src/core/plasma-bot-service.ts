@@ -1,4 +1,4 @@
-import { PLASMA_BOT_API_URL, type PlasmaBotTierKey } from '@/config'
+import { PLASMA_BOT_API_URL, PLASMA_BOT_TIERS, type PlasmaBotTierKey } from '@/config'
 
 export type { PlasmaBotTierKey }
 
@@ -7,6 +7,12 @@ export interface PlasmaBotFuseSuccess {
   address: string
   tier: PlasmaBotTierKey
   amount: number
+}
+
+export interface PlasmaBotStats {
+  qsrAvailable: number
+  availableTiers: PlasmaBotTierKey[]
+  activeFusionCount: number
 }
 
 const KNOWN_CODES = [
@@ -82,5 +88,51 @@ export class PlasmaBotService {
       ? (rawCode as PlasmaBotErrorCode)
       : 'FUSE_FAILED'
     throw new PlasmaBotError(code, data.error?.message ?? 'plasma.bot request failed')
+  }
+
+  /** Fetch public bot stats (balance + which tiers can currently be funded). */
+  async getStats(): Promise<PlasmaBotStats> {
+    let response: Response
+    try {
+      response = await fetch(`${this.baseUrl}/api/stats`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      })
+    } catch (err) {
+      throw new PlasmaBotError(
+        'NETWORK_ERROR',
+        err instanceof Error ? err.message : 'Network request failed'
+      )
+    }
+
+    if (!response.ok) {
+      throw new PlasmaBotError('NETWORK_ERROR', `plazma.bot stats returned ${response.status}`)
+    }
+
+    let body: unknown
+    try {
+      body = await response.json()
+    } catch {
+      throw new PlasmaBotError('NETWORK_ERROR', 'Invalid response from plazma.bot')
+    }
+
+    const data = body as {
+      qsrAvailable?: number
+      availableTiers?: unknown
+      activeFusionCount?: number
+    }
+
+    const validKeys = PLASMA_BOT_TIERS.map((t) => t.key)
+    const availableTiers = Array.isArray(data.availableTiers)
+      ? data.availableTiers.filter((t): t is PlasmaBotTierKey =>
+          validKeys.includes(t as PlasmaBotTierKey)
+        )
+      : []
+
+    return {
+      qsrAvailable: typeof data.qsrAvailable === 'number' ? data.qsrAvailable : 0,
+      availableTiers,
+      activeFusionCount: typeof data.activeFusionCount === 'number' ? data.activeFusionCount : 0
+    }
   }
 }

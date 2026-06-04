@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, ref} from 'vue'
+import {computed, ref, watch} from 'vue'
 import {PlasmaBotError, type PlasmaBotTierKey, usePlasmaBot} from '@/core'
 import {PLASMA_BOT_TIERS} from '@/config'
 import {
@@ -30,6 +30,58 @@ const plasmaBot = usePlasmaBot()
 
 const selectedTier = ref<PlasmaBotTierKey>('low')
 const botTiers = PLASMA_BOT_TIERS
+
+// Refresh availability whenever the dialog opens (fail-open if unreachable).
+watch(
+  () => props.open,
+  (open) => {
+    if (open) void plasmaBot.loadStats()
+  }
+)
+
+const availableTiers = computed(() => plasmaBot.stats.value?.availableTiers ?? [])
+const hasNoFundableTiers = computed(
+  () => plasmaBot.statsStatus.value === 'online' && availableTiers.value.length === 0
+)
+
+// Fail-open: only restrict tiers when we have a confirmed 'online' status.
+function isTierAvailable(key: PlasmaBotTierKey): boolean {
+  if (plasmaBot.statsStatus.value !== 'online') return true
+  return availableTiers.value.includes(key)
+}
+
+const statusLine = computed<{text: string; warning: boolean} | null>(() => {
+  switch (plasmaBot.statsStatus.value) {
+    case 'checking':
+      return {text: 'Checking plazma.bot…', warning: false}
+    case 'online':
+      return availableTiers.value.length === 0
+        ? {text: 'plazma.bot is low on QSR right now.', warning: true}
+        : {
+            text: `plazma.bot online · ${plasmaBot.stats.value?.qsrAvailable ?? 0} QSR available`,
+            warning: false
+          }
+    case 'unreachable':
+      return {text: 'Couldn’t reach plazma.bot — you can still try.', warning: false}
+    default:
+      return null
+  }
+})
+
+// When availability loads, move selection off an unfundable tier to the lowest available.
+watch(
+  () => plasmaBot.stats.value,
+  (s) => {
+    if (
+      plasmaBot.statsStatus.value === 'online' &&
+      s &&
+      !s.availableTiers.includes(selectedTier.value)
+    ) {
+      const firstAvailable = botTiers.find((t) => s.availableTiers.includes(t.key))
+      if (firstAvailable) selectedTier.value = firstAvailable.key
+    }
+  }
+)
 
 const isOpen = computed({
   get: () => props.open,
@@ -89,6 +141,14 @@ async function handleRequest() {
       </DialogHeader>
 
       <div class="space-y-4">
+        <div
+            v-if="statusLine"
+            class="text-xs"
+            :class="statusLine.warning ? 'text-amber-600 dark:text-amber-500' : 'text-muted-foreground'"
+        >
+          {{ statusLine.text }}
+        </div>
+
         <!-- Beneficiary (locked to current account) -->
         <div class="space-y-2">
           <Input :model-value="activeAccountAddress ?? ''" disabled readonly />
@@ -102,7 +162,7 @@ async function handleRequest() {
               :key="tier.key"
               type="button"
               :variant="selectedTier === tier.key ? 'default' : 'outline'"
-              :disabled="plasmaBot.isFusing.value"
+              :disabled="plasmaBot.isFusing.value || !isTierAvailable(tier.key)"
               @click="selectedTier = tier.key"
           >
             {{ tier.label }} · {{ tier.qsr }}
@@ -113,7 +173,7 @@ async function handleRequest() {
       <DialogFooter>
         <Button
             class="w-full"
-            :disabled="plasmaBot.isFusing.value || !activeAccountAddress"
+            :disabled="plasmaBot.isFusing.value || !activeAccountAddress || hasNoFundableTiers"
             @click="handleRequest"
         >
           {{ plasmaBot.isFusing.value ? 'Requesting…' : 'Get Plasma' }}

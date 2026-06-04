@@ -3,13 +3,16 @@ import {
   PlasmaBotService,
   PlasmaBotError,
   type PlasmaBotTierKey,
-  type PlasmaBotFuseSuccess
+  type PlasmaBotFuseSuccess,
+  type PlasmaBotStats
 } from '../plasma-bot-service'
 
 // Module-level reactive state — shared across every usePlasmaBot() caller
 const isFusing = ref(false)
 const lastResult = ref<PlasmaBotFuseSuccess | null>(null)
 const error = ref<PlasmaBotError | null>(null)
+const stats = ref<PlasmaBotStats | null>(null)
+const statsStatus = ref<'idle' | 'checking' | 'online' | 'unreachable'>('idle')
 
 const service = new PlasmaBotService()
 
@@ -35,10 +38,29 @@ export function usePlasmaBot() {
     }
   }
 
+  /**
+   * Fetch bot availability. Fail-open: on any error it sets `unreachable` and
+   * does NOT throw, so a flaky stats endpoint never blocks a fuse.
+   */
+  async function loadStats(): Promise<void> {
+    statsStatus.value = 'checking'
+    try {
+      stats.value = await service.getStats()
+      statsStatus.value = 'online'
+    } catch (err) {
+      stats.value = null
+      statsStatus.value = 'unreachable'
+      console.error('Failed to load plazma.bot stats:', err)
+    }
+  }
+
   return {
     isFusing,
     lastResult,
     error,
-    fuse
+    fuse,
+    stats,
+    statsStatus,
+    loadStats
   }
 }

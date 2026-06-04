@@ -55,8 +55,10 @@ export const MIN_PASSWORD_LENGTH = 8
 /** Base URL of the plasma.bot agent API (note: domain is spelled "plazma"). */
 export const PLASMA_BOT_API_URL = 'https://plazma.bot'
 
+export type PlasmaBotTierKey = 'low' | 'medium' | 'high'
+
 export interface PlasmaBotTier {
-  key: 'low' | 'medium' | 'high'
+  key: PlasmaBotTierKey
   label: string
   /** QSR the bot fuses for this tier. */
   qsr: number

@@ -1,6 +1,6 @@
-import { PLASMA_BOT_API_URL } from '@/config'
+import { PLASMA_BOT_API_URL, type PlasmaBotTierKey } from '@/config'
 
-export type PlasmaBotTierKey = 'low' | 'medium' | 'high'
+export type { PlasmaBotTierKey }
 
 export interface PlasmaBotFuseSuccess {
   txHash: string
@@ -9,16 +9,7 @@ export interface PlasmaBotFuseSuccess {
   amount: number
 }
 
-export type PlasmaBotErrorCode =
-  | 'VALIDATION_FAILED'
-  | 'RATE_LIMITED'
-  | 'ADDRESS_UNAVAILABLE'
-  | 'INSUFFICIENT_BALANCE'
-  | 'FUSE_FAILED'
-  | 'UNSUPPORTED_MEDIA_TYPE'
-  | 'NETWORK_ERROR'
-
-const KNOWN_CODES: readonly PlasmaBotErrorCode[] = [
+const KNOWN_CODES = [
   'VALIDATION_FAILED',
   'RATE_LIMITED',
   'ADDRESS_UNAVAILABLE',
@@ -26,7 +17,9 @@ const KNOWN_CODES: readonly PlasmaBotErrorCode[] = [
   'FUSE_FAILED',
   'UNSUPPORTED_MEDIA_TYPE',
   'NETWORK_ERROR'
-]
+] as const
+
+export type PlasmaBotErrorCode = (typeof KNOWN_CODES)[number]
 
 export class PlasmaBotError extends Error {
   constructor(

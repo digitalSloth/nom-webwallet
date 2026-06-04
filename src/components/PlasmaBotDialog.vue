@@ -32,10 +32,14 @@ const selectedTier = ref<PlasmaBotTierKey>('low')
 const botTiers = PLASMA_BOT_TIERS
 
 // Refresh availability whenever the dialog opens (fail-open if unreachable).
+// Reset to the lowest tier first; the stats watch bumps it up only if Low is unfundable.
 watch(
   () => props.open,
   (open) => {
-    if (open) void plasmaBot.loadStats()
+    if (open) {
+      selectedTier.value = 'low'
+      void plasmaBot.loadStats()
+    }
   }
 )
 

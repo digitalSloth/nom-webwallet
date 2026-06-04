@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {computed, ref} from 'vue'
 import {useWallet} from '@/core'
-import {MIN_PASSWORD_LENGTH} from '@/config'
+import {estimatePasswordStrength} from '@/core/password-strength'
 import {
   Button,
   Field,
@@ -17,6 +17,7 @@ import {
   useToast
 } from '@nom/ui'
 import {EyeIcon, EyeOffIcon} from 'lucide-vue-next'
+import PasswordStrengthMeter from './PasswordStrengthMeter.vue'
 
 const emit = defineEmits<{
   success: [walletAddress: string]
@@ -36,7 +37,8 @@ const isImporting = ref(false)
 const mnemonicWords = computed(() => mnemonic.value.trim().split(/\s+/).filter(Boolean))
 const mnemonicValid = computed(() => mnemonicWords.value.length === 12 || mnemonicWords.value.length === 24)
 const passwordsMatch = computed(() => password.value === confirmPassword.value)
-const passwordStrong = computed(() => password.value.length >= MIN_PASSWORD_LENGTH)
+const strength = computed(() => estimatePasswordStrength(password.value))
+const passwordStrong = computed(() => strength.value.meetsFloor)
 const canSubmit = computed(
   () => mnemonicValid.value && passwordStrong.value && passwordsMatch.value && !isImporting.value
 )
@@ -110,9 +112,7 @@ async function handleImport() {
             </InputGroupButton>
           </InputGroupAddon>
         </InputGroup>
-        <FieldDescription v-if="password && !passwordStrong" class="text-destructive">
-          Password must be at least {{ MIN_PASSWORD_LENGTH }} characters
-        </FieldDescription>
+        <PasswordStrengthMeter v-if="password" :strength="strength" class="mt-2" />
       </Field>
 
       <Field>

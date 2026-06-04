@@ -49,4 +49,19 @@ export const STAKE_DURATION_OPTIONS: StakeDurationOption[] = [
 
 // --- Wallet / security ---
 /** Minimum password length for wallet encryption. */
-export const MIN_PASSWORD_LENGTH = 8
+export const MIN_PASSWORD_LENGTH = 12
+
+/**
+ * Minimum acceptable password-strength score (0–4) to create/import a wallet.
+ * 2 = "Fair". See estimatePasswordStrength in core/password-strength.ts.
+ */
+export const MIN_PASSWORD_SCORE = 2
+
+/** Human labels for the 0–4 password-strength score. */
+export const PASSWORD_STRENGTH_LABELS = [
+  'Very weak',
+  'Weak',
+  'Fair',
+  'Good',
+  'Strong'
+] as const

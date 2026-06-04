@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {computed, ref} from 'vue'
 import {useWallet} from '@/core'
-import {MIN_PASSWORD_LENGTH} from '@/config'
+import {estimatePasswordStrength} from '@/core/password-strength'
 import {
   Button,
   Field,
@@ -17,6 +17,7 @@ import {
 } from '@nom/ui'
 import {EyeIcon, EyeOffIcon} from 'lucide-vue-next'
 import MnemonicDisplay from './MnemonicDisplay.vue'
+import PasswordStrengthMeter from './PasswordStrengthMeter.vue'
 
 const emit = defineEmits<{
   success: [walletAddress: string]
@@ -36,11 +37,12 @@ const address = ref<string | null>(null)
 const isCreating = ref(false)
 
 const passwordsMatch = computed(() => password.value === confirmPassword.value)
-const passwordStrong = computed(() => password.value.length >= MIN_PASSWORD_LENGTH)
+const strength = computed(() => estimatePasswordStrength(password.value))
+const passwordStrong = computed(() => strength.value.meetsFloor)
 
 async function handleCreate() {
   if (!passwordStrong.value) {
-    toast.show(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`, 'warning')
+    toast.show('Please choose a stronger password', 'warning')
     return
   }
   if (!passwordsMatch.value) {
@@ -103,9 +105,7 @@ function handleComplete() {
               </InputGroupButton>
             </InputGroupAddon>
           </InputGroup>
-          <FieldDescription v-if="password && !passwordStrong" class="text-destructive">
-            Password must be at least {{ MIN_PASSWORD_LENGTH }} characters
-          </FieldDescription>
+          <PasswordStrengthMeter v-if="password" :strength="strength" class="mt-2" />
         </Field>
 
         <Field>

@@ -1,17 +1,10 @@
 <script setup lang="ts">
 import {computed, onMounted, ref, watch} from 'vue'
-import {
-  PlasmaBotError,
-  type PlasmaBotTierKey,
-  useAccount,
-  useNetwork,
-  usePlasma,
-  usePlasmaBot,
-  useWallet,
-} from '@/core'
-import {MIN_FUSE_AMOUNT_QSR, PLASMA_BOT_TIERS} from '@/config'
+import {useAccount, useNetwork, usePlasma, useWallet} from '@/core'
+import {MIN_FUSE_AMOUNT_QSR} from '@/config'
 import {extractNumberDecimals} from 'znn-typescript-sdk'
 import FusionList from './FusionList.vue'
+import PlasmaBotDialog from './PlasmaBotDialog.vue'
 import {Alert, AlertDescription, Button, Input} from '@nom/ui'
 
 interface PlasmaTabProps {
@@ -31,11 +24,6 @@ const emit = defineEmits<{
 }>()
 
 const plasma = usePlasma()
-const plasmaBot = usePlasmaBot()
-
-// plasma.bot panel state
-const selectedBotTier = ref<PlasmaBotTierKey>('low')
-const botTiers = PLASMA_BOT_TIERS
 const network = useNetwork()
 const account = useAccount(() => props.activeAccountAddress)
 const wallet = useWallet()
@@ -44,6 +32,7 @@ const wallet = useWallet()
 const beneficiaryAddress = ref('')
 const fuseAmount = ref('')
 const formError = ref<string | null>(null)
+const botDialogOpen = ref(false)
 
 // Computed
 const currentMomentum = computed(() => network.currentMomentum.value)
@@ -53,6 +42,10 @@ const qsrBalance = computed(() => {
 })
 
 const minFuseAmount = MIN_FUSE_AMOUNT_QSR
+
+const showBotPrompt = computed(
+  () => account.currentPlasma.value === 0 && parseFloat(qsrBalance.value) < minFuseAmount
+)
 
 // Load on mount if active and account exists
 onMounted(async () => {
@@ -91,8 +84,14 @@ async function loadData() {
   await Promise.all([
     plasma.loadFusionEntries(props.activeAccountAddress),
     network.loadFrontierMomentum(),
-    account.loadBalances()
+    account.loadBalances(),
+    account.loadPlasmaInfo()
   ])
+}
+
+async function onBotFused() {
+  await loadData()
+  emit('plasmaUpdated')
 }
 
 async function handleFuse() {
@@ -163,51 +162,6 @@ async function handleFuse() {
   }
 }
 
-function botErrorToToast(err: PlasmaBotError): {message: string; type: 'error' | 'warning'} {
-  switch (err.code) {
-    case 'ADDRESS_UNAVAILABLE':
-      return {
-        message: 'You already have an active plasma.bot fusion for this account.',
-        type: 'warning'
-      }
-    case 'RATE_LIMITED':
-      return {message: 'plasma.bot rate limit reached — please try again later.', type: 'warning'}
-    case 'INSUFFICIENT_BALANCE':
-      return {
-        message: 'plasma.bot is low on QSR right now. Try a lower tier or try again later.',
-        type: 'warning'
-      }
-    case 'VALIDATION_FAILED':
-      return {message: 'Could not request plasma: invalid request.', type: 'error'}
-    default:
-      return {message: 'Failed to get plasma from plasma.bot. Please try again.', type: 'error'}
-  }
-}
-
-async function handleBotFuse() {
-  if (!props.activeAccountAddress) return
-
-  const tier = botTiers.find((t) => t.key === selectedBotTier.value)
-  const qsr = tier ? tier.qsr : 0
-
-  try {
-    await plasmaBot.fuse(props.activeAccountAddress, selectedBotTier.value)
-
-    // Bot signs and pays; refresh balances so the new plasma shows up.
-    await loadData()
-
-    emit('plasmaUpdated')
-    emit('showToast', `plasma.bot fused ${qsr} QSR to your account!`, 'success')
-  } catch (err) {
-    if (err instanceof PlasmaBotError) {
-      const toast = botErrorToToast(err)
-      emit('showToast', toast.message, toast.type)
-    } else {
-      emit('showToast', 'Failed to get plasma from plasma.bot. Please try again.', 'error')
-    }
-  }
-}
-
 async function handleCancel(fusionId: string) {
   if (!props.activeAccountAddress) return
 
@@ -242,102 +196,72 @@ async function handleCancel(fusionId: string) {
     </div>
     <div v-else class="space-y-6">
 
-      <!-- Plasma acquisition: self-fuse (left) + plasma.bot faucet (right) -->
-      <div class="grid gap-6 md:grid-cols-2">
-        <!-- Left: fuse from your own wallet -->
-        <section class="space-y-4">
-          <div class="font-semibold">Fuse from your wallet</div>
-          <!-- Beneficiary Address -->
-          <div class="space-y-2">
-            <label for="fuse-beneficiary" class="text-sm font-medium">Beneficiary Address</label>
-            <Input
-                id="fuse-beneficiary"
-                v-model="beneficiaryAddress"
-                placeholder="z1..."
-                :disabled="plasma.isFusing.value"
-            />
-            <div class="text-xs text-muted-foreground">
-              The address that will receive the plasma (defaults to your current account)
-            </div>
-          </div>
-
-          <!-- Amount -->
-          <div class="space-y-2">
-            <label for="fuse-amount" class="text-sm font-medium">Amount (QSR)</label>
-            <Input
-                id="fuse-amount"
-                v-model="fuseAmount"
-                type="number"
-                step="any"
-                :min="minFuseAmount"
-                placeholder="10.00"
-                :disabled="plasma.isFusing.value"
-            />
-            <div class="text-xs text-muted-foreground">
-              Available: {{ qsrBalance }} QSR | Minimum: {{ minFuseAmount }} QSR
-            </div>
-          </div>
-
-          <!-- Error Message -->
-          <Alert v-if="formError" variant="destructive">
-            <AlertDescription>{{ formError }}</AlertDescription>
-          </Alert>
-
-          <!-- Fuse Button -->
-          <Button
-              @click="handleFuse"
-              class="w-full"
-              :disabled="plasma.isFusing.value || isWalletLocked"
-          >
-            {{ plasma.isFusing.value ? 'Fusing...' : 'Fuse Plasma' }}
-          </Button>
-        </section>
-
-        <!-- Right: free plasma from plasma.bot -->
-        <section class="space-y-4">
-          <div class="font-semibold">Get free plasma from plasma.bot</div>
-          <div class="text-xs text-muted-foreground">
-            plasma.bot fuses QSR to your current account for free. No QSR or wallet
-            unlock required.
-          </div>
-
-          <!-- Beneficiary (locked to current account) -->
-          <div class="space-y-2">
-            <label class="text-sm font-medium">Beneficiary Address</label>
-            <Input :model-value="activeAccountAddress ?? ''" disabled readonly />
-            <div class="text-xs text-muted-foreground">
-              Free plasma is always sent to your current account.
-            </div>
-          </div>
-
-          <!-- Tier selector -->
-          <div class="space-y-2">
-            <label class="text-sm font-medium">Tier</label>
-            <div class="grid grid-cols-3 gap-2">
-              <Button
-                  v-for="tier in botTiers"
-                  :key="tier.key"
-                  type="button"
-                  :variant="selectedBotTier === tier.key ? 'default' : 'outline'"
-                  :disabled="plasmaBot.isFusing.value"
-                  @click="selectedBotTier = tier.key"
-              >
-                {{ tier.label }} · {{ tier.qsr }}
-              </Button>
-            </div>
-            <div class="text-xs text-muted-foreground">QSR fused by the bot for the selected tier.</div>
-          </div>
-
-          <!-- Get Plasma Button -->
-          <Button
-              class="w-full"
-              :disabled="plasmaBot.isFusing.value || !activeAccountAddress"
-              @click="handleBotFuse"
-          >
-            {{ plasmaBot.isFusing.value ? 'Requesting…' : 'Get Plasma' }}
-          </Button>
-        </section>
+      <!-- plazma.bot prompt: only when the account can neither transact nor self-fuse -->
+      <div
+          v-if="showBotPrompt"
+          class="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 p-4"
+      >
+        <div class="text-sm">
+          <div class="font-medium">No plasma yet?</div>
+          <div class="text-muted-foreground">Get some for free from plazma.bot.</div>
+        </div>
+        <Button type="button" @click="botDialogOpen = true">Get free plasma</Button>
       </div>
+
+      <!-- Fuse from your own wallet -->
+      <div class="space-y-4">
+        <!-- Beneficiary Address -->
+        <div class="space-y-2">
+          <label for="fuse-beneficiary" class="text-sm font-medium">Beneficiary Address</label>
+          <Input
+              id="fuse-beneficiary"
+              v-model="beneficiaryAddress"
+              placeholder="z1..."
+              :disabled="plasma.isFusing.value"
+          />
+          <div class="text-xs text-muted-foreground">
+            The address that will receive the plasma (defaults to your current account)
+          </div>
+        </div>
+
+        <!-- Amount -->
+        <div class="space-y-2">
+          <label for="fuse-amount" class="text-sm font-medium">Amount (QSR)</label>
+          <Input
+              id="fuse-amount"
+              v-model="fuseAmount"
+              type="number"
+              step="any"
+              :min="minFuseAmount"
+              placeholder="10.00"
+              :disabled="plasma.isFusing.value"
+          />
+          <div class="text-xs text-muted-foreground">
+            Available: {{ qsrBalance }} QSR | Minimum: {{ minFuseAmount }} QSR
+          </div>
+        </div>
+
+        <!-- Error Message -->
+        <Alert v-if="formError" variant="destructive">
+          <AlertDescription>{{ formError }}</AlertDescription>
+        </Alert>
+
+        <!-- Fuse Button -->
+        <Button
+            @click="handleFuse"
+            class="w-full"
+            :disabled="plasma.isFusing.value || isWalletLocked"
+        >
+          {{ plasma.isFusing.value ? 'Fusing...' : 'Fuse Plasma' }}
+        </Button>
+      </div>
+
+      <PlasmaBotDialog
+          v-model:open="botDialogOpen"
+          :active-account-address="activeAccountAddress"
+          @show-toast="(m, t) => emit('showToast', m, t)"
+          @fused="onBotFused"
+      />
 
       <!-- Active Fusions List -->
       <div v-if="plasma.fusionEntries.value.length > 0">

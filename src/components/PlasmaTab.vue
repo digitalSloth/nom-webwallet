@@ -1,8 +1,15 @@
 <script setup lang="ts">
 import {computed, onMounted, ref, watch} from 'vue'
-import {useAccount, useNetwork, usePlasma, usePlasmaBot, useWallet} from '@/core'
+import {
+  PlasmaBotError,
+  type PlasmaBotTierKey,
+  useAccount,
+  useNetwork,
+  usePlasma,
+  usePlasmaBot,
+  useWallet,
+} from '@/core'
 import {MIN_FUSE_AMOUNT_QSR, PLASMA_BOT_TIERS} from '@/config'
-import {PlasmaBotError, type PlasmaBotTierKey} from '@/core/plasma-bot-service'
 import {extractNumberDecimals} from 'znn-typescript-sdk'
 import FusionList from './FusionList.vue'
 import {Alert, AlertDescription, Button, Input} from '@nom/ui'

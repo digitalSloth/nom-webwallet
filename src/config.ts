@@ -65,3 +65,42 @@ export const PASSWORD_STRENGTH_LABELS = [
   'Good',
   'Strong'
 ] as const
+
+/** Argon2id KDF parameters used to derive the wallet encryption key. */
+export interface KdfParams {
+  timeCost: number
+  /** Memory cost in KiB. */
+  memoryCost: number
+  hashLength: number
+  parallelism: number
+}
+
+/**
+ * Legacy KDF params — MUST match the SDK's historical KeyFile.DEFAULT_CONFIG so
+ * that wallets encrypted before the hardening can still be decrypted.
+ */
+export const KDF_PARAMS_V1: KdfParams = {
+  timeCost: 1,
+  memoryCost: 64 * 1024,
+  hashLength: 32,
+  parallelism: 4
+}
+
+/**
+ * Strong KDF params for new and upgraded wallets. timeCost is the starting
+ * target; tune to keep unlock under ~1.5s in the browser (argon2-browser/WASM).
+ */
+export const KDF_PARAMS_V2: KdfParams = {
+  timeCost: 3,
+  memoryCost: 64 * 1024,
+  hashLength: 32,
+  parallelism: 4
+}
+
+/** Current KDF version applied to new/upgraded wallets. */
+export const CURRENT_KDF_VERSION = 2
+
+/** Resolve the KDF params for a stored wallet's kdfVersion (absent ⇒ legacy V1). */
+export function kdfParamsForVersion(version: number | undefined): KdfParams {
+  return version === 2 ? KDF_PARAMS_V2 : KDF_PARAMS_V1
+}

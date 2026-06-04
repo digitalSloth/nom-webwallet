@@ -29,6 +29,8 @@ export interface Wallet {
   encryptedKeyFile: KeyFileEncryptedData
   accounts: WalletAccount[]
   createdAt: number
+  /** Argon2id KDF version used to encrypt this wallet (absent ⇒ legacy V1). */
+  kdfVersion?: number
 }
 
 // Storage structure for all wallets

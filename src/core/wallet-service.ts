@@ -1,7 +1,9 @@
 import {KeyFile, KeyStore} from 'znn-typescript-sdk'
 import type {StorageAdapter, Wallet, WalletAccount, WalletStorage} from '@/types'
+import {CURRENT_KDF_VERSION, KDF_PARAMS_V2, kdfParamsForVersion} from '@/config'
 import {sessionManager} from './session-manager'
 import {storageService} from './storage/storage-service'
+import {withKdfParams} from './kdf'
 import {Buffer} from 'buffer'
 
 const STORAGE_KEY = 'nom-wallet-storage'
@@ -64,7 +66,7 @@ export class WalletService {
   // Shared logic for saving a wallet
   private async saveWallet(keyStore: KeyStore, password: string, name: string): Promise<Wallet> {
     const keyFile = KeyFile.setPassword(password)
-    const encryptedKeyFile = await keyFile.encrypt(keyStore)
+    const encryptedKeyFile = await withKdfParams(KDF_PARAMS_V2, () => keyFile.encrypt(keyStore))
 
     // Create base account (index 0)
     const baseAccount: WalletAccount = {
@@ -79,6 +81,7 @@ export class WalletService {
       encryptedKeyFile,
       accounts: [baseAccount],
       createdAt: Date.now(),
+      kdfVersion: CURRENT_KDF_VERSION,
     }
 
     // Store wallet
@@ -123,10 +126,25 @@ export class WalletService {
 
     try {
       const keyFile = KeyFile.setPassword(password)
-      const keyStore = await keyFile.decrypt(wallet.encryptedKeyFile)
+      const keyStore = await withKdfParams(kdfParamsForVersion(wallet.kdfVersion), () =>
+        keyFile.decrypt(wallet.encryptedKeyFile)
+      )
 
       this.failedAttempts.delete(address)
       sessionManager.unlock(address, keyStore)
+
+      // Upgrade-on-unlock: transparently re-encrypt legacy wallets with stronger
+      // KDF params. Best-effort — a failure here must never block the unlock.
+      if ((wallet.kdfVersion ?? 1) < CURRENT_KDF_VERSION) {
+        try {
+          const upgraded = await withKdfParams(KDF_PARAMS_V2, () => keyFile.encrypt(keyStore))
+          wallet.encryptedKeyFile = upgraded
+          wallet.kdfVersion = CURRENT_KDF_VERSION
+          await this.storage.set(STORAGE_KEY, data!)
+        } catch (err) {
+          console.error('Failed to upgrade wallet KDF on unlock:', err)
+        }
+      }
     } catch {
       const current = this.failedAttempts.get(address) ?? { count: 0, lastAttemptAt: 0 }
       this.failedAttempts.set(address, {

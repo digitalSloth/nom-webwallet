@@ -7,6 +7,11 @@
 // --- Node / network defaults ---
 export const DEFAULT_NODE_URL = 'wss://node.zenonhub.io:35998'
 
+// --- Network storage keys ---
+export const STORAGE_KEY_SELECTED_NODE = 'nom-wallet-selected-node'
+export const STORAGE_KEY_CHAIN_ID = 'nom-wallet-chain-id'
+export const STORAGE_KEY_NETWORK_ID = 'nom-wallet-network-id'
+
 /** Built-in node URLs offered in the network selector. */
 export const DEFAULT_NODES: string[] = [DEFAULT_NODE_URL, 'wss://my.hc1node.com:35998']
 

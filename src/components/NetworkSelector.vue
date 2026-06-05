@@ -15,7 +15,7 @@ import {
   useToast
 } from '@nom/ui'
 import {CheckIcon, TrashIcon} from 'lucide-vue-next'
-import {useStorage} from '@/core'
+import {useNetwork, useStorage} from '@/core'
 import {DEFAULT_NODES} from '@/config'
 
 export interface NetworkSelectorProps {
@@ -30,19 +30,17 @@ const emit = defineEmits<{
 }>()
 
 const CUSTOM_NODES_STORAGE_KEY = 'nom-wallet-custom-nodes'
-const SELECTED_NODE_STORAGE_KEY = 'nom-wallet-selected-node'
-const CHAIN_ID_STORAGE_KEY = 'nom-wallet-chain-id'
-const NETWORK_ID_STORAGE_KEY = 'nom-wallet-network-id'
 const storage = useStorage()
 const toast = useToast()
+const network = useNetwork()
 
 const defaultNodes = DEFAULT_NODES
 
 const customNode = ref('')
 const selectedNode = ref(props.currentNode)
 const customNodes = ref<string[]>([])
-const chainId = ref<number>(1)
-const networkId = ref<number>(1)
+const chainId = ref<number>(network.chainId.value)
+const networkId = ref<number>(network.networkId.value)
 
 interface NodeItem {
   url: string
@@ -71,37 +69,6 @@ async function loadCustomNodes() {
   }
 }
 
-async function loadSelectedNode() {
-  try {
-    const stored = await storage.get<string>(SELECTED_NODE_STORAGE_KEY)
-    if (stored) {
-      // Emit the stored node to parent component
-      emit('select', stored)
-    }
-  } catch (e) {
-    console.error('Failed to load selected node:', e)
-  }
-}
-
-async function loadNetworkConfig() {
-  try {
-    const storedChainId = await storage.get<number>(CHAIN_ID_STORAGE_KEY)
-    const storedNetworkId = await storage.get<number>(NETWORK_ID_STORAGE_KEY)
-
-    if (storedChainId !== null) {
-      chainId.value = storedChainId
-    }
-    if (storedNetworkId !== null) {
-      networkId.value = storedNetworkId
-    }
-
-    // Emit the loaded config to parent
-    emit('update-network-config', chainId.value, networkId.value)
-  } catch (e) {
-    console.error('Failed to load network config:', e)
-  }
-}
-
 async function saveCustomNodes() {
   try {
     await storage.set(CUSTOM_NODES_STORAGE_KEY, customNodes.value)
@@ -111,39 +78,29 @@ async function saveCustomNodes() {
   }
 }
 
-async function saveSelectedNode(nodeUrl: string) {
-  try {
-    await storage.set(SELECTED_NODE_STORAGE_KEY, nodeUrl)
-  } catch (e) {
-    console.error('Failed to save selected node:', e)
-    toast.show('Failed to save node selection', 'error')
-  }
-}
-
-async function saveNetworkConfig() {
-  try {
-    await storage.set(CHAIN_ID_STORAGE_KEY, chainId.value)
-    await storage.set(NETWORK_ID_STORAGE_KEY, networkId.value)
-  } catch (e) {
-    console.error('Failed to save network config:', e)
-    toast.show('Failed to save network configuration', 'error')
-  }
-}
-
-async function handleNetworkConfigChange() {
-  await saveNetworkConfig()
+function handleNetworkConfigChange() {
   emit('update-network-config', chainId.value, networkId.value)
+  toast.show('Network configuration saved', 'success')
 }
 
 async function handleSelect(nodeUrl: string) {
+  const previousNode = selectedNode.value
   selectedNode.value = nodeUrl
-  await saveSelectedNode(nodeUrl)
+  try {
+    await network.changeNode(nodeUrl)
+    const host = nodeUrl.replace(/^wss?:\/\//, '').split(':')[0]
+    toast.show(`Connected to ${host}`, 'success')
+  } catch (err) {
+    selectedNode.value = previousNode
+    const message = err instanceof Error ? err.message : 'Failed to connect to node'
+    toast.show(message, 'error')
+    return
+  }
   emit('select', nodeUrl)
 }
 
 async function handleCustomNodeSubmit() {
   if (customNode.value && (customNode.value.startsWith('wss://') || customNode.value.startsWith('ws://'))) {
-    // Add to custom nodes if not already present
     if (!customNodes.value.includes(customNode.value) && !defaultNodes.includes(customNode.value)) {
       customNodes.value.push(customNode.value)
       await saveCustomNodes()
@@ -157,7 +114,6 @@ async function handleDeleteCustomNode(nodeUrl: string) {
   customNodes.value = customNodes.value.filter(url => url !== nodeUrl)
   await saveCustomNodes()
 
-  // If the deleted node was selected, switch to first default node
   if (selectedNode.value === nodeUrl) {
     await handleSelect(defaultNodes[0])
   }
@@ -165,8 +121,6 @@ async function handleDeleteCustomNode(nodeUrl: string) {
 
 onMounted(async () => {
   await loadCustomNodes()
-  await loadNetworkConfig()
-  await loadSelectedNode()
 })
 </script>
 
@@ -222,7 +176,7 @@ onMounted(async () => {
               type="button"
               size="icon-xs"
               @click="handleCustomNodeSubmit"
-              :disabled="!customNode || !customNode.startsWith('wss://')"
+              :disabled="!customNode"
           >
             <CheckIcon />
           </InputGroupButton>

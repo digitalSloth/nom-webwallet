@@ -2,8 +2,8 @@ name: Deploy Web App
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:

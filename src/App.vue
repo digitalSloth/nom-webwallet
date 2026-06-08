@@ -231,8 +231,12 @@ async function handleNetworkChange(nodeUrl: string) {
   await network.changeNode(nodeUrl)
 }
 
-function handleNetworkConfigChange(chainId: number, networkId: number) {
-  network.updateNetworkConfig(chainId, networkId)
+async function handleNetworkConfigChange(chainId: number, networkId: number) {
+  // NetworkSelector calls network.updateNetworkConfig() directly (and reports
+  // the result) before emitting, so skip if the config already matches to avoid
+  // a redundant SDK update and storage write.
+  if (chainId === network.chainId.value && networkId === network.networkId.value) return
+  await network.updateNetworkConfig(chainId, networkId)
 }
 
 function handleThemeToggle() {

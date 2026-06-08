@@ -55,13 +55,17 @@ export function useNetwork() {
     }
   }
 
-  // Update chain/network IDs, apply to SDK, and persist
-  function updateNetworkConfig(newChainId: number, newNetworkId: number) {
+  // Update chain/network IDs, apply to SDK, and persist.
+  // Awaits the writes and surfaces failures to the caller so the UI can report
+  // an accurate success/failure result.
+  async function updateNetworkConfig(newChainId: number, newNetworkId: number) {
     chainId.value = newChainId
     networkId.value = newNetworkId
     ZenonService.updateNetworkConfig(newChainId, newNetworkId)
-    storageService.set(STORAGE_KEY_CHAIN_ID, newChainId)
-    storageService.set(STORAGE_KEY_NETWORK_ID, newNetworkId)
+    await Promise.all([
+      storageService.set(STORAGE_KEY_CHAIN_ID, newChainId),
+      storageService.set(STORAGE_KEY_NETWORK_ID, newNetworkId),
+    ])
   }
 
   // Load frontier momentum

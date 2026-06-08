@@ -78,9 +78,27 @@ async function saveCustomNodes() {
   }
 }
 
-function handleNetworkConfigChange() {
+// Chain/Network IDs must be positive whole numbers. v-model.number leaves the
+// raw string in place when the field is empty or non-numeric (looseToNumber),
+// so guard before it can reach the SDK or storage.
+function isValidId(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0
+}
+
+async function handleNetworkConfigChange() {
+  if (!isValidId(chainId.value) || !isValidId(networkId.value)) {
+    toast.show('Chain ID and Network ID must be positive whole numbers', 'error')
+    return
+  }
+  try {
+    await network.updateNetworkConfig(chainId.value, networkId.value)
+    toast.show('Network configuration saved', 'success')
+  } catch (e) {
+    console.error('Failed to save network configuration:', e)
+    toast.show('Failed to save network configuration', 'error')
+    return
+  }
   emit('update-network-config', chainId.value, networkId.value)
-  toast.show('Network configuration saved', 'success')
 }
 
 async function handleSelect(nodeUrl: string) {
@@ -194,7 +212,9 @@ onMounted(async () => {
         <InputGroup>
           <InputGroupInput
               v-model.number="chainId"
-              type="text"
+              type="number"
+              min="1"
+              step="1"
               id="chain-id"
               placeholder="1"
               @change="handleNetworkConfigChange"
@@ -209,7 +229,9 @@ onMounted(async () => {
         <InputGroup>
           <InputGroupInput
               v-model.number="networkId"
-              type="text"
+              type="number"
+              min="1"
+              step="1"
               id="network-id"
               placeholder="1"
               @change="handleNetworkConfigChange"

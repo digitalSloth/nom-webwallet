@@ -18,6 +18,16 @@ function isExtensionContext(): boolean {
 }
 
 /**
+ * Coerce a persisted chain/network ID back to a valid positive integer,
+ * falling back to 1. Guards against legacy bad values (e.g. an empty string
+ * written before input validation existed), which would otherwise reapply on
+ * every boot since nullish coalescing doesn't catch them.
+ */
+function sanitizeId(value: unknown): number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : 1
+}
+
+/**
  * Manages the global Zenon connection
  * All other services should use this to access the Zenon instance
  */
@@ -159,7 +169,7 @@ export class ZenonService {
       ])
 
       if (storedChainId !== null || storedNetworkId !== null) {
-        ZenonService.updateNetworkConfig(storedChainId ?? 1, storedNetworkId ?? 1)
+        ZenonService.updateNetworkConfig(sanitizeId(storedChainId), sanitizeId(storedNetworkId))
       }
       if (storedNode) {
         this.nodeUrl = storedNode

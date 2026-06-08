@@ -225,7 +225,18 @@ async function handleToggleAccountHidden(
 }
 
 async function handleNetworkChange(nodeUrl: string) {
+  // NetworkSelector calls network.changeNode() directly before emitting 'select',
+  // so skip if already on this node to avoid a redundant disconnect/reconnect.
+  if (nodeUrl === network.currentNode.value) return
   await network.changeNode(nodeUrl)
+}
+
+async function handleNetworkConfigChange(chainId: number, networkId: number) {
+  // NetworkSelector calls network.updateNetworkConfig() directly (and reports
+  // the result) before emitting, so skip if the config already matches to avoid
+  // a redundant SDK update and storage write.
+  if (chainId === network.chainId.value && networkId === network.networkId.value) return
+  await network.updateNetworkConfig(chainId, networkId)
 }
 
 function handleThemeToggle() {
@@ -362,6 +373,7 @@ async function handleWalletAdded(address: string) {
       @rename-account="handleRenameAccount"
       @toggle-account-hidden="handleToggleAccountHidden"
       @select-network="handleNetworkChange"
+      @update-network-config="handleNetworkConfigChange"
       @toggle-theme="handleThemeToggle"
       @wallet-added="handleWalletAdded"
     />

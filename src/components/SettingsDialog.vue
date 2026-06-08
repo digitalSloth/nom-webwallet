@@ -41,6 +41,7 @@ const emit = defineEmits<{
   'rename-account': [walletAddress: string, accountAddress: string, newLabel: string]
   'toggle-account-hidden': [walletAddress: string, accountAddress: string, hidden: boolean]
   'select-network': [nodeUrl: string]
+  'update-network-config': [chainId: number, networkId: number]
   'toggle-theme': []
   'wallet-added': [address: string]
 }>()
@@ -162,6 +163,7 @@ defineExpose({
           <NetworkSelector
               :current-node="currentNode"
               @select="(nodeUrl) => emit('select-network', nodeUrl)"
+              @update-network-config="(chainId, networkId) => emit('update-network-config', chainId, networkId)"
           />
         </TabsContent>
 

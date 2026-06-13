@@ -9,3 +9,4 @@ dist-extension
 .env
 .air
 .investigate/
+.pipeline/

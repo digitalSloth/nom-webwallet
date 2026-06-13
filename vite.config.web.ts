@@ -51,7 +51,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
-      'nom-ui': resolve(__dirname, './packages/ui/src'),
     },
   },
   optimizeDeps: {
@@ -60,7 +59,7 @@ export default defineConfig({
         global: 'globalThis',
       },
     },
-    exclude: ['znn-typescript-sdk'],
+    exclude: ['znn-typescript-sdk', 'nom-ui'],
   },
   worker: {
     format: 'es',

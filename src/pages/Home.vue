@@ -2,7 +2,7 @@
 import {computed, inject, onMounted, onUnmounted, ref} from 'vue'
 import {useRouter} from 'vue-router'
 import {formatNumber, useAccount, useWallet} from '@/core'
-import {Button, Card, CardContent, Tabs, TabsContent, TabsList, TabsTrigger, useToast,} from '@nom/ui'
+import {Button, Card, CardContent, Tabs, TabsContent, TabsList, TabsTrigger, useToast,} from 'nom-ui'
 import TokensTab from '@/components/TokensTab.vue'
 import RewardsTab from '@/components/RewardsTab.vue'
 import PlasmaTab from '@/components/PlasmaTab.vue'

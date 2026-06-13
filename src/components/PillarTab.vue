@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {computed, onMounted, ref, watch} from 'vue'
 import {useAccount, usePillar, useWallet} from '@/core'
-import {Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useToast,} from '@nom/ui'
+import {Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useToast,} from 'nom-ui'
 import PillarList from './PillarList.vue'
 
 export interface PillarTabProps {

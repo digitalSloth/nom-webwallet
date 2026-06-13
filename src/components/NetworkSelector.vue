@@ -13,7 +13,7 @@ import {
   ItemDescription,
   ItemTitle,
   useToast
-} from '@nom/ui'
+} from 'nom-ui'
 import {CheckIcon, TrashIcon} from 'lucide-vue-next'
 import {useStorage} from '@/core'
 import {DEFAULT_NODES} from '@/config'

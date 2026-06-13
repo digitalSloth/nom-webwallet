@@ -24,7 +24,7 @@ import {
   ItemDescription,
   ItemTitle,
   useToast
-} from '@nom/ui'
+} from 'nom-ui'
 import TokenList from '@/components/TokenList.vue'
 import type {BalanceInfo} from '@/types'
 import {addNumberDecimals, extractNumberDecimals} from 'znn-typescript-sdk'

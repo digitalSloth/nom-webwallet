@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type {PillarWithApr} from '@/core'
 import {formatNumber} from '@/core'
-import {Button, Item, ItemContent, ItemDescription, ItemTitle} from '@nom/ui'
+import {Button, Item, ItemContent, ItemDescription, ItemTitle} from 'nom-ui'
 import {addNumberDecimals} from 'znn-typescript-sdk'
 
 export interface PillarListProps {

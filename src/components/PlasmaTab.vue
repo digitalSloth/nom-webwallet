@@ -4,7 +4,7 @@ import {useAccount, useNetwork, usePlasma, useWallet} from '@/core'
 import {MIN_FUSE_AMOUNT_QSR} from '@/config'
 import {extractNumberDecimals} from 'znn-typescript-sdk'
 import FusionList from './FusionList.vue'
-import {Alert, AlertDescription, Button, Input} from '@nom/ui'
+import {Alert, AlertDescription, Button, Input} from 'nom-ui'
 
 interface PlasmaTabProps {
   activeAccountAddress: string | null

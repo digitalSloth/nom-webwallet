@@ -13,7 +13,7 @@ import {
   ItemContent,
   ItemDescription,
   ItemTitle
-} from '@nom/ui'
+} from 'nom-ui'
 import {CheckIcon, EyeIcon, EyeOffIcon, PencilIcon, PlusIcon} from 'lucide-vue-next'
 
 interface Props {

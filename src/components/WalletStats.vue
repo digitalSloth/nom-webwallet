@@ -2,7 +2,7 @@
 import {computed, ref} from 'vue'
 import type {PlasmaLevel} from '@/core'
 import {ZapIcon} from 'lucide-vue-next'
-import {useScrollFade} from '@nom/ui'
+import {useScrollFade} from 'nom-ui'
 
 export interface WalletStatsProps {
   tokenCount: number

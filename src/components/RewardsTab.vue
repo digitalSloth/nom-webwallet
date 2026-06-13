@@ -4,7 +4,7 @@ import type {RewardType} from '@/core'
 import {formatNumber, useRewards, useWallet} from '@/core'
 import {addNumberDecimals} from 'znn-typescript-sdk'
 import RewardsList from './RewardsList.vue'
-import {Button} from '@nom/ui'
+import {Button} from 'nom-ui'
 
 interface RewardsTabProps {
   activeAccountAddress: string | null

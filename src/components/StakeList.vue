@@ -1,14 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { addNumberDecimals } from 'znn-typescript-sdk'
-import type { StakeEntry } from 'znn-typescript-sdk'
-import {
-  Button,
-  Item,
-  ItemContent,
-  ItemTitle,
-  ItemDescription
-} from '@nom/ui'
+import {computed} from 'vue'
+import type {StakeEntry} from 'znn-typescript-sdk'
+import {addNumberDecimals} from 'znn-typescript-sdk'
+import {Button, Item, ItemContent, ItemDescription, ItemTitle} from 'nom-ui'
 
 export interface StakeListProps {
   stakes: StakeEntry[]

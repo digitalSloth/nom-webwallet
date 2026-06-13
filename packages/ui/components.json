@@ -10,8 +10,8 @@
     "cssVariables": true
   },
   "aliases": {
-    "components": "@nom/ui/components",
-    "utils": "@nom/ui/lib/utils",
-    "ui": "@nom/ui/components"
+    "components": "nom-ui/components",
+    "utils": "nom-ui/lib/utils",
+    "ui": "nom-ui/components"
   }
 }

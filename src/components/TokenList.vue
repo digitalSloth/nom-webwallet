@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { addNumberDecimals } from 'znn-typescript-sdk'
-import { ZNN_ZTS, QSR_ZTS } from 'znn-typescript-sdk'
-import type { BalanceInfo } from '@/types'
-import { Input, Item, ItemContent, ItemTitle, ItemDescription, ItemActions } from '@nom/ui'
+import {computed, ref} from 'vue'
+import {addNumberDecimals, QSR_ZTS, ZNN_ZTS} from 'znn-typescript-sdk'
+import type {BalanceInfo} from '@/types'
+import {Input, Item, ItemActions, ItemContent, ItemDescription, ItemTitle} from 'nom-ui'
 
 export interface TokenListProps {
   tokens: BalanceInfo[]

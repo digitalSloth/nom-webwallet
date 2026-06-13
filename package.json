@@ -19,7 +19,7 @@
     "packages/*"
   ],
   "dependencies": {
-    "@nom/ui": "workspace:*",
+    "nom-ui": "workspace:*",
     "@vueuse/core": "^14.2.0",
     "@zxcvbn-ts/core": "^3.0.4",
     "@zxcvbn-ts/language-common": "^3.0.4",

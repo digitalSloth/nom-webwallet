@@ -14,7 +14,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@nom/ui'
+} from 'nom-ui'
 
 interface StakeTabProps {
   activeAccountAddress: string | null

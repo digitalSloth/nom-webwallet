@@ -1,6 +1,6 @@
 import {Buffer} from 'buffer'
 import {createApp} from 'vue'
-import {useToast} from '@nom/ui'
+import {useToast} from 'nom-ui'
 import App from './App.vue'
 import {router} from './router'
 import './style.css'

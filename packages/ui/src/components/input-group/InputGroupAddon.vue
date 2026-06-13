@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { HTMLAttributes } from "vue"
-import type { InputGroupVariants } from "./index.ts"
-import { cn } from '@nom/ui/lib/utils.ts'
-import { inputGroupAddonVariants } from "./index.ts"
+import type {HTMLAttributes} from "vue"
+import type {InputGroupVariants} from "./index.ts"
+import {inputGroupAddonVariants} from "./index.ts"
+import {cn} from '../../lib/utils'
 
 const props = withDefaults(defineProps<{
   align?: InputGroupVariants["align"]

@@ -4,7 +4,7 @@ import {DialogClose, DialogContent, DialogOverlay, DialogPortal, useForwardProps
 import type {HTMLAttributes} from "vue"
 import {reactiveOmit} from "@vueuse/core"
 import {XIcon} from 'lucide-vue-next'
-import {cn} from '@nom/ui/lib/utils.ts'
+import {cn} from '../../lib/utils'
 
 const props = defineProps<DialogContentProps & { class?: HTMLAttributes["class"], hideClose?: boolean, fullscreen?: boolean }>()
 const emits = defineEmits<DialogContentEmits>()

@@ -15,7 +15,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-} from '@nom/ui'
+} from 'nom-ui'
 import {MoonIcon, SettingsIcon, SunIcon} from 'lucide-vue-next'
 
 export interface SettingsDialogProps {

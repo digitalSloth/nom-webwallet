@@ -4,7 +4,7 @@ import {injectTabsRootContext, TabsList} from 'reka-ui'
 import type {HTMLAttributes} from 'vue'
 import {nextTick, onMounted, onUnmounted, ref, watch} from 'vue'
 import {reactiveOmit} from '@vueuse/core'
-import {cn} from '@nom/ui/lib/utils.ts'
+import {cn} from '../../lib/utils'
 import {useScrollFade} from '../../composables/useScrollFade'
 
 type TabsListVariant = 'default' | 'underline'

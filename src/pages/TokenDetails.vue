@@ -2,7 +2,7 @@
 import {computed, inject, onMounted, ref} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {formatNumber, formatTokenDisplay, useAccount, useToken, useWallet} from '@/core'
-import {Button, Card, CardContent, CardHeader, Item, ItemContent, ItemGroup, ItemSeparator,} from '@nom/ui'
+import {Button, Card, CardContent, CardHeader, Item, ItemContent, ItemGroup, ItemSeparator,} from 'nom-ui'
 import {ArrowDownCircleIcon, ArrowLeftIcon, ArrowUpCircleIcon} from 'lucide-vue-next'
 import {addNumberDecimals} from 'znn-typescript-sdk'
 

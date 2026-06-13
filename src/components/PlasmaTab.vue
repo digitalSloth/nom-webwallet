@@ -5,7 +5,7 @@ import {MIN_FUSE_AMOUNT_QSR} from '@/config'
 import {extractNumberDecimals} from 'znn-typescript-sdk'
 import FusionList from './FusionList.vue'
 import PlasmaBotDialog from './PlasmaBotDialog.vue'
-import {Alert, AlertDescription, Button, Input} from '@nom/ui'
+import {Alert, AlertDescription, Button, Input} from 'nom-ui'
 
 interface PlasmaTabProps {
   activeAccountAddress: string | null

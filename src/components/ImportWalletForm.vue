@@ -14,7 +14,7 @@ import {
   InputGroupInput,
   Textarea,
   useToast
-} from '@nom/ui'
+} from 'nom-ui'
 import {EyeIcon, EyeOffIcon} from 'lucide-vue-next'
 import PasswordStrengthMeter from './PasswordStrengthMeter.vue'
 

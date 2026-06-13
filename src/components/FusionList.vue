@@ -4,7 +4,7 @@ import type {FusionEntry} from 'znn-typescript-sdk'
 import {addNumberDecimals} from 'znn-typescript-sdk'
 import {formatTokenDisplay, truncateAddress} from '@/core'
 import {BLOCKS_PER_HOUR, PLASMA_REVOKE_BLOCKS as REVOKE_TIME_BLOCKS} from '@/config'
-import {Button, Item, ItemContent, ItemDescription, ItemTitle} from '@nom/ui'
+import {Button, Item, ItemContent, ItemDescription, ItemTitle} from 'nom-ui'
 
 export interface FusionListProps {
   fusions: FusionEntry[]

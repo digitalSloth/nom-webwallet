@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import type { PrimitiveProps } from "reka-ui"
-import type { HTMLAttributes } from "vue"
-import type { ItemVariants } from "./index.ts"
-import { Primitive } from "reka-ui"
-import { cn } from '@nom/ui/lib/utils.ts'
-import { itemVariants } from "./index.ts"
+import type {PrimitiveProps} from "reka-ui"
+import {Primitive} from "reka-ui"
+import type {HTMLAttributes} from "vue"
+import type {ItemVariants} from "./index.ts"
+import {itemVariants} from "./index.ts"
+import {cn} from '../../lib/utils'
 
 const props = withDefaults(defineProps<PrimitiveProps & {
   class?: HTMLAttributes["class"]

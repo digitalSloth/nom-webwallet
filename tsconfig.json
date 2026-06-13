@@ -19,8 +19,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@nom/ui": ["./packages/ui/src"],
-      "@nom/ui/*": ["./packages/ui/src/*"]
+      "nom-ui": ["./packages/ui/src"],
+      "nom-ui/*": ["./packages/ui/src/*"]
     }
   }
 }

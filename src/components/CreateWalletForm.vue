@@ -13,7 +13,7 @@ import {
   InputGroupButton,
   InputGroupInput,
   useToast
-} from '@nom/ui'
+} from 'nom-ui'
 import {EyeIcon, EyeOffIcon} from 'lucide-vue-next'
 import MnemonicDisplay from './MnemonicDisplay.vue'
 import PasswordStrengthMeter from './PasswordStrengthMeter.vue'

@@ -12,8 +12,8 @@ import {
   ItemContent,
   ItemDescription,
   ItemTitle,
-  useToast,
-} from '@nom/ui'
+  useToast
+} from 'nom-ui'
 import {CheckIcon, TrashIcon} from 'lucide-vue-next'
 import {useNetwork, useStorage} from '@/core'
 import {DEFAULT_NODES} from '@/config'

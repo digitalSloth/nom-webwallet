@@ -1,0 +1,45 @@
+name: Release Extension
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Use HTTPS for GitHub git deps
+        # nom-ui and znn-typescript-sdk are pinned in the lockfile to
+        # git+ssh://git@github.com/... URLs; the runner has no SSH key, so
+        # rewrite to HTTPS before npm ci to allow cloning public repos.
+        run: git config --global url."https://github.com/".insteadOf "git@github.com:"
+
+      - name: Install dependencies
+        # npm ci installs the exact, committed lockfile and fails if
+        # package.json and package-lock.json have drifted out of sync,
+        # guaranteeing the built bundle matches the audited repo state.
+        run: npm ci
+
+      - name: Build extension
+        run: npm run build:extension
+
+      - name: Zip extension
+        run: cd dist-extension && zip -r -q "../nom-webwallet-extension-${{ github.event.release.tag_name }}.zip" .
+
+      - name: Upload extension to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" "nom-webwallet-extension-${{ github.event.release.tag_name }}.zip"

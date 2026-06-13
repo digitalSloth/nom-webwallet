@@ -20,7 +20,7 @@ import {
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput
-} from '@nom/ui'
+} from 'nom-ui'
 import {
   CheckIcon,
   EyeIcon,

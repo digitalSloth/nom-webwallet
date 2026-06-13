@@ -15,17 +15,14 @@
     "format": "prettier --write \"**/*.{ts,vue,json,md}\"",
     "test": "echo \"No automated tests configured. Run 'npm run typecheck' and 'npm run lint'.\" && exit 0"
   },
-  "workspaces": [
-    "packages/*"
-  ],
   "dependencies": {
-    "@nom/ui": "workspace:*",
+    "nom-ui": "github:digitalSloth/nom-ui",
     "@vueuse/core": "^14.2.0",
     "buffer": "^6.0.3",
     "lucide-vue-next": "^0.563.0",
     "vue": "^3.4.0",
     "vue-router": "^4.2.0",
-    "znn-typescript-sdk": "^1.0.3"
+    "znn-typescript-sdk": "github:digitalSloth/znn-typescript-sdk#dev"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.0.0-beta.23",

@@ -143,7 +143,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="space-y-3 min-w-[320px]">
+  <div class="space-y-3 w-full sm:min-w-[320px]">
 
     <div class="font-semibold text-lg">Node Management</div>
 
@@ -159,9 +159,9 @@ onMounted(async () => {
           size="sm"
           @click="handleSelect(node.url)"
       >
-        <ItemContent class="flex-1">
+        <ItemContent class="flex-1 min-w-0">
           <ItemTitle>{{ node.isCustom ? 'Custom Node' : `Default Node` }}</ItemTitle>
-          <ItemDescription class="font-mono">
+          <ItemDescription class="font-mono break-all">
             {{ node.url }}
           </ItemDescription>
         </ItemContent>

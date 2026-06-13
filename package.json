@@ -19,7 +19,7 @@
     "packages/*"
   ],
   "dependencies": {
-    "@nom/ui": "workspace:*",
+    "nom-ui": "workspace:*",
     "@vueuse/core": "^14.2.0",
     "buffer": "^6.0.3",
     "lucide-vue-next": "^0.563.0",

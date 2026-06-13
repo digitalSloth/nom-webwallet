@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {Dialog, DialogContent, DialogHeader, DialogTitle} from '@nom/ui'
+import {Dialog, DialogContent, DialogHeader, DialogTitle} from 'nom-ui'
 import MnemonicDisplay from './MnemonicDisplay.vue'
 
 interface Props {

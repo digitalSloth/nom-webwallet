@@ -15,7 +15,7 @@ import {
   ItemDescription,
   ItemTitle,
   useToast
-} from '@nom/ui'
+} from 'nom-ui'
 import type {AccountBlock} from 'znn-typescript-sdk'
 import {addNumberDecimals} from 'znn-typescript-sdk'
 import {ArrowDownCircleIcon, ArrowLeftIcon, CopyIcon} from 'lucide-vue-next'

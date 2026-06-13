@@ -1,13 +1,9 @@
 <script setup lang="ts">
-import type { PopoverContentEmits, PopoverContentProps } from "reka-ui"
-import type { HTMLAttributes } from "vue"
-import { reactiveOmit } from "@vueuse/core"
-import {
-  PopoverContent,
-  PopoverPortal,
-  useForwardPropsEmits,
-} from "reka-ui"
-import { cn } from '@nom/ui/lib/utils.ts'
+import type {PopoverContentEmits, PopoverContentProps} from "reka-ui"
+import {PopoverContent, PopoverPortal, useForwardPropsEmits,} from "reka-ui"
+import type {HTMLAttributes} from "vue"
+import {reactiveOmit} from "@vueuse/core"
+import {cn} from '../../lib/utils'
 
 defineOptions({
   inheritAttrs: false,

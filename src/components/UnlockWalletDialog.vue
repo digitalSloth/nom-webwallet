@@ -17,7 +17,7 @@ import {
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
-} from '@nom/ui'
+} from 'nom-ui'
 
 import {EyeIcon, EyeOffIcon, LockOpenIcon} from 'lucide-vue-next'
 

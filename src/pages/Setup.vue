@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import {ref} from 'vue'
+import {useRouter} from 'vue-router'
 import WalletSetup from '@/components/WalletSetup.vue'
 import CreateWalletForm from '@/components/CreateWalletForm.vue'
 import ImportWalletForm from '@/components/ImportWalletForm.vue'
-import { Card, CardContent } from '@nom/ui'
+import {Card, CardContent} from 'nom-ui'
 
 const router = useRouter()
 

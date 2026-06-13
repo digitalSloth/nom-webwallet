@@ -51,7 +51,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
-      '@nom/ui': resolve(__dirname, './packages/ui/src'),
+      'nom-ui': resolve(__dirname, './packages/ui/src'),
     },
   },
   optimizeDeps: {

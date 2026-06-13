@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {Button, Card, CardContent, CardHeader} from '@nom/ui'
+import {Button, Card, CardContent, CardHeader} from 'nom-ui'
 
 const emit = defineEmits<{
   create: []

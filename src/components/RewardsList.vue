@@ -3,7 +3,7 @@ import {computed} from 'vue'
 import {addNumberDecimals} from 'znn-typescript-sdk'
 import type {RewardInfo, RewardType} from '@/core'
 import {formatTokenDisplay} from '@/core'
-import {Button, Item, ItemContent, ItemDescription, ItemTitle,} from '@nom/ui'
+import {Button, Item, ItemContent, ItemDescription, ItemTitle,} from 'nom-ui'
 
 export interface RewardsListProps {
   rewards: RewardInfo[]

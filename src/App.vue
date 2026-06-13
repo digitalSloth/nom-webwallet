@@ -16,7 +16,7 @@ import {
   Toaster,
   useTheme,
   useToast
-} from '@nom/ui'
+} from 'nom-ui'
 import NetworkIndicator from '@/components/NetworkIndicator.vue'
 import SettingsDialog from '@/components/SettingsDialog.vue'
 import UnlockWalletDialog from '@/components/UnlockWalletDialog.vue'

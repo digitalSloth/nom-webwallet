@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {computed, ref} from 'vue'
-import {estimatePasswordStrength, useWallet} from '@/core'
+import {estimatePasswordStrength, usePasswordStrength, useWallet} from '@/core'
 import {
   Button,
   Field,
@@ -36,22 +36,35 @@ const address = ref<string | null>(null)
 const isCreating = ref(false)
 
 const passwordsMatch = computed(() => password.value === confirmPassword.value)
-const strength = computed(() => estimatePasswordStrength(password.value))
+const strength = usePasswordStrength(password)
 const passwordStrong = computed(() => strength.value.meetsFloor)
 
 async function handleCreate() {
-  if (!passwordStrong.value) {
-    toast.show('Please choose a stronger password', 'warning')
-    return
-  }
-  if (!passwordsMatch.value) {
-    toast.show('Passwords do not match', 'warning')
-    return
-  }
-
+  // Guard re-entry before any await so a fast double-click can't start two
+  // concurrent creates while the password is being (re-)scored.
+  if (isCreating.value) return
   isCreating.value = true
   try {
-    const newWallet = await wallet.createWallet(password.value, name.value || 'Main Wallet')
+    // Snapshot the inputs before any await. Fields stay editable during scoring,
+    // so we must validate and create with the exact values submitted — never
+    // re-read password.value later, or an edit mid-await could swap in a weaker
+    // password than the one we scored.
+    const pw = password.value
+    const confirm = confirmPassword.value
+    const walletName = name.value || 'Main Wallet'
+
+    // Authoritative gate: re-score the snapshotted password.
+    const finalStrength = await estimatePasswordStrength(pw)
+    if (!finalStrength.meetsFloor) {
+      toast.show('Please choose a stronger password', 'warning')
+      return
+    }
+    if (pw !== confirm) {
+      toast.show('Passwords do not match', 'warning')
+      return
+    }
+
+    const newWallet = await wallet.createWallet(pw, walletName)
     mnemonic.value = wallet.exportMnemonic(newWallet.baseAddress)
     address.value = newWallet.baseAddress
     step.value = 'mnemonic'

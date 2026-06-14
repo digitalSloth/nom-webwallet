@@ -203,7 +203,15 @@ async function handleCancel(fusionId: string) {
       >
         <div class="text-sm">
           <div class="font-medium">No QSR for plasma?</div>
-          <div class="text-muted-foreground">Get some plasma from plazma.bot</div>
+          <div class="text-muted-foreground">
+            Get some plasma from
+            <a
+                href="https://plazma.bot"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="underline underline-offset-2 hover:text-foreground"
+            >plazma.bot</a>
+          </div>
         </div>
         <Button type="button" @click="botDialogOpen = true">Get free plasma</Button>
       </div>

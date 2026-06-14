@@ -1,6 +1,21 @@
-import { PLASMA_BOT_API_URL, PLASMA_BOT_TIERS, type PlasmaBotTierKey } from '@/config'
+/** Base URL of the plasma.bot agent API (note: domain is spelled "plazma"). */
+const PLASMA_BOT_API_URL = 'https://plazma.bot'
 
-export type { PlasmaBotTierKey }
+export type PlasmaBotTierKey = 'low' | 'medium' | 'high'
+
+export interface PlasmaBotTier {
+  key: PlasmaBotTierKey
+  label: string
+  /** QSR the bot fuses for this tier. */
+  qsr: number
+}
+
+/** Tiers offered by plasma.bot, matching its agent API. */
+export const PLASMA_BOT_TIERS: readonly PlasmaBotTier[] = [
+  { key: 'low', label: 'Low', qsr: 20 },
+  { key: 'medium', label: 'Medium', qsr: 80 },
+  { key: 'high', label: 'High', qsr: 120 }
+] as const
 
 export interface PlasmaBotFuseSuccess {
   txHash: string

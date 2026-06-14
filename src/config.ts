@@ -50,23 +50,3 @@ export const STAKE_DURATION_OPTIONS: StakeDurationOption[] = [
 // --- Wallet / security ---
 /** Minimum password length for wallet encryption. */
 export const MIN_PASSWORD_LENGTH = 8
-
-// --- plasma.bot (free plasma faucet) ---
-/** Base URL of the plasma.bot agent API (note: domain is spelled "plazma"). */
-export const PLASMA_BOT_API_URL = 'https://plazma.bot'
-
-export type PlasmaBotTierKey = 'low' | 'medium' | 'high'
-
-export interface PlasmaBotTier {
-  key: PlasmaBotTierKey
-  label: string
-  /** QSR the bot fuses for this tier. */
-  qsr: number
-}
-
-/** Tiers offered by plasma.bot, matching its agent API. */
-export const PLASMA_BOT_TIERS: readonly PlasmaBotTier[] = [
-  { key: 'low', label: 'Low', qsr: 20 },
-  { key: 'medium', label: 'Medium', qsr: 80 },
-  { key: 'high', label: 'High', qsr: 120 }
-] as const

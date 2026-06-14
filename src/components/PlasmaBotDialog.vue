@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {computed, ref, watch} from 'vue'
-import {PlasmaBotError, type PlasmaBotTierKey, usePlasmaBot} from '@/core'
-import {PLASMA_BOT_TIERS} from '@/config'
+import {PLASMA_BOT_TIERS, PlasmaBotError, type PlasmaBotTierKey, useAccount, usePlasmaBot} from '@/core'
 import {
   Button,
   Dialog,
@@ -27,6 +26,7 @@ const emit = defineEmits<{
 }>()
 
 const plasmaBot = usePlasmaBot()
+const account = useAccount(() => props.activeAccountAddress)
 
 const selectedTier = ref<PlasmaBotTierKey>('low')
 const botTiers = PLASMA_BOT_TIERS
@@ -113,15 +113,41 @@ function botErrorToToast(err: PlasmaBotError): {message: string; type: 'error' |
   }
 }
 
+const POLL_INTERVAL_MS = 2000
+
+const isWaitingForPlasma = ref(false)
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+// Poll on-chain plasma until it rises above the pre-fuse level (the bot's fusion
+// has confirmed). There is no timeout: only a confirmed fusion closes the dialog.
+// The 60s countdown ring is a visual estimate, NOT a deadline. The loop also
+// stops if the user closes the dialog manually (props.open flips false).
+async function waitForPlasma(startingPlasma: number): Promise<boolean> {
+  while (isWaitingForPlasma.value && props.open) {
+    await delay(POLL_INTERVAL_MS)
+    await account.loadPlasmaInfo()
+    if (account.currentPlasma.value > startingPlasma) return true
+  }
+  return false
+}
+
 async function handleRequest() {
   if (!props.activeAccountAddress) return
-  const tier = botTiers.find((t) => t.key === selectedTier.value)
-  const qsr = tier ? tier.qsr : 0
+  const startingPlasma = account.currentPlasma.value
   try {
     await plasmaBot.fuse(props.activeAccountAddress, selectedTier.value)
-    emit('showToast', `plazma.bot fused ${qsr} QSR to your account!`, 'success')
-    emit('fused')
-    emit('update:open', false)
+    // The bot accepted the request; keep the dialog open and poll until the
+    // plasma actually confirms on-chain — polling, not the timer, closes it.
+    isWaitingForPlasma.value = true
+    const arrived = await waitForPlasma(startingPlasma)
+    if (arrived) {
+      emit('fused')
+      emit('showToast', 'plazma.bot fused QSR to your account!', 'success')
+      emit('update:open', false)
+    }
   } catch (err) {
     if (err instanceof PlasmaBotError) {
       const toast = botErrorToToast(err)
@@ -130,6 +156,8 @@ async function handleRequest() {
       emit('showToast', 'Failed to get plasma from plazma.bot. Please try again.', 'error')
     }
     // dialog stays open on error so the user can retry
+  } finally {
+    isWaitingForPlasma.value = false
   }
 }
 </script>
@@ -140,7 +168,13 @@ async function handleRequest() {
       <DialogHeader>
         <DialogTitle>Get free plasma from plazma.bot</DialogTitle>
         <DialogDescription>
-          plazma.bot fuses QSR to your account for free. No QSR or wallet unlock required.
+          <a
+              href="https://plazma.bot"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="underline underline-offset-2 hover:text-foreground"
+          >plazma.bot</a>
+          fuses QSR to your account for free. No QSR required — just choose a tier and go.
         </DialogDescription>
       </DialogHeader>
 
@@ -166,16 +200,40 @@ async function handleRequest() {
               :key="tier.key"
               type="button"
               :variant="selectedTier === tier.key ? 'default' : 'outline'"
-              :disabled="plasmaBot.isFusing.value || !isTierAvailable(tier.key)"
+              :disabled="plasmaBot.isFusing.value || isWaitingForPlasma || !isTierAvailable(tier.key)"
               @click="selectedTier = tier.key"
           >
-            {{ tier.label }} · {{ tier.qsr }}
+            {{ tier.label }}
           </Button>
         </div>
       </div>
 
       <DialogFooter>
+        <!-- While the fusion confirms, swap the button for a depleting countdown ring -->
+        <div v-if="isWaitingForPlasma" class="flex w-full flex-col items-center gap-3 py-2">
+          <svg viewBox="0 0 52 52" class="h-14 w-14 -rotate-90">
+            <circle
+                cx="26"
+                cy="26"
+                r="22"
+                fill="none"
+                stroke-width="4"
+                class="stroke-muted-foreground/20"
+            />
+            <circle
+                cx="26"
+                cy="26"
+                r="22"
+                fill="none"
+                stroke-width="4"
+                stroke-linecap="round"
+                class="plasma-countdown stroke-primary"
+            />
+          </svg>
+          <div class="text-sm text-muted-foreground">Waiting for plasma to arrive…</div>
+        </div>
         <Button
+            v-else
             class="w-full"
             :disabled="plasmaBot.isFusing.value || !activeAccountAddress || hasNoFundableTiers"
             @click="handleRequest"
@@ -186,3 +244,22 @@ async function handleRequest() {
     </DialogContent>
   </Dialog>
 </template>
+
+<style scoped>
+/* Depleting countdown ring: full → empty over 60s — a visual estimate only,
+   not a deadline (polling keeps running past it until the fusion confirms).
+   r=22 → circumference = 2πr ≈ 138.23. No numbers, just the arc receding. */
+.plasma-countdown {
+  stroke-dasharray: 138.23;
+  animation: plasma-countdown 60s linear forwards;
+}
+
+@keyframes plasma-countdown {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: 138.23;
+  }
+}
+</style>

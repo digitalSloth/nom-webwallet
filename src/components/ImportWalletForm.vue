@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {computed, ref} from 'vue'
-import {useWallet} from '@/core'
-import {MIN_PASSWORD_LENGTH} from '@/config'
+import {estimatePasswordStrength, usePasswordStrength, useWallet} from '@/core'
 import {
   Button,
   Field,
@@ -17,6 +16,7 @@ import {
   useToast
 } from '@nom/ui'
 import {EyeIcon, EyeOffIcon} from 'lucide-vue-next'
+import PasswordStrengthMeter from './PasswordStrengthMeter.vue'
 
 const emit = defineEmits<{
   success: [walletAddress: string]
@@ -36,7 +36,8 @@ const isImporting = ref(false)
 const mnemonicWords = computed(() => mnemonic.value.trim().split(/\s+/).filter(Boolean))
 const mnemonicValid = computed(() => mnemonicWords.value.length === 12 || mnemonicWords.value.length === 24)
 const passwordsMatch = computed(() => password.value === confirmPassword.value)
-const passwordStrong = computed(() => password.value.length >= MIN_PASSWORD_LENGTH)
+const strength = usePasswordStrength(password)
+const passwordStrong = computed(() => strength.value.meetsFloor)
 const canSubmit = computed(
   () => mnemonicValid.value && passwordStrong.value && passwordsMatch.value && !isImporting.value
 )
@@ -44,13 +45,27 @@ const canSubmit = computed(
 async function handleImport() {
   if (!canSubmit.value) return
 
+  // Guard re-entry before any await so a fast double-click can't start two
+  // concurrent imports while the password is being (re-)scored.
+  if (isImporting.value) return
   isImporting.value = true
   try {
-    const importedWallet = await wallet.importWallet(
-      mnemonic.value.trim(),
-      password.value,
-      name.value || 'Imported Wallet'
-    )
+    // Snapshot the inputs before any await. Fields stay editable during scoring,
+    // so we must validate and import with the exact values submitted — never
+    // re-read password.value later, or an edit mid-await could swap in a weaker
+    // password than the one we scored.
+    const pw = password.value
+    const mnemonicValue = mnemonic.value.trim()
+    const walletName = name.value || 'Imported Wallet'
+
+    // Authoritative gate: re-score the snapshotted password.
+    const finalStrength = await estimatePasswordStrength(pw)
+    if (!finalStrength.meetsFloor) {
+      toast.show('Please choose a stronger password', 'warning')
+      return
+    }
+
+    const importedWallet = await wallet.importWallet(mnemonicValue, pw, walletName)
     emit('success', importedWallet.baseAddress)
   } catch (error) {
     console.error('Failed to import wallet:', error)
@@ -110,9 +125,7 @@ async function handleImport() {
             </InputGroupButton>
           </InputGroupAddon>
         </InputGroup>
-        <FieldDescription v-if="password && !passwordStrong" class="text-destructive">
-          Password must be at least {{ MIN_PASSWORD_LENGTH }} characters
-        </FieldDescription>
+        <PasswordStrengthMeter v-if="password" :strength="strength" class="mt-2" />
       </Field>
 
       <Field>

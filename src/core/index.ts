@@ -4,5 +4,7 @@
 export type { PlasmaLevel } from './account-service'
 export type { RewardType, RewardInfo } from './rewards-service'
 export { isGeneratingPow } from './pow-status'
+export { estimatePasswordStrength } from './password-strength'
+export type { PasswordStrength } from './password-strength'
 export * from './composables'
 export * from './composables/utils/formatters'

@@ -8,3 +8,4 @@ dist-extension
 *.log
 .env
 .air
+docs/superpowers/

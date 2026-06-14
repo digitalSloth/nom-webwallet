@@ -1,9 +1,8 @@
 import {KeyFile, KeyStore} from 'znn-typescript-sdk'
 import type {StorageAdapter, Wallet, WalletAccount, WalletStorage} from '@/types'
-import {CURRENT_KDF_VERSION, KDF_PARAMS_V2, kdfParamsForVersion} from '@/config'
+import {KDF_CONFIG} from '@/config'
 import {sessionManager} from './session-manager'
 import {storageService} from './storage/storage-service'
-import {withKdfParams} from './kdf'
 import {Buffer} from 'buffer'
 
 const STORAGE_KEY = 'nom-wallet-storage'
@@ -66,7 +65,8 @@ export class WalletService {
   // Shared logic for saving a wallet
   private async saveWallet(keyStore: KeyStore, password: string, name: string): Promise<Wallet> {
     const keyFile = KeyFile.setPassword(password)
-    const encryptedKeyFile = await withKdfParams(KDF_PARAMS_V2, () => keyFile.encrypt(keyStore))
+    // Encrypt with strong KDF params; the SDK persists them in the keyfile.
+    const encryptedKeyFile = await keyFile.encrypt(keyStore, KDF_CONFIG)
 
     // Create base account (index 0)
     const baseAccount: WalletAccount = {
@@ -81,7 +81,6 @@ export class WalletService {
       encryptedKeyFile,
       accounts: [baseAccount],
       createdAt: Date.now(),
-      kdfVersion: CURRENT_KDF_VERSION,
     }
 
     // Store wallet
@@ -126,20 +125,19 @@ export class WalletService {
 
     try {
       const keyFile = KeyFile.setPassword(password)
-      const keyStore = await withKdfParams(kdfParamsForVersion(wallet.kdfVersion), () =>
-        keyFile.decrypt(wallet.encryptedKeyFile)
-      )
+      // The keyfile is self-describing: decrypt reads its stored KDF params
+      // (or falls back to the SDK's legacy DEFAULT_CONFIG for older keyfiles).
+      const keyStore = await keyFile.decrypt(wallet.encryptedKeyFile)
 
       this.failedAttempts.delete(address)
       sessionManager.unlock(address, keyStore)
 
-      // Upgrade-on-unlock: transparently re-encrypt legacy wallets with stronger
-      // KDF params. Best-effort — a failure here must never block the unlock.
-      if ((wallet.kdfVersion ?? 1) < CURRENT_KDF_VERSION) {
+      // Upgrade-on-unlock: transparently re-encrypt wallets whose KDF params are
+      // weaker than our target. Best-effort — a failure here must never block
+      // the unlock.
+      if (KeyFile.needsUpgrade(wallet.encryptedKeyFile, KDF_CONFIG)) {
         try {
-          const upgraded = await withKdfParams(KDF_PARAMS_V2, () => keyFile.encrypt(keyStore))
-          wallet.encryptedKeyFile = upgraded
-          wallet.kdfVersion = CURRENT_KDF_VERSION
+          wallet.encryptedKeyFile = await keyFile.encrypt(keyStore, KDF_CONFIG)
           await this.storage.set(STORAGE_KEY, data!)
         } catch (err) {
           console.error('Failed to upgrade wallet KDF on unlock:', err)

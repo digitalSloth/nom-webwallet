@@ -2,8 +2,15 @@
 export interface KeyFileEncryptedData {
   baseAddress: string
   crypto: {
+    // Self-describing KDF params (SDK ≥ v1.0.4). Optional so legacy keyfiles,
+    // which stored only the salt, remain assignable; the SDK falls back to its
+    // DEFAULT_CONFIG when these are absent on decrypt.
     argon2Params: {
       salt: string
+      timeCost?: number
+      memoryCost?: number
+      hashLength?: number
+      parallelism?: number
     }
     cipherData: string
     cipherName: string
@@ -29,8 +36,6 @@ export interface Wallet {
   encryptedKeyFile: KeyFileEncryptedData
   accounts: WalletAccount[]
   createdAt: number
-  /** Argon2id KDF version used to encrypt this wallet (absent ⇒ legacy V1). */
-  kdfVersion?: number
 }
 
 // Storage structure for all wallets

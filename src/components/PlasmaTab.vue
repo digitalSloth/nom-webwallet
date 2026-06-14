@@ -4,6 +4,7 @@ import {useAccount, useNetwork, usePlasma, useWallet} from '@/core'
 import {MIN_FUSE_AMOUNT_QSR} from '@/config'
 import {extractNumberDecimals} from 'znn-typescript-sdk'
 import FusionList from './FusionList.vue'
+import PlasmaBotDialog from './PlasmaBotDialog.vue'
 import {Alert, AlertDescription, Button, Input} from '@nom/ui'
 
 interface PlasmaTabProps {
@@ -31,6 +32,7 @@ const wallet = useWallet()
 const beneficiaryAddress = ref('')
 const fuseAmount = ref('')
 const formError = ref<string | null>(null)
+const botDialogOpen = ref(false)
 
 // Computed
 const currentMomentum = computed(() => network.currentMomentum.value)
@@ -40,6 +42,10 @@ const qsrBalance = computed(() => {
 })
 
 const minFuseAmount = MIN_FUSE_AMOUNT_QSR
+
+const showBotPrompt = computed(
+  () => account.currentPlasma.value === 0 && parseFloat(qsrBalance.value) < minFuseAmount
+)
 
 // Load on mount if active and account exists
 onMounted(async () => {
@@ -78,8 +84,14 @@ async function loadData() {
   await Promise.all([
     plasma.loadFusionEntries(props.activeAccountAddress),
     network.loadFrontierMomentum(),
-    account.loadBalances()
+    account.loadBalances(),
+    account.loadPlasmaInfo()
   ])
+}
+
+async function onBotFused() {
+  await loadData()
+  emit('plasmaUpdated')
 }
 
 async function handleFuse() {
@@ -184,7 +196,27 @@ async function handleCancel(fusionId: string) {
     </div>
     <div v-else class="space-y-6">
 
-      <!-- Fuse QSR Form -->
+      <!-- plazma.bot prompt: only when the account can neither transact nor self-fuse -->
+      <div
+          v-if="showBotPrompt"
+          class="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 p-4"
+      >
+        <div class="text-sm">
+          <div class="font-medium">No QSR for plasma?</div>
+          <div class="text-muted-foreground">
+            Get some plasma from
+            <a
+                href="https://plazma.bot"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="underline underline-offset-2 hover:text-foreground"
+            >plazma.bot</a>
+          </div>
+        </div>
+        <Button type="button" @click="botDialogOpen = true">Get free plasma</Button>
+      </div>
+
+      <!-- Fuse from your own wallet -->
       <div class="space-y-4">
         <!-- Beneficiary Address -->
         <div class="space-y-2">
@@ -231,6 +263,13 @@ async function handleCancel(fusionId: string) {
           {{ plasma.isFusing.value ? 'Fusing...' : 'Fuse Plasma' }}
         </Button>
       </div>
+
+      <PlasmaBotDialog
+          v-model:open="botDialogOpen"
+          :active-account-address="activeAccountAddress"
+          @show-toast="(m, t) => emit('showToast', m, t)"
+          @fused="onBotFused"
+      />
 
       <!-- Active Fusions List -->
       <div v-if="plasma.fusionEntries.value.length > 0">

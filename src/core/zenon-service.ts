@@ -1,5 +1,11 @@
 import {isPowWorkerSupported, Zenon} from 'znn-typescript-sdk'
-import {DEFAULT_NODE_URL, STORAGE_KEY_CHAIN_ID, STORAGE_KEY_NETWORK_ID, STORAGE_KEY_SELECTED_NODE,} from '@/config'
+import {
+    CONNECT_TIMEOUT_MS,
+    DEFAULT_NODE_URL,
+    STORAGE_KEY_CHAIN_ID,
+    STORAGE_KEY_NETWORK_ID,
+    STORAGE_KEY_SELECTED_NODE,
+} from '@/config'
 import {storageService} from './storage/storage-service'
 import {trackPow} from './pow-status'
 
@@ -148,7 +154,9 @@ export class ZenonService {
         await this.applyPersistedConfig()
         ZenonService.bootConfigResolved = true
       }
-      await this.zenon.initialize(this.nodeUrl)
+      // Cap the connect attempt (SDK default is 30s) so an unreachable node
+      // surfaces a failure to the UI promptly instead of hanging.
+      await this.zenon.initialize(this.nodeUrl, CONNECT_TIMEOUT_MS)
       this.isInitialized = true
     })()
 
@@ -232,6 +240,14 @@ export class ZenonService {
     // An explicit node change is the authoritative target — never let a later
     // first-time initialize() override it with the persisted config.
     ZenonService.bootConfigResolved = true
-    await this.initialize()
+    try {
+      await this.initialize()
+    } catch (err) {
+      // A failed connect leaves the SDK's websocket retrying the dead node in
+      // the background (reconnect is unlimited). Tear it down before surfacing
+      // the error so it doesn't leak until the next node change.
+      this.disconnect()
+      throw err
+    }
   }
 }

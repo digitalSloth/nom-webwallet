@@ -41,31 +41,40 @@ export function useNetwork() {
     isChecking.value = true
     error.value = null
 
+    const previousNode = currentNode.value
     try {
       currentNode.value = nodeUrl
-      await storageService.set(STORAGE_KEY_SELECTED_NODE, nodeUrl)
       await zenonService.changeNode(nodeUrl)
       await checkConnection()
+      if (!isConnected.value) {
+        // checkConnection() swallows its error but records the reason in
+        // error.value — surface it so the caller can report the failure.
+        throw new Error(error.value ?? 'Failed to connect to node')
+      }
+      // Persist only after the node is proven reachable, so a node that can't
+      // connect is never stored and reapplied on next boot.
+      await storageService.set(STORAGE_KEY_SELECTED_NODE, nodeUrl)
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to change node'
+      currentNode.value = previousNode
       isConnected.value = false
+      error.value = err instanceof Error ? err.message : 'Failed to change node'
       throw err
     } finally {
       isChecking.value = false
     }
   }
 
-  // Update chain/network IDs, apply to SDK, and persist.
-  // Awaits the writes and surfaces failures to the caller so the UI can report
-  // an accurate success/failure result.
+  // Persist chain/network IDs, then apply them to the SDK and reactive state.
+  // Writing first means a failed save (which rejects to the caller) never leaves
+  // the live session on un-persisted IDs that would silently revert on reboot.
   async function updateNetworkConfig(newChainId: number, newNetworkId: number) {
-    chainId.value = newChainId
-    networkId.value = newNetworkId
-    ZenonService.updateNetworkConfig(newChainId, newNetworkId)
     await Promise.all([
       storageService.set(STORAGE_KEY_CHAIN_ID, newChainId),
       storageService.set(STORAGE_KEY_NETWORK_ID, newNetworkId),
     ])
+    ZenonService.updateNetworkConfig(newChainId, newNetworkId)
+    chainId.value = newChainId
+    networkId.value = newNetworkId
   }
 
   // Load frontier momentum

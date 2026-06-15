@@ -15,6 +15,13 @@ export const STORAGE_KEY_NETWORK_ID = 'nom-wallet-network-id'
 /** Built-in node URLs offered in the network selector. */
 export const DEFAULT_NODES: string[] = [DEFAULT_NODE_URL, 'wss://my.hc1node.com:35998']
 
+/**
+ * Websocket connect timeout (ms) for node switches. The SDK defaults to 30s,
+ * which leaves the UI hanging that long on an unreachable node before reporting
+ * failure — 8s fails fast while still tolerating a slower-but-healthy node.
+ */
+export const CONNECT_TIMEOUT_MS = 8000
+
 // --- Momentum / block timing ---
 /** Target time between momentums (blocks), in seconds. */
 export const BLOCK_TIME_SECONDS = 10

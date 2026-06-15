@@ -104,14 +104,18 @@ async function handleNetworkConfigChange() {
 async function handleSelect(nodeUrl: string) {
   const previousNode = selectedNode.value
   selectedNode.value = nodeUrl
+  const host = nodeUrl.replace(/^wss?:\/\//, '').split(':')[0]
+  // The connection check can take up to CONNECT_TIMEOUT_MS, so show a loading
+  // toast immediately and replace it in place (by id) with the outcome.
+  const { toast: sonner } = toast
+  const toastId = sonner.loading(`Checking ${host}…`)
   try {
     await network.changeNode(nodeUrl)
-    const host = nodeUrl.replace(/^wss?:\/\//, '').split(':')[0]
-    toast.show(`Connected to ${host}`, 'success')
+    sonner.success(`Connected to ${host}`, { id: toastId })
   } catch (err) {
     selectedNode.value = previousNode
     const message = err instanceof Error ? err.message : 'Failed to connect to node'
-    toast.show(message, 'error')
+    sonner.error(message, { id: toastId })
     return
   }
   emit('select', nodeUrl)

@@ -12,7 +12,7 @@ import {
   ItemContent,
   ItemDescription,
   ItemTitle,
-  useToast
+  useToast,
 } from '@nom/ui'
 import {CheckIcon, TrashIcon} from 'lucide-vue-next'
 import {useNetwork, useStorage} from '@/core'
@@ -48,14 +48,29 @@ interface NodeItem {
 }
 
 const allNodes = computed<NodeItem[]>(() => {
-  const defaults = defaultNodes.map(url => ({ url, isCustom: false }))
-  const customs = customNodes.value.map(url => ({ url, isCustom: true }))
+  const defaults = defaultNodes.map((url) => ({ url, isCustom: false }))
+  const customs = customNodes.value.map((url) => ({ url, isCustom: true }))
   return [...defaults, ...customs]
 })
 
-watch(() => props.currentNode, (newVal) => {
-  selectedNode.value = newVal
-})
+watch(
+  () => props.currentNode,
+  (newVal) => {
+    selectedNode.value = newVal
+  }
+)
+watch(
+  () => network.chainId.value,
+  (newVal) => {
+    chainId.value = newVal
+  }
+)
+watch(
+  () => network.networkId.value,
+  (newVal) => {
+    networkId.value = newVal
+  }
+)
 
 async function loadCustomNodes() {
   try {
@@ -122,7 +137,10 @@ async function handleSelect(nodeUrl: string) {
 }
 
 async function handleCustomNodeSubmit() {
-  if (customNode.value && (customNode.value.startsWith('wss://') || customNode.value.startsWith('ws://'))) {
+  if (
+    customNode.value &&
+    (customNode.value.startsWith('wss://') || customNode.value.startsWith('ws://'))
+  ) {
     if (!customNodes.value.includes(customNode.value) && !defaultNodes.includes(customNode.value)) {
       customNodes.value.push(customNode.value)
       await saveCustomNodes()
@@ -133,7 +151,7 @@ async function handleCustomNodeSubmit() {
 }
 
 async function handleDeleteCustomNode(nodeUrl: string) {
-  customNodes.value = customNodes.value.filter(url => url !== nodeUrl)
+  customNodes.value = customNodes.value.filter((url) => url !== nodeUrl)
   await saveCustomNodes()
 
   if (selectedNode.value === nodeUrl) {
@@ -148,20 +166,19 @@ onMounted(async () => {
 
 <template>
   <div class="space-y-3 w-full sm:min-w-[320px]">
-
     <div class="font-semibold text-lg">Node Management</div>
 
     <div class="space-y-2">
       <Item
-          v-for="node in allNodes"
-          :key="node.url"
-          :class="[
-                'transition-colors',
-                selectedNode === node.url ? 'bg-primary/10 border-primary/50' : '',
-              ]"
-          variant="hover"
-          size="sm"
-          @click="handleSelect(node.url)"
+        v-for="node in allNodes"
+        :key="node.url"
+        :class="[
+          'transition-colors',
+          selectedNode === node.url ? 'bg-primary/10 border-primary/50' : '',
+        ]"
+        variant="hover"
+        size="sm"
+        @click="handleSelect(node.url)"
       >
         <ItemContent class="flex-1 min-w-0">
           <ItemTitle>{{ node.isCustom ? 'Custom Node' : `Default Node` }}</ItemTitle>
@@ -170,11 +187,11 @@ onMounted(async () => {
           </ItemDescription>
         </ItemContent>
         <Button
-            v-if="node.isCustom"
-            type="button"
-            variant="ghost"
-            @click.stop="handleDeleteCustomNode(node.url)"
-            class="text-muted-foreground hover:text-destructive"
+          v-if="node.isCustom"
+          type="button"
+          variant="ghost"
+          @click.stop="handleDeleteCustomNode(node.url)"
+          class="text-muted-foreground hover:text-destructive"
         >
           <TrashIcon class="h-3.5 w-3.5" />
         </Button>
@@ -182,23 +199,21 @@ onMounted(async () => {
     </div>
 
     <Field class="mt-4">
-      <FieldLabel for="custom-node">
-        Custom Node URL
-      </FieldLabel>
+      <FieldLabel for="custom-node"> Custom Node URL </FieldLabel>
       <InputGroup>
         <InputGroupInput
-            v-model="customNode"
-            placeholder="wss://..."
-            @keyup.enter="handleCustomNodeSubmit"
-            id="custom-node"
-            class="bg-background"
+          v-model="customNode"
+          placeholder="wss://..."
+          @keyup.enter="handleCustomNodeSubmit"
+          id="custom-node"
+          class="bg-background"
         />
         <InputGroupAddon align="inline-end">
           <InputGroupButton
-              type="button"
-              size="icon-xs"
-              @click="handleCustomNodeSubmit"
-              :disabled="!customNode"
+            type="button"
+            size="icon-xs"
+            @click="handleCustomNodeSubmit"
+            :disabled="!customNode"
           >
             <CheckIcon />
           </InputGroupButton>
@@ -210,35 +225,31 @@ onMounted(async () => {
 
     <div class="grid grid-cols-2 gap-4">
       <Field>
-        <FieldLabel for="chain-id">
-          Chain ID
-        </FieldLabel>
+        <FieldLabel for="chain-id"> Chain ID </FieldLabel>
         <InputGroup>
           <InputGroupInput
-              v-model.number="chainId"
-              type="number"
-              min="1"
-              step="1"
-              id="chain-id"
-              placeholder="1"
-              @change="handleNetworkConfigChange"
+            v-model.number="chainId"
+            type="number"
+            min="1"
+            step="1"
+            id="chain-id"
+            placeholder="1"
+            @change="handleNetworkConfigChange"
           />
         </InputGroup>
       </Field>
 
       <Field>
-        <FieldLabel for="network-id">
-          Network ID
-        </FieldLabel>
+        <FieldLabel for="network-id"> Network ID </FieldLabel>
         <InputGroup>
           <InputGroupInput
-              v-model.number="networkId"
-              type="number"
-              min="1"
-              step="1"
-              id="network-id"
-              placeholder="1"
-              @change="handleNetworkConfigChange"
+            v-model.number="networkId"
+            type="number"
+            min="1"
+            step="1"
+            id="network-id"
+            placeholder="1"
+            @change="handleNetworkConfigChange"
           />
         </InputGroup>
       </Field>

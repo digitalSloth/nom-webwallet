@@ -97,11 +97,7 @@ export class ZenonService {
    * active configuration a warning is logged. To change the connection after
    * initialization use {@link changeNode} or {@link updateNetworkConfig}.
    */
-  static getInstance(
-    nodeUrl?: string,
-    chainId?: number,
-    networkId?: number
-  ): ZenonService {
+  static getInstance(nodeUrl?: string, chainId?: number, networkId?: number): ZenonService {
     if (!ZenonService.instance) {
       ZenonService.instance = new ZenonService(
         nodeUrl ?? DEFAULT_NODE_URL,

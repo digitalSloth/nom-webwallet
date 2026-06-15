@@ -58,6 +58,18 @@ export function useNetwork() {
       currentNode.value = previousNode
       isConnected.value = false
       error.value = err instanceof Error ? err.message : 'Failed to change node'
+      // The service may have connected to the new (unverified) node before the
+      // verification call failed. Restore the previous node so the service and UI
+      // don't disagree, and so the next operation doesn't silently reuse the bad
+      // node. Best-effort — never mask the original failure.
+      if (zenonService.getNodeUrl() !== previousNode) {
+        try {
+          await zenonService.changeNode(previousNode)
+          isConnected.value = zenonService.isConnected()
+        } catch {
+          // ignore — surfacing the original error is what matters
+        }
+      }
       throw err
     } finally {
       isChecking.value = false

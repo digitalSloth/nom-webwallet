@@ -111,7 +111,7 @@ export class PlasmaBotService {
     try {
       response = await fetch(`${this.baseUrl}/api/stats`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { Accept: 'application/json' }
       })
     } catch (err) {
       throw new PlasmaBotError(

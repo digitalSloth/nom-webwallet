@@ -43,9 +43,7 @@ const qsrBalance = computed(() => {
 
 const minFuseAmount = MIN_FUSE_AMOUNT_QSR
 
-const showBotPrompt = computed(
-  () => account.currentPlasma.value === 0 && parseFloat(qsrBalance.value) < minFuseAmount
-)
+const showBotPrompt = computed(() => parseFloat(qsrBalance.value) < minFuseAmount)
 
 // Load on mount if active and account exists
 onMounted(async () => {

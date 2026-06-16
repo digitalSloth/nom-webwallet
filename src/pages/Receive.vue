@@ -193,7 +193,7 @@ function goBack() {
               >
                 <ItemContent class="flex-1 min-w-0">
                   <ItemTitle>
-                    {{ addNumberDecimals(block.amount, block.token.decimals) }}
+                    {{ addNumberDecimals(block.amount, block.token?.decimals ?? 0) }}
                     {{ block.token?.symbol || 'Unknown' }}
                   </ItemTitle>
                   <ItemDescription class="space-y-2 line-clamp-none">

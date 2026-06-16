@@ -1,4 +1,4 @@
-import {createRouter, createWebHistory} from 'vue-router'
+import {createRouter, createWebHashHistory, createWebHistory} from 'vue-router'
 import {useWallet} from '@/core'
 
 declare module 'vue-router' {
@@ -11,7 +11,9 @@ declare module 'vue-router' {
 }
 
 export const router = createRouter({
-  history: createWebHistory(),
+  // Extension pages are packaged files under chrome-extension://, so deep paths
+  // must be hash-routed; the web app keeps clean-URL history.
+  history: __IS_EXTENSION__ ? createWebHashHistory() : createWebHistory(),
   routes: [
     { path: '/', component: () => import('@/pages/Home.vue'), meta: { requiresWallet: true } },
     { path: '/setup', component: () => import('@/pages/Setup.vue') },

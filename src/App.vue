@@ -34,10 +34,13 @@ const account = useAccount(() => wallet.activeAccountAddress.value)
 const network = useNetwork()
 
 // Copy the active account's full address (the header only shows a truncated form).
-function copyAccountAddress() {
-  if (wallet.activeAccountAddress.value) {
-    navigator.clipboard.writeText(wallet.activeAccountAddress.value)
+async function copyAccountAddress() {
+  if (!wallet.activeAccountAddress.value) return
+  try {
+    await navigator.clipboard.writeText(wallet.activeAccountAddress.value)
     toast.show('Address copied to clipboard!', 'success')
+  } catch {
+    toast.show('Failed to copy address.', 'error')
   }
 }
 
@@ -320,7 +323,7 @@ async function handleWalletAdded(address: string) {
                 </p>
                 <button
                   @click="copyAccountAddress"
-                  class="text-muted-foreground hover:text-foreground transition-colors p-1"
+                  class="p-1 text-muted-foreground transition-colors hover:text-foreground"
                   title="Copy address"
                 >
                   <CopyIcon class="h-3.5 w-3.5" />

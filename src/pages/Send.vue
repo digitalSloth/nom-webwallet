@@ -23,7 +23,7 @@ import {
   ItemContent,
   ItemDescription,
   ItemTitle,
-  useToast
+  useToast,
 } from 'nom-ui'
 import TokenList from '@/components/TokenList.vue'
 import type {BalanceInfo} from '@/types'
@@ -62,18 +62,22 @@ onMounted(async () => {
 })
 
 // Watch for balances to load and check for pre-selected token
-watch(() => account.balances.value, (balances) => {
-  if (balances.length > 0 && !selectedToken.value) {
-    const tokenStandard = route.query.token as string | undefined
-    if (tokenStandard) {
-      const token = balances.find(b => b.tokenStandard === tokenStandard)
-      if (token) {
-        selectedToken.value = token
-        currentStep.value = 2
+watch(
+  () => account.balances.value,
+  (balances) => {
+    if (balances.length > 0 && !selectedToken.value) {
+      const tokenStandard = route.query.token as string | undefined
+      if (tokenStandard) {
+        const token = balances.find((b) => b.tokenStandard === tokenStandard)
+        if (token) {
+          selectedToken.value = token
+          currentStep.value = 2
+        }
       }
     }
-  }
-}, { immediate: true })
+  },
+  { immediate: true }
+)
 
 function handleTokenSelect(token: BalanceInfo) {
   selectedToken.value = token
@@ -99,7 +103,12 @@ function setMaxAmount() {
 }
 
 async function handleSend() {
-  if (!recipient.value || !amount.value || !selectedToken.value || !wallet.activeAccountAddress.value) {
+  if (
+    !recipient.value ||
+    !amount.value ||
+    !selectedToken.value ||
+    !wallet.activeAccountAddress.value
+  ) {
     sendError.value = 'Please fill in all fields'
     return
   }
@@ -156,15 +165,11 @@ async function handleSend() {
 
 <template>
   <!-- Full Page Overlay -->
-  <div class="fixed inset-0 bg-background z-50 overflow-y-auto">
+  <div class="fixed inset-0 z-50 overflow-y-auto bg-background">
     <!-- Header with Back Button -->
-    <div class="border-b sticky top-0 bg-background z-10">
-      <div class="container mx-auto p-4 flex items-center gap-4">
-        <Button
-          @click="goBack"
-          variant="outline"
-          title="Go back"
-        >
+    <div class="sticky top-0 z-10 border-b bg-background">
+      <div class="container mx-auto flex items-center gap-4 p-4">
+        <Button @click="goBack" variant="outline" title="Go back">
           <ArrowLeftIcon />
         </Button>
         <h1 class="text-2xl font-bold">
@@ -174,10 +179,10 @@ async function handleSend() {
     </div>
 
     <!-- Content -->
-    <div class="container mx-auto p-6 max-w-4xl">
+    <div class="container mx-auto max-w-4xl p-6">
       <!-- No Account Warning -->
       <Card v-if="!wallet.activeAccountAddress.value">
-        <CardContent class="text-center py-12 text-muted-foreground">
+        <CardContent class="py-12 text-center text-muted-foreground">
           No active account. Please create or select a wallet first.
         </CardContent>
       </Card>
@@ -197,7 +202,7 @@ async function handleSend() {
             @select="handleTokenSelect"
           />
 
-          <div v-else class="text-center py-12 text-muted-foreground">
+          <div v-else class="py-12 text-center text-muted-foreground">
             No tokens available to send
           </div>
         </CardContent>
@@ -288,14 +293,22 @@ async function handleSend() {
               </Alert>
 
               <!-- Send Button -->
-              <Button @click="handleSend" class="w-full" size="lg" :disabled="transaction.isSending.value">
-                <span v-if="!transaction.isSending.value" class="flex items-center justify-center gap-2">
+              <Button
+                @click="handleSend"
+                class="w-full"
+                size="lg"
+                :disabled="transaction.isSending.value"
+              >
+                <span
+                  v-if="!transaction.isSending.value"
+                  class="flex items-center justify-center gap-2"
+                >
                   Send
                   <SendHorizontalIcon class="inline" />
                 </span>
                 <span v-else class="flex items-center justify-center gap-2">
                   <svg
-                    class="animate-spin h-4 w-4"
+                    class="h-4 w-4 animate-spin"
                     xmlns="http://www.w3.org/2000/svg"
                     fill="none"
                     viewBox="0 0 24 24"

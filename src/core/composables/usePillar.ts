@@ -30,7 +30,10 @@ export function usePillar() {
   const transactionService = TransactionService.getInstance()
 
   // Calculate delegate APR for all pillars
-  function calculatePillarAPRs(pillarList: PillarInfo[], totalPillarCount: number): PillarWithApr[] {
+  function calculatePillarAPRs(
+    pillarList: PillarInfo[],
+    totalPillarCount: number
+  ): PillarWithApr[] {
     if (pillarList.length === 0) return []
 
     const top30Count = Math.min(30, totalPillarCount)
@@ -43,7 +46,7 @@ export function usePillar() {
     }
 
     if (totalDelegatedZnn === BigInt(0)) {
-      return pillarList.map(p => ({ ...p, delegateApr: 0 } as PillarWithApr))
+      return pillarList.map((p) => ({ ...p, delegateApr: 0 }) as PillarWithApr)
     }
 
     // Calculate momentum distribution
@@ -51,18 +54,22 @@ export function usePillar() {
     const halfDayMomentums = MOMENTUMS_PER_DAY * 0.5
 
     // Total expected daily momentums for each group
-    const totalExpectedDailyMomentumsTop30 = halfDayMomentums + (halfDayMomentums * 15 / secondaryGroupSize)
-    const totalExpectedDailyMomentumsNotTop30 = halfDayMomentums * (secondaryGroupSize - 15) / secondaryGroupSize
+    const totalExpectedDailyMomentumsTop30 =
+      halfDayMomentums + (halfDayMomentums * 15) / secondaryGroupSize
+    const totalExpectedDailyMomentumsNotTop30 =
+      (halfDayMomentums * (secondaryGroupSize - 15)) / secondaryGroupSize
 
     // Yearly reward pools
     const yearlyDelegateRewardPool = YEARLY_ZNN_REWARDS * DELEGATE_REWARD_SHARE // 373,248 ZNN
     const yearlyMomentumRewardPool = YEARLY_ZNN_REWARDS * MOMENTUM_REWARD_SHARE // 777,600 ZNN
 
     // Yearly momentum rewards for top 30 vs not top 30
-    const yearlyMomentumRewardsTop30 = yearlyMomentumRewardPool * (totalExpectedDailyMomentumsTop30 / MOMENTUMS_PER_DAY)
-    const yearlyMomentumRewardsNotTop30 = yearlyMomentumRewardPool * (totalExpectedDailyMomentumsNotTop30 / MOMENTUMS_PER_DAY)
+    const yearlyMomentumRewardsTop30 =
+      yearlyMomentumRewardPool * (totalExpectedDailyMomentumsTop30 / MOMENTUMS_PER_DAY)
+    const yearlyMomentumRewardsNotTop30 =
+      yearlyMomentumRewardPool * (totalExpectedDailyMomentumsNotTop30 / MOMENTUMS_PER_DAY)
 
-    return pillarList.map(pillar => {
+    return pillarList.map((pillar) => {
       const weight = BigInt(pillar.weight.toString())
 
       if (weight === BigInt(0)) {
@@ -73,18 +80,23 @@ export function usePillar() {
       const { producedMomentums, expectedMomentums } = pillar.currentStats
 
       // Calculate reward multiplier based on momentum performance
-      const rewardMultiplier = (expectedMomentums - producedMomentums > 2 && expectedMomentums > 0)
-        ? producedMomentums / expectedMomentums
-        : 1
+      const rewardMultiplier =
+        expectedMomentums - producedMomentums > 2 && expectedMomentums > 0
+          ? producedMomentums / expectedMomentums
+          : 1
 
       // Calculate momentum rewards for this pillar
       let yearlyMomentumRewards = 0
       if (isTop30 && top30Count > 0) {
         const dailyExpectedPerPillar = totalExpectedDailyMomentumsTop30 / top30Count
-        yearlyMomentumRewards = yearlyMomentumRewardsTop30 * (dailyExpectedPerPillar * rewardMultiplier) / totalExpectedDailyMomentumsTop30
+        yearlyMomentumRewards =
+          (yearlyMomentumRewardsTop30 * (dailyExpectedPerPillar * rewardMultiplier)) /
+          totalExpectedDailyMomentumsTop30
       } else if (!isTop30 && notTop30Count > 0) {
         const dailyExpectedPerPillar = totalExpectedDailyMomentumsNotTop30 / notTop30Count
-        yearlyMomentumRewards = yearlyMomentumRewardsNotTop30 * (dailyExpectedPerPillar * rewardMultiplier) / totalExpectedDailyMomentumsNotTop30
+        yearlyMomentumRewards =
+          (yearlyMomentumRewardsNotTop30 * (dailyExpectedPerPillar * rewardMultiplier)) /
+          totalExpectedDailyMomentumsNotTop30
       }
 
       // Calculate delegate rewards based on weight across entire network
@@ -92,16 +104,19 @@ export function usePillar() {
       const yearlyDelegateRewards = yearlyDelegateRewardPool * pillarWeightShare * rewardMultiplier
 
       // Apply pillar's reward share percentages (what delegates receive)
-      const momentumRewardsForDelegators = yearlyMomentumRewards * (pillar.giveMomentumRewardPercentage / 100)
-      const delegateRewardsForDelegators = yearlyDelegateRewards * (pillar.giveDelegateRewardPercentage / 100)
+      const momentumRewardsForDelegators =
+        yearlyMomentumRewards * (pillar.giveMomentumRewardPercentage / 100)
+      const delegateRewardsForDelegators =
+        yearlyDelegateRewards * (pillar.giveDelegateRewardPercentage / 100)
 
       // Calculate APR: (total rewards in smallest unit / weight) * 100
-      const totalRewardsInSmallestUnit = (momentumRewardsForDelegators + delegateRewardsForDelegators) * DECIMALS
+      const totalRewardsInSmallestUnit =
+        (momentumRewardsForDelegators + delegateRewardsForDelegators) * DECIMALS
       const delegateApr = (totalRewardsInSmallestUnit / Number(weight)) * 100
 
       return {
         ...pillar,
-        delegateApr: isNaN(delegateApr) ? 0 : delegateApr
+        delegateApr: isNaN(delegateApr) ? 0 : delegateApr,
       } as PillarWithApr
     })
   }
@@ -155,7 +170,7 @@ export function usePillar() {
         ? 'Step 1/2: Removing current delegation'
         : `Delegating to ${pillarName}`
 
-      await runActivity(initialStep, async ({setStep}) => {
+      await runActivity(initialStep, async ({ setStep }) => {
         // First undelegate if needed
         if (shouldUndelegate) {
           const undelegateBlock = pillarService.createUndelegateBlock()

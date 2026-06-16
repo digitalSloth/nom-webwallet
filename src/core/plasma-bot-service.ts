@@ -14,7 +14,7 @@ export interface PlasmaBotTier {
 export const PLASMA_BOT_TIERS: readonly PlasmaBotTier[] = [
   { key: 'low', label: 'Low', qsr: 20 },
   { key: 'medium', label: 'Medium', qsr: 80 },
-  { key: 'high', label: 'High', qsr: 120 }
+  { key: 'high', label: 'High', qsr: 120 },
 ] as const
 
 export interface PlasmaBotFuseSuccess {
@@ -37,7 +37,7 @@ const KNOWN_CODES = [
   'INSUFFICIENT_BALANCE',
   'FUSE_FAILED',
   'UNSUPPORTED_MEDIA_TYPE',
-  'NETWORK_ERROR'
+  'NETWORK_ERROR',
 ] as const
 
 export type PlasmaBotErrorCode = (typeof KNOWN_CODES)[number]
@@ -66,7 +66,7 @@ export class PlasmaBotService {
       response = await fetch(`${this.baseUrl}/api/agent/fuse`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, tier })
+        body: JSON.stringify({ address, tier }),
       })
     } catch (err) {
       throw new PlasmaBotError(
@@ -94,7 +94,7 @@ export class PlasmaBotService {
         txHash: data.txHash ?? '',
         address,
         tier,
-        amount: data.amount ?? 0
+        amount: data.amount ?? 0,
       }
     }
 
@@ -111,7 +111,7 @@ export class PlasmaBotService {
     try {
       response = await fetch(`${this.baseUrl}/api/stats`, {
         method: 'GET',
-        headers: { Accept: 'application/json' }
+        headers: { Accept: 'application/json' },
       })
     } catch (err) {
       throw new PlasmaBotError(
@@ -147,7 +147,7 @@ export class PlasmaBotService {
     return {
       qsrAvailable: typeof data.qsrAvailable === 'number' ? data.qsrAvailable : 0,
       availableTiers,
-      activeFusionCount: typeof data.activeFusionCount === 'number' ? data.activeFusionCount : 0
+      activeFusionCount: typeof data.activeFusionCount === 'number' ? data.activeFusionCount : 0,
     }
   }
 }

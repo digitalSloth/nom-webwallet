@@ -59,17 +59,17 @@ function getTimeRemaining(fusion: FusionEntry): string {
 
 // Compute fusions with cancel status
 const fusionsWithStatus = computed(() => {
-  return props.fusions.map(fusion => ({
+  return props.fusions.map((fusion) => ({
     ...fusion,
     canCancel: canCancel(fusion),
-    timeRemaining: getTimeRemaining(fusion)
+    timeRemaining: getTimeRemaining(fusion),
   }))
 })
 </script>
 
 <template>
   <div class="space-y-3">
-    <div v-if="fusions.length === 0" class="text-center py-8 text-muted-foreground">
+    <div v-if="fusions.length === 0" class="py-8 text-center text-muted-foreground">
       <p>No active plasma fusions</p>
     </div>
 
@@ -92,16 +92,16 @@ const fusionsWithStatus = computed(() => {
               {{ cancelingFusionId === fusion.id.toString() ? 'Canceling...' : 'Cancel' }}
             </Button>
           </div>
-          <ItemDescription class="space-y-2 line-clamp-none">
+          <ItemDescription class="line-clamp-none space-y-2">
             <div class="text-xs" :title="fusion.beneficiary.toString()">
               Beneficiary: {{ truncateAddress(fusion.beneficiary.toString()) }}
             </div>
             <div class="text-xs">
               {{ fusion.timeRemaining }}
             </div>
-            <div class="p-3 rounded-md bg-blue-500/10 border border-blue-500/20">
-              <div class="text-xs text-muted-foreground mb-1">Fused Amount</div>
-              <div class="text-lg font-mono font-bold text-blue-600 dark:text-blue-400 break-all">
+            <div class="rounded-md border border-blue-500/20 bg-blue-500/10 p-3">
+              <div class="mb-1 text-xs text-muted-foreground">Fused Amount</div>
+              <div class="font-mono text-lg font-bold break-all text-blue-600 dark:text-blue-400">
                 {{ formatQsrAmount(fusion.qsrAmount.toString()) }} QSR
               </div>
             </div>

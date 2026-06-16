@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {computed, ref} from 'vue'
-import type {WalletAccount} from "@/types";
+import type {WalletAccount} from '@/types'
 import {truncateAddress} from '@/core'
 import {
   Button,
@@ -12,7 +12,7 @@ import {
   ItemActions,
   ItemContent,
   ItemDescription,
-  ItemTitle
+  ItemTitle,
 } from 'nom-ui'
 import {CheckIcon, EyeIcon, EyeOffIcon, PencilIcon, PlusIcon} from 'lucide-vue-next'
 
@@ -73,7 +73,7 @@ function handleRowClick(account: WalletAccount) {
 
 <template>
   <div class="space-y-3">
-    <div v-if="!compact" class="flex justify-between items-center">
+    <div v-if="!compact" class="flex items-center justify-between">
       <h3 class="text-lg font-semibold">Accounts</h3>
       <Button :disabled="!canDerive" @click="emit('deriveAccount')">
         <PlusIcon class="mr-1" />
@@ -87,7 +87,7 @@ function handleRowClick(account: WalletAccount) {
         :key="account.address"
         :class="[
           'flex-nowrap transition-colors',
-          account.address === activeAccountAddress ? 'bg-primary/10 border-primary/50' : '',
+          account.address === activeAccountAddress ? 'border-primary/50 bg-primary/10' : '',
           account.hidden ? 'opacity-60' : '',
         ]"
         variant="hover"
@@ -117,7 +117,9 @@ function handleRowClick(account: WalletAccount) {
           </template>
           <template v-else>
             <div class="flex min-w-0 items-center gap-2">
-              <ItemTitle class="truncate">{{ account.label || `Account ${account.index + 1}` }}</ItemTitle>
+              <ItemTitle class="truncate">{{
+                account.label || `Account ${account.index + 1}`
+              }}</ItemTitle>
               <Button
                 v-if="editable"
                 size="sm"
@@ -136,7 +138,9 @@ function handleRowClick(account: WalletAccount) {
           </template>
         </ItemContent>
         <ItemActions v-if="!compact || editable" class="shrink-0">
-          <span v-if="!compact" class="text-xs text-muted-foreground">Index {{ account.index }}</span>
+          <span v-if="!compact" class="text-xs text-muted-foreground"
+            >Index {{ account.index }}</span
+          >
           <template v-if="editable">
             <Button
               v-if="account.hidden"
@@ -146,7 +150,7 @@ function handleRowClick(account: WalletAccount) {
               title="Show"
               @click.stop="emit('toggleHidden', account.address, false)"
             >
-              <EyeIcon class="h-4 w-4 mr-1" />
+              <EyeIcon class="mr-1 h-4 w-4" />
               Show
             </Button>
             <Button

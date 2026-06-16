@@ -20,7 +20,11 @@ export const router = createRouter({
       component: () => import('@/pages/Send.vue'),
       meta: { requiresWallet: true, requiresUnlock: true },
     },
-    { path: '/receive', component: () => import('@/pages/Receive.vue'), meta: { requiresWallet: true } },
+    {
+      path: '/receive',
+      component: () => import('@/pages/Receive.vue'),
+      meta: { requiresWallet: true },
+    },
     {
       path: '/token/:tokenStandard',
       component: () => import('@/pages/TokenDetails.vue'),

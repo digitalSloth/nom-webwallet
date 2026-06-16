@@ -1,6 +1,6 @@
-import {Zenon, Address, AccountBlockTemplate, Hash} from 'znn-typescript-sdk'
-import type { FusionEntryList } from 'znn-typescript-sdk'
-import { ZenonService } from './zenon-service'
+import type {FusionEntryList} from 'znn-typescript-sdk'
+import {AccountBlockTemplate, Address, Hash, Zenon} from 'znn-typescript-sdk'
+import {ZenonService} from './zenon-service'
 
 export class PlasmaService {
   private zenon: Zenon

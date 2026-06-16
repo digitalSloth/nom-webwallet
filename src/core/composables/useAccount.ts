@@ -1,5 +1,5 @@
 import {computed, ref, watch} from 'vue'
-import type {PlasmaLevel} from "../account-service";
+import type {PlasmaLevel} from '../account-service'
 import {AccountService} from '../account-service'
 import {RewardsService} from '../rewards-service'
 import type {BalanceInfo} from '@/types'
@@ -198,7 +198,7 @@ export function useAccount(accountAddress: string | null | (() => string | null)
         loadPlasmaInfo(),
         loadUnreceivedCount(),
         loadDelegationInfo(),
-        loadRewardsInfo()
+        loadRewardsInfo(),
       ])
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to load account data'

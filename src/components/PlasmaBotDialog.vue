@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {computed, ref, watch} from 'vue'
-import {PLASMA_BOT_TIERS, PlasmaBotError, type PlasmaBotTierKey, useAccount, usePlasmaBot} from '@/core'
+import {PLASMA_BOT_TIERS, PlasmaBotError, type PlasmaBotTierKey, useAccount, usePlasmaBot,} from '@/core'
 import {Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input,} from 'nom-ui'
 
 interface PlasmaBotDialogProps {
@@ -45,19 +45,19 @@ function isTierAvailable(key: PlasmaBotTierKey): boolean {
   return availableTiers.value.includes(key)
 }
 
-const statusLine = computed<{text: string; warning: boolean} | null>(() => {
+const statusLine = computed<{ text: string; warning: boolean } | null>(() => {
   switch (plasmaBot.statsStatus.value) {
     case 'checking':
-      return {text: 'Checking plazma.bot…', warning: false}
+      return { text: 'Checking plazma.bot…', warning: false }
     case 'online':
       return availableTiers.value.length === 0
-        ? {text: 'plazma.bot is low on QSR right now.', warning: true}
+        ? { text: 'plazma.bot is low on QSR right now.', warning: true }
         : {
             text: `plazma.bot online · ${plasmaBot.stats.value?.qsrAvailable ?? 0} QSR available`,
-            warning: false
+            warning: false,
           }
     case 'unreachable':
-      return {text: 'Couldn’t reach plazma.bot — you can still try.', warning: false}
+      return { text: 'Couldn’t reach plazma.bot — you can still try.', warning: false }
     default:
       return null
   }
@@ -80,27 +80,27 @@ watch(
 
 const isOpen = computed({
   get: () => props.open,
-  set: (value: boolean) => emit('update:open', value)
+  set: (value: boolean) => emit('update:open', value),
 })
 
-function botErrorToToast(err: PlasmaBotError): {message: string; type: 'error' | 'warning'} {
+function botErrorToToast(err: PlasmaBotError): { message: string; type: 'error' | 'warning' } {
   switch (err.code) {
     case 'ADDRESS_UNAVAILABLE':
       return {
         message: 'You already have an active plazma.bot fusion for this account.',
-        type: 'warning'
+        type: 'warning',
       }
     case 'RATE_LIMITED':
-      return {message: 'plazma.bot rate limit reached — please try again later.', type: 'warning'}
+      return { message: 'plazma.bot rate limit reached — please try again later.', type: 'warning' }
     case 'INSUFFICIENT_BALANCE':
       return {
         message: 'plazma.bot is low on QSR right now. Try a lower tier or try again later.',
-        type: 'warning'
+        type: 'warning',
       }
     case 'VALIDATION_FAILED':
-      return {message: 'Could not request plasma: invalid request.', type: 'error'}
+      return { message: 'Could not request plasma: invalid request.', type: 'error' }
     default:
-      return {message: 'Failed to get plasma from plazma.bot. Please try again.', type: 'error'}
+      return { message: 'Failed to get plasma from plazma.bot. Please try again.', type: 'error' }
   }
 }
 
@@ -160,20 +160,23 @@ async function handleRequest() {
         <DialogTitle>Get free plasma from plazma.bot</DialogTitle>
         <DialogDescription>
           <a
-              href="https://plazma.bot"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="underline underline-offset-2 hover:text-foreground"
-          >plazma.bot</a>
+            href="https://plazma.bot"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="underline underline-offset-2 hover:text-foreground"
+            >plazma.bot</a
+          >
           fuses QSR to your account for free. No QSR required — just choose a tier and go.
         </DialogDescription>
       </DialogHeader>
 
       <div class="space-y-4">
         <div
-            v-if="statusLine"
-            class="text-xs"
-            :class="statusLine.warning ? 'text-amber-600 dark:text-amber-500' : 'text-muted-foreground'"
+          v-if="statusLine"
+          class="text-xs"
+          :class="
+            statusLine.warning ? 'text-amber-600 dark:text-amber-500' : 'text-muted-foreground'
+          "
         >
           {{ statusLine.text }}
         </div>
@@ -187,12 +190,12 @@ async function handleRequest() {
         <!-- Tier selector -->
         <div class="grid grid-cols-3 gap-2">
           <Button
-              v-for="tier in botTiers"
-              :key="tier.key"
-              type="button"
-              :variant="selectedTier === tier.key ? 'default' : 'outline'"
-              :disabled="plasmaBot.isFusing.value || isWaitingForPlasma || !isTierAvailable(tier.key)"
-              @click="selectedTier = tier.key"
+            v-for="tier in botTiers"
+            :key="tier.key"
+            type="button"
+            :variant="selectedTier === tier.key ? 'default' : 'outline'"
+            :disabled="plasmaBot.isFusing.value || isWaitingForPlasma || !isTierAvailable(tier.key)"
+            @click="selectedTier = tier.key"
           >
             {{ tier.label }}
           </Button>
@@ -204,30 +207,30 @@ async function handleRequest() {
         <div v-if="isWaitingForPlasma" class="flex w-full flex-col items-center gap-3 py-2">
           <svg viewBox="0 0 52 52" class="h-14 w-14 -rotate-90">
             <circle
-                cx="26"
-                cy="26"
-                r="22"
-                fill="none"
-                stroke-width="4"
-                class="stroke-muted-foreground/20"
+              cx="26"
+              cy="26"
+              r="22"
+              fill="none"
+              stroke-width="4"
+              class="stroke-muted-foreground/20"
             />
             <circle
-                cx="26"
-                cy="26"
-                r="22"
-                fill="none"
-                stroke-width="4"
-                stroke-linecap="round"
-                class="plasma-countdown stroke-primary"
+              cx="26"
+              cy="26"
+              r="22"
+              fill="none"
+              stroke-width="4"
+              stroke-linecap="round"
+              class="plasma-countdown stroke-primary"
             />
           </svg>
           <div class="text-sm text-muted-foreground">Waiting for plasma to arrive…</div>
         </div>
         <Button
-            v-else
-            class="w-full"
-            :disabled="plasmaBot.isFusing.value || !activeAccountAddress || hasNoFundableTiers"
-            @click="handleRequest"
+          v-else
+          class="w-full"
+          :disabled="plasmaBot.isFusing.value || !activeAccountAddress || hasNoFundableTiers"
+          @click="handleRequest"
         >
           {{ plasmaBot.isFusing.value ? 'Requesting…' : 'Get Plasma' }}
         </Button>

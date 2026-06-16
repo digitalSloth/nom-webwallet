@@ -1,6 +1,6 @@
 import {ref} from 'vue'
-import {TransactionService} from "../transaction-service";
-import {sessionManager} from "../session-manager";
+import {TransactionService} from '../transaction-service'
+import {sessionManager} from '../session-manager'
 import {runActivity} from './useActivity'
 import type {Wallet} from '@/types'
 

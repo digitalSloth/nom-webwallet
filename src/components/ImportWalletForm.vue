@@ -13,7 +13,7 @@ import {
   InputGroupButton,
   InputGroupInput,
   Textarea,
-  useToast
+  useToast,
 } from 'nom-ui'
 import {EyeIcon, EyeOffIcon} from 'lucide-vue-next'
 import PasswordStrengthMeter from './PasswordStrengthMeter.vue'
@@ -34,7 +34,9 @@ const showPassword = ref(false)
 const isImporting = ref(false)
 
 const mnemonicWords = computed(() => mnemonic.value.trim().split(/\s+/).filter(Boolean))
-const mnemonicValid = computed(() => mnemonicWords.value.length === 12 || mnemonicWords.value.length === 24)
+const mnemonicValid = computed(
+  () => mnemonicWords.value.length === 12 || mnemonicWords.value.length === 24
+)
 const passwordsMatch = computed(() => password.value === confirmPassword.value)
 const strength = usePasswordStrength(password)
 const passwordStrong = computed(() => strength.value.meetsFloor)
@@ -79,8 +81,10 @@ async function handleImport() {
 <template>
   <div class="space-y-4">
     <div>
-      <h2 class="text-2xl font-bold mb-2">Import Wallet</h2>
-      <p class="text-sm text-muted-foreground mb-6">Enter your recovery phrase to restore your wallet</p>
+      <h2 class="mb-2 text-2xl font-bold">Import Wallet</h2>
+      <p class="mb-6 text-sm text-muted-foreground">
+        Enter your recovery phrase to restore your wallet
+      </p>
     </div>
 
     <FieldGroup>
@@ -119,9 +123,21 @@ async function handleImport() {
             spellcheck="false"
           />
           <InputGroupAddon align="inline-end">
-            <InputGroupButton variant="invisible" type="button" size="icon-xs" tabindex="-1" @click.stop="showPassword = !showPassword">
-              <EyeIcon v-if="!showPassword" class="h-4 w-4 text-muted-foreground hover:text-foreground hover:bg-transparent" />
-              <EyeOffIcon v-else class="h-4 w-4 text-muted-foreground hover:text-foreground hover:bg-transparent" />
+            <InputGroupButton
+              variant="invisible"
+              type="button"
+              size="icon-xs"
+              tabindex="-1"
+              @click.stop="showPassword = !showPassword"
+            >
+              <EyeIcon
+                v-if="!showPassword"
+                class="h-4 w-4 text-muted-foreground hover:bg-transparent hover:text-foreground"
+              />
+              <EyeOffIcon
+                v-else
+                class="h-4 w-4 text-muted-foreground hover:bg-transparent hover:text-foreground"
+              />
             </InputGroupButton>
           </InputGroupAddon>
         </InputGroup>

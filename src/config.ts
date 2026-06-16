@@ -70,13 +70,7 @@ export const MIN_PASSWORD_LENGTH = 12
 export const MIN_PASSWORD_SCORE = 2
 
 /** Human labels for the 0–4 password-strength score. */
-export const PASSWORD_STRENGTH_LABELS = [
-  'Very weak',
-  'Weak',
-  'Fair',
-  'Good',
-  'Strong'
-] as const
+export const PASSWORD_STRENGTH_LABELS = ['Very weak', 'Weak', 'Fair', 'Good', 'Strong'] as const
 
 /**
  * Strong Argon2id KDF params for new and upgraded wallets. Passed to the SDK's
@@ -90,5 +84,5 @@ export const KDF_CONFIG = {
   timeCost: 3,
   memoryCost: 64 * 1024,
   hashLength: 32,
-  parallelism: 4
+  parallelism: 4,
 } as const

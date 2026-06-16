@@ -16,9 +16,7 @@ let loadPromise: Promise<void> | null = null
 
 // Computed
 const isActiveWalletUnlocked = computed(() => {
-  return activeWallet.value
-    ? unlockedWallets.value.includes(activeWallet.value.baseAddress)
-    : false
+  return activeWallet.value ? unlockedWallets.value.includes(activeWallet.value.baseAddress) : false
 })
 
 const hasWallets = computed(() => wallets.value.length > 0)
@@ -74,11 +72,7 @@ export function useWallet() {
   }
 
   // Import wallet from mnemonic
-  async function importWallet(
-    mnemonic: string,
-    password: string,
-    name?: string
-  ): Promise<Wallet> {
+  async function importWallet(mnemonic: string, password: string, name?: string): Promise<Wallet> {
     isLoading.value = true
     error.value = null
 

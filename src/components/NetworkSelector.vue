@@ -12,7 +12,7 @@ import {
   ItemContent,
   ItemDescription,
   ItemTitle,
-  useToast
+  useToast,
 } from 'nom-ui'
 import {CheckIcon, TrashIcon} from 'lucide-vue-next'
 import {useNetwork, useStorage} from '@/core'
@@ -165,8 +165,8 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="space-y-3 w-full sm:min-w-[320px]">
-    <div class="font-semibold text-lg">Node Management</div>
+  <div class="w-full space-y-3 sm:min-w-[320px]">
+    <div class="text-lg font-semibold">Node Management</div>
 
     <div class="space-y-2">
       <Item
@@ -174,13 +174,13 @@ onMounted(async () => {
         :key="node.url"
         :class="[
           'transition-colors',
-          selectedNode === node.url ? 'bg-primary/10 border-primary/50' : '',
+          selectedNode === node.url ? 'border-primary/50 bg-primary/10' : '',
         ]"
         variant="hover"
         size="sm"
         @click="handleSelect(node.url)"
       >
-        <ItemContent class="flex-1 min-w-0">
+        <ItemContent class="min-w-0 flex-1">
           <ItemTitle>{{ node.isCustom ? 'Custom Node' : `Default Node` }}</ItemTitle>
           <ItemDescription class="font-mono break-all">
             {{ node.url }}
@@ -221,7 +221,7 @@ onMounted(async () => {
       </InputGroup>
     </Field>
 
-    <div class="font-semibold text-lg mt-4">Network Configuration</div>
+    <div class="mt-4 text-lg font-semibold">Network Configuration</div>
 
     <div class="grid grid-cols-2 gap-4">
       <Field>

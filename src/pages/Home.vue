@@ -90,35 +90,34 @@ const formattedQsrBalance = computed(() =>
 </script>
 
 <template>
-  <div class="space-y-6 max-w-4xl mx-auto">
+  <div class="mx-auto max-w-4xl space-y-6">
     <!-- No Account Warning -->
     <Card v-if="!wallet.activeAccountAddress.value">
-      <CardContent class="text-center py-12 text-muted-foreground">
+      <CardContent class="py-12 text-center text-muted-foreground">
         No active account. Please create or select a wallet first.
       </CardContent>
     </Card>
 
     <!-- Main Wallet View -->
     <div v-else class="space-y-6">
-
       <!-- Compact Balance and Actions -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
         <!-- Balance Display -->
         <div class="flex items-center gap-3 md:col-span-1">
-          <div class="flex-1 p-3 rounded-md bg-green-500/10 border border-green-500/20">
-            <div class="text-xs text-muted-foreground mb-1">ZNN</div>
+          <div class="flex-1 rounded-md border border-green-500/20 bg-green-500/10 p-3">
+            <div class="mb-1 text-xs text-muted-foreground">ZNN</div>
             <div
-              class="text-2xl font-mono font-bold text-green-600 dark:text-green-400"
+              class="font-mono text-2xl font-bold text-green-600 dark:text-green-400"
               :title="account.znnBalance.value"
             >
               {{ formattedZnnBalance }}
             </div>
           </div>
 
-          <div class="flex-1 p-3 rounded-md bg-blue-500/10 border border-blue-500/20">
-            <div class="text-xs text-muted-foreground mb-1">QSR</div>
+          <div class="flex-1 rounded-md border border-blue-500/20 bg-blue-500/10 p-3">
+            <div class="mb-1 text-xs text-muted-foreground">QSR</div>
             <div
-              class="text-2xl font-mono font-bold text-blue-600 dark:text-blue-400"
+              class="font-mono text-2xl font-bold text-blue-600 dark:text-blue-400"
               :title="account.qsrBalance.value"
             >
               {{ formattedQsrBalance }}
@@ -131,22 +130,22 @@ const formattedQsrBalance = computed(() =>
           <Button
             @click="handleNavigateToSendReceive('/send')"
             variant="outline"
-            class="flex flex-col items-center justify-center gap-1 rounded-lg border transition-colors min-h-19 border-primary/50 hover:border-primary hover:bg-primary/10"
+            class="flex min-h-19 flex-col items-center justify-center gap-1 rounded-lg border border-primary/50 transition-colors hover:border-primary hover:bg-primary/10"
           >
             <ArrowUpCircleIcon class="text-primary" />
-            <span class="font-medium text-sm">Send</span>
+            <span class="text-sm font-medium">Send</span>
           </Button>
 
           <Button
             @click="handleNavigateToSendReceive('/receive')"
             variant="outline"
-            class="flex flex-col items-center justify-center gap-1 rounded-lg border transition-colors relative min-h-19 border-primary/50 hover:border-primary hover:bg-primary/10"
+            class="relative flex min-h-19 flex-col items-center justify-center gap-1 rounded-lg border border-primary/50 transition-colors hover:border-primary hover:bg-primary/10"
           >
-            <ArrowDownCircleIcon class="w-6 h-6 text-primary" />
-            <span class="font-medium text-sm">Receive</span>
+            <ArrowDownCircleIcon class="h-6 w-6 text-primary" />
+            <span class="text-sm font-medium">Receive</span>
             <span
               v-if="account.unreceivedCount.value > 0"
-              class="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center"
+              class="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground"
             >
               {{ account.unreceivedCount.value > 9 ? '9+' : account.unreceivedCount.value }}
             </span>
@@ -175,7 +174,6 @@ const formattedQsrBalance = computed(() =>
             <TabsTrigger variant="underline" value="stake">Staking</TabsTrigger>
           </TabsList>
           <CardContent class="p-6">
-
             <TabsContent value="tokens">
               <TokensTab
                 ref="tokensTabRef"

@@ -17,10 +17,10 @@ The shared shadcn-vue component library lives in a separate repository and is co
 
 Two Vite configs drive the two targets:
 
-| Target | Config | Output | Notes |
-| --- | --- | --- | --- |
-| Web | `vite.config.web.ts` | `dist/` | Vue + Tailwind + node polyfills; custom plugin copies the SDK's PoW assets (see below) |
-| Extension | `vite.config.extension.ts` | `dist-extension/` | Uses `@crxjs/vite-plugin` with `manifest.json` |
+| Target    | Config                     | Output            | Notes                                                                                  |
+| --------- | -------------------------- | ----------------- | -------------------------------------------------------------------------------------- |
+| Web       | `vite.config.web.ts`       | `dist/`           | Vue + Tailwind + node polyfills; custom plugin copies the SDK's PoW assets (see below) |
+| Extension | `vite.config.extension.ts` | `dist-extension/` | Uses `@crxjs/vite-plugin` with `manifest.json`                                         |
 
 Both configs define a single `@` alias mapping to `src/` (`resolve.alias`). `nom-ui` is resolved from `node_modules` like any other dependency; the web config also lists it (alongside `znn-typescript-sdk`) in `optimizeDeps.exclude`.
 
@@ -50,17 +50,17 @@ The boundary between layers is deliberate and enforced by the barrel file. `src/
 
 Services hold all business logic and are the only code that talks to the SDK. Each service in `src/core/` follows the same shape: a `getInstance()` singleton accessor and an `ensureInitialized()` method that guarantees the underlying `ZenonService` connection is ready before use.
 
-| Service | File | Responsibility (public surface) |
-| --- | --- | --- |
-| `WalletService` | `wallet-service.ts` | Create (`KeyStore.newRandom`) / import (`KeyStore.fromMnemonic`) wallets, encrypt & persist keystores, unlock/lock, derive accounts, rename, hide/show, delete, export mnemonic, sign data |
-| `AccountService` | `account-service.ts` | `getAccountInfo`, `getPlasmaInfo`, `getPlasmaLevel`, `getUnreceivedBlocks`, `getDelegatedPillar` |
-| `TransactionService` | `transaction-service.ts` | `sendTransaction`, `receiveTransaction`, `sendEmbeddedContractBlock` |
-| `PlasmaService` | `plasma-service.ts` | `getFusionEntries`, `createFuseBlock`, `createCancelBlock` |
-| `StakeService` | `stake-service.ts` | `getStakeEntries`, `createStakeBlock`, `createCancelStakeBlock` |
-| `RewardsService` | `rewards-service.ts` | `getAllUncollectedRewards`, `getUncollectedReward`, `createCollectRewardBlock` (pillar, sentinel, stake, liquidity) |
-| `PillarService` | `pillar-service.ts` | `getAllPillars` (paged), `createDelegateBlock`, `createUndelegateBlock`, `getTotalDelegatedZnn` |
-| `TokenService` | `token-service.ts` | `getTokenByZts` |
-| `ZenonService` | `zenon-service.ts` | Singleton SDK connection; network + PoW configuration |
+| Service              | File                     | Responsibility (public surface)                                                                                                                                                            |
+| -------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `WalletService`      | `wallet-service.ts`      | Create (`KeyStore.newRandom`) / import (`KeyStore.fromMnemonic`) wallets, encrypt & persist keystores, unlock/lock, derive accounts, rename, hide/show, delete, export mnemonic, sign data |
+| `AccountService`     | `account-service.ts`     | `getAccountInfo`, `getPlasmaInfo`, `getPlasmaLevel`, `getUnreceivedBlocks`, `getDelegatedPillar`                                                                                           |
+| `TransactionService` | `transaction-service.ts` | `sendTransaction`, `receiveTransaction`, `sendEmbeddedContractBlock`                                                                                                                       |
+| `PlasmaService`      | `plasma-service.ts`      | `getFusionEntries`, `createFuseBlock`, `createCancelBlock`                                                                                                                                 |
+| `StakeService`       | `stake-service.ts`       | `getStakeEntries`, `createStakeBlock`, `createCancelStakeBlock`                                                                                                                            |
+| `RewardsService`     | `rewards-service.ts`     | `getAllUncollectedRewards`, `getUncollectedReward`, `createCollectRewardBlock` (pillar, sentinel, stake, liquidity)                                                                        |
+| `PillarService`      | `pillar-service.ts`      | `getAllPillars` (paged), `createDelegateBlock`, `createUndelegateBlock`, `getTotalDelegatedZnn`                                                                                            |
+| `TokenService`       | `token-service.ts`       | `getTokenByZts`                                                                                                                                                                            |
+| `ZenonService`       | `zenon-service.ts`       | Singleton SDK connection; network + PoW configuration                                                                                                                                      |
 
 ### Read vs. write: the block-template pattern
 
@@ -73,10 +73,10 @@ Plain value transfers go through `TransactionService.sendTransaction`, and recei
 
 ## Proof-of-Work
 
-Zenon requires Proof-of-Work to produce a block's nonce when the sending account lacks the plasma to cover it. The SDK computes this in the browser via a WebAssembly module; the asset-serving side (`pow.js` / `pow.wasm`, `setPowBasePath('/')`, the `copyPowFiles` plugin) is covered under [Build targets](#proof-of-work-assets) above. How the work is *scheduled* is decided in `ZenonService` (`src/core/zenon-service.ts`):
+Zenon requires Proof-of-Work to produce a block's nonce when the sending account lacks the plasma to cover it. The SDK computes this in the browser via a WebAssembly module; the asset-serving side (`pow.js` / `pow.wasm`, `setPowBasePath('/')`, the `copyPowFiles` plugin) is covered under [Build targets](#proof-of-work-assets) above. How the work is _scheduled_ is decided in `ZenonService` (`src/core/zenon-service.ts`):
 
 - **Configuration is one-time and idempotent.** Static flags (`powConfigured`, `powWorkerEnabled`) guard setup so it runs once across the singleton's lifetime.
-- **Web app → off-thread worker.** When *not* in an extension context and `isPowWorkerSupported()` is true, the service calls `Zenon.usePowWorker()` and registers it via `Zenon.setPowProvider(...)`. Running PoW off the main thread keeps the UI responsive and stops the long computation from starving the node WebSocket heartbeat (which previously dropped the connection mid-send).
+- **Web app → off-thread worker.** When _not_ in an extension context and `isPowWorkerSupported()` is true, the service calls `Zenon.usePowWorker()` and registers it via `Zenon.setPowProvider(...)`. Running PoW off the main thread keeps the UI responsive and stops the long computation from starving the node WebSocket heartbeat (which previously dropped the connection mid-send).
 - **Extension → main-thread fallback.** `isExtensionContext()` (detected via `chrome.runtime?.id`) returns true inside the MV3 popup/worker, where the CSP `script-src 'self'` forbids the SDK's `blob:`-based worker. The service skips worker setup and lets the SDK use its synchronous main-thread WASM generator.
 - **Defensive fallback.** Worker creation is wrapped in try/catch; if it throws (e.g. a strict CSP elsewhere), the failure is logged and the SDK transparently falls back to main-thread PoW rather than breaking the send.
 
@@ -86,7 +86,7 @@ Zenon requires Proof-of-Work to produce a block's nonce when the sending account
 
 `src/core/composables/` contains one composable per service plus a few helpers. The exported set (`src/core/composables/index.ts`): `useWallet`, `useAccount`, `useNetwork`, `useTransaction`, `usePlasma`, `useStake`, `useRewards`, `usePillar`, `useToken`, `useStorage`, and `runActivity` (from `useActivity`), along with the formatter utilities.
 
-The composables use a **module-level singleton** pattern. Reactive state (`ref`/`computed`) is declared at module scope — *outside* the exported function — so every component that calls e.g. `useWallet()` shares the same state rather than getting its own copy. The function body wires up the methods and returns them. `useWallet` also caches a one-time `loadPromise` so the router guard and `App.vue` don't each trigger a separate initial load on startup.
+The composables use a **module-level singleton** pattern. Reactive state (`ref`/`computed`) is declared at module scope — _outside_ the exported function — so every component that calls e.g. `useWallet()` shares the same state rather than getting its own copy. The function body wires up the methods and returns them. `useWallet` also caches a one-time `loadPromise` so the router guard and `App.vue` don't each trigger a separate initial load on startup.
 
 Inside the composable, the corresponding service is obtained via `Service.getInstance()` (e.g. `WalletService.getInstance()`). State changes are mediated through `window` `CustomEvent`s where cross-cutting notification is needed — for example, lock/unlock dispatches a `wallet-status-changed` event that `Home.vue` listens for to reload.
 
@@ -127,14 +127,14 @@ Key material is handled by the SDK's `KeyStore` / `KeyFile` types:
 
 Routes are defined in `src/router.ts` using `createWebHistory`:
 
-| Path | Page | Meta |
-| --- | --- | --- |
-| `/` | `Home.vue` | `requiresWallet` |
-| `/setup` | `Setup.vue` | — |
-| `/send` | `Send.vue` | `requiresWallet`, `requiresUnlock` |
-| `/receive` | `Receive.vue` | `requiresWallet` |
-| `/token/:tokenStandard` | `TokenDetails.vue` | `requiresWallet` |
-| `/:pathMatch(.*)*` | → redirect `/` | — |
+| Path                    | Page               | Meta                               |
+| ----------------------- | ------------------ | ---------------------------------- |
+| `/`                     | `Home.vue`         | `requiresWallet`                   |
+| `/setup`                | `Setup.vue`        | —                                  |
+| `/send`                 | `Send.vue`         | `requiresWallet`, `requiresUnlock` |
+| `/receive`              | `Receive.vue`      | `requiresWallet`                   |
+| `/token/:tokenStandard` | `TokenDetails.vue` | `requiresWallet`                   |
+| `/:pathMatch(.*)*`      | → redirect `/`     | —                                  |
 
 A global `beforeEach` guard enforces wallet state. It first calls `wallet.ensureLoaded()` (the guard can run before `App.vue`'s `onMounted` on a hard refresh), then:
 

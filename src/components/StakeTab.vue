@@ -24,7 +24,7 @@ interface StakeTabProps {
 
 const props = withDefaults(defineProps<StakeTabProps>(), {
   isActive: false,
-  isWalletLocked: false
+  isWalletLocked: false,
 })
 
 const emit = defineEmits<{
@@ -58,18 +58,24 @@ onMounted(async () => {
 })
 
 // Watch for when the tab becomes active
-watch(() => props.isActive, async (isActive) => {
-  if (isActive && props.activeAccountAddress) {
-    await loadData()
+watch(
+  () => props.isActive,
+  async (isActive) => {
+    if (isActive && props.activeAccountAddress) {
+      await loadData()
+    }
   }
-})
+)
 
 // Watch for account changes
-watch(() => props.activeAccountAddress, async (newAddress) => {
-  if (newAddress && props.isActive) {
-    await loadData()
+watch(
+  () => props.activeAccountAddress,
+  async (newAddress) => {
+    if (newAddress && props.isActive) {
+      await loadData()
+    }
   }
-})
+)
 
 async function loadData() {
   if (!props.activeAccountAddress) {
@@ -77,10 +83,7 @@ async function loadData() {
     return
   }
 
-  await Promise.all([
-    stake.loadStakeEntries(props.activeAccountAddress),
-    account.loadBalances()
-  ])
+  await Promise.all([stake.loadStakeEntries(props.activeAccountAddress), account.loadBalances()])
 }
 
 async function handleStake() {
@@ -177,7 +180,10 @@ async function handleCancel(stakeId: string) {
 
 <template>
   <div>
-    <div v-if="stake.isLoading.value && stake.stakeEntries.value.length === 0" class="text-center py-8 text-muted-foreground">
+    <div
+      v-if="stake.isLoading.value && stake.stakeEntries.value.length === 0"
+      class="py-8 text-center text-muted-foreground"
+    >
       Loading stake data...
     </div>
     <div v-else class="space-y-6">
@@ -187,13 +193,13 @@ async function handleCancel(stakeId: string) {
         <div class="space-y-2">
           <label for="stake-amount" class="text-sm font-medium">Amount (ZNN)</label>
           <Input
-              id="stake-amount"
-              v-model="stakeAmount"
-              type="number"
-              step="any"
-              :min="minStakeAmount"
-              placeholder="1.00"
-              :disabled="stake.isStaking.value"
+            id="stake-amount"
+            v-model="stakeAmount"
+            type="number"
+            step="any"
+            :min="minStakeAmount"
+            placeholder="1.00"
+            :disabled="stake.isStaking.value"
           />
           <div class="text-xs text-muted-foreground">
             Available: {{ znnBalance }} ZNN | Minimum: {{ minStakeAmount }} ZNN
@@ -203,18 +209,15 @@ async function handleCancel(stakeId: string) {
         <!-- Duration -->
         <div class="space-y-2">
           <label for="stake-duration" class="text-sm font-medium">Stake Duration</label>
-          <Select
-              v-model="stakeDuration"
-              :disabled="stake.isStaking.value"
-          >
+          <Select v-model="stakeDuration" :disabled="stake.isStaking.value">
             <SelectTrigger id="stake-duration" class="w-full">
               <SelectValue placeholder="Select duration" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem
-                  v-for="option in durationOptions"
-                  :key="option.value"
-                  :value="option.value"
+                v-for="option in durationOptions"
+                :key="option.value"
+                :value="option.value"
               >
                 {{ option.label }}
               </SelectItem>
@@ -232,9 +235,9 @@ async function handleCancel(stakeId: string) {
 
         <!-- Stake Button -->
         <Button
-            @click="handleStake"
-            class="w-full"
-            :disabled="stake.isStaking.value || isWalletLocked"
+          @click="handleStake"
+          class="w-full"
+          :disabled="stake.isStaking.value || isWalletLocked"
         >
           {{ stake.isStaking.value ? 'Staking...' : 'Stake ZNN' }}
         </Button>
@@ -242,7 +245,7 @@ async function handleCancel(stakeId: string) {
 
       <!-- Active Stakes List -->
       <div v-if="stake.stakeEntries.value.length > 0">
-        <div class="font-semibold text-lg mb-3">Active Stakes</div>
+        <div class="mb-3 text-lg font-semibold">Active Stakes</div>
         <StakeList
           :stakes="stake.stakeEntries.value"
           :is-canceling="stake.isCanceling.value"

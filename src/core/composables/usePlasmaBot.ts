@@ -1,10 +1,10 @@
-import { ref } from 'vue'
+import {ref} from 'vue'
 import {
-  PlasmaBotService,
-  PlasmaBotError,
-  type PlasmaBotTierKey,
-  type PlasmaBotFuseSuccess,
-  type PlasmaBotStats
+    PlasmaBotError,
+    type PlasmaBotFuseSuccess,
+    PlasmaBotService,
+    type PlasmaBotStats,
+    type PlasmaBotTierKey,
 } from '../plasma-bot-service'
 
 // Module-level reactive state — shared across every usePlasmaBot() caller
@@ -30,7 +30,9 @@ export function usePlasmaBot() {
       return result
     } catch (err) {
       const e =
-        err instanceof PlasmaBotError ? err : new PlasmaBotError('NETWORK_ERROR', 'Unexpected error')
+        err instanceof PlasmaBotError
+          ? err
+          : new PlasmaBotError('NETWORK_ERROR', 'Unexpected error')
       error.value = e
       throw e
     } finally {
@@ -61,6 +63,6 @@ export function usePlasmaBot() {
     fuse,
     stats,
     statsStatus,
-    loadStats
+    loadStats,
   }
 }

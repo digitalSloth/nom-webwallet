@@ -54,7 +54,7 @@ const isOpen = computed({
       return
     }
     emit('update:open', value)
-  }
+  },
 })
 
 // Unlock dialog state
@@ -67,13 +67,16 @@ const exportDialogVisible = ref(false)
 const exportMnemonic = ref<{ mnemonic: string; name: string } | null>(null)
 
 // Watch for wallet unlock success
-watch(() => props.unlockedWallets, (newUnlockedWallets) => {
-  if (walletToUnlock.value && newUnlockedWallets.includes(walletToUnlock.value.address)) {
-    unlockDialogVisible.value = false
-    walletToUnlock.value = null
-    unlockError.value = null
+watch(
+  () => props.unlockedWallets,
+  (newUnlockedWallets) => {
+    if (walletToUnlock.value && newUnlockedWallets.includes(walletToUnlock.value.address)) {
+      unlockDialogVisible.value = false
+      walletToUnlock.value = null
+      unlockError.value = null
+    }
   }
-})
+)
 
 function handleUnlockRequest(address: string) {
   const wallet = props.wallets.find((w) => w.baseAddress === address)
@@ -112,7 +115,7 @@ function setUnlockError(error: string) {
 
 defineExpose({
   showExportDialog,
-  setUnlockError
+  setUnlockError,
 })
 </script>
 
@@ -121,7 +124,7 @@ defineExpose({
     <DialogContent class="max-w-3xl">
       <DialogHeader>
         <div class="flex items-center gap-3">
-          <div class="p-2 bg-primary/10 rounded-full">
+          <div class="rounded-full bg-primary/10 p-2">
             <SettingsIcon class="h-5 w-5 text-primary" />
           </div>
           <div>
@@ -131,57 +134,56 @@ defineExpose({
       </DialogHeader>
 
       <Tabs default-value="wallet" class="w-full">
-        <TabsList class="grid w-full grid-cols-2 mb-4">
-          <TabsTrigger value="wallet">
-            Wallet
-          </TabsTrigger>
-          <TabsTrigger value="network">
-            Network
-          </TabsTrigger>
+        <TabsList class="mb-4 grid w-full grid-cols-2">
+          <TabsTrigger value="wallet"> Wallet </TabsTrigger>
+          <TabsTrigger value="network"> Network </TabsTrigger>
         </TabsList>
 
         <TabsContent value="wallet">
           <!-- Wallet List with embedded Account Lists -->
           <WalletList
-              :wallets="wallets"
-              :unlocked-wallets="unlockedWallets"
-              :active-account-address="activeAccountAddress"
-              @unlock="handleUnlockRequest"
-              @lock="(address) => emit('lock', address)"
-              @delete="(address) => emit('delete-wallet', address)"
-              @rename="(address, newName) => emit('rename-wallet', address, newName)"
-              @export-mnemonic="handleExportMnemonicRequest"
-              @derive-account="(walletAddress) => emit('derive-account', walletAddress)"
-              @select-account="(address) => emit('select-account', address)"
-              @rename-account="(walletAddress, accountAddress, newLabel) => emit('rename-account', walletAddress, accountAddress, newLabel)"
-              @toggle-hidden="(walletAddress, accountAddress, hidden) => emit('toggle-account-hidden', walletAddress, accountAddress, hidden)"
-              @wallet-added="(address) => emit('wallet-added', address)"
+            :wallets="wallets"
+            :unlocked-wallets="unlockedWallets"
+            :active-account-address="activeAccountAddress"
+            @unlock="handleUnlockRequest"
+            @lock="(address) => emit('lock', address)"
+            @delete="(address) => emit('delete-wallet', address)"
+            @rename="(address, newName) => emit('rename-wallet', address, newName)"
+            @export-mnemonic="handleExportMnemonicRequest"
+            @derive-account="(walletAddress) => emit('derive-account', walletAddress)"
+            @select-account="(address) => emit('select-account', address)"
+            @rename-account="
+              (walletAddress, accountAddress, newLabel) =>
+                emit('rename-account', walletAddress, accountAddress, newLabel)
+            "
+            @toggle-hidden="
+              (walletAddress, accountAddress, hidden) =>
+                emit('toggle-account-hidden', walletAddress, accountAddress, hidden)
+            "
+            @wallet-added="(address) => emit('wallet-added', address)"
           />
         </TabsContent>
 
         <TabsContent value="network">
           <NetworkSelector
-              :current-node="currentNode"
-              @select="(nodeUrl) => emit('select-network', nodeUrl)"
-              @update-network-config="(chainId, networkId) => emit('update-network-config', chainId, networkId)"
+            :current-node="currentNode"
+            @select="(nodeUrl) => emit('select-network', nodeUrl)"
+            @update-network-config="
+              (chainId, networkId) => emit('update-network-config', chainId, networkId)
+            "
           />
         </TabsContent>
 
         <TabsContent value="ui">
           <div class="space-y-2">
             <label class="text-sm font-medium">Theme</label>
-            <Button
-                @click="emit('toggle-theme')"
-                variant="outline"
-                class="w-full justify-start"
-            >
-              <SunIcon v-if="theme === 'dark'" class="w-4 h-4 mr-2" />
-              <MoonIcon v-else class="w-4 h-4 mr-2" />
+            <Button @click="emit('toggle-theme')" variant="outline" class="w-full justify-start">
+              <SunIcon v-if="theme === 'dark'" class="mr-2 h-4 w-4" />
+              <MoonIcon v-else class="mr-2 h-4 w-4" />
               {{ theme === 'dark' ? 'Light Mode' : 'Dark Mode' }}
             </Button>
           </div>
         </TabsContent>
-
       </Tabs>
     </DialogContent>
   </Dialog>
@@ -196,13 +198,17 @@ defineExpose({
       :wallet-name="walletToUnlock.name"
       :unlock-error="unlockError"
       @unlock="handleUnlock"
-      @update:open="(value) => {
-        unlockDialogVisible = value
-      }"
-      @cancel="() => {
-        unlockDialogVisible = false
-        unlockError = null
-      }"
+      @update:open="
+        (value) => {
+          unlockDialogVisible = value
+        }
+      "
+      @cancel="
+        () => {
+          unlockDialogVisible = false
+          unlockError = null
+        }
+      "
     />
 
     <!-- Export Mnemonic Dialog -->

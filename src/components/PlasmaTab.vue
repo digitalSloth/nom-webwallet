@@ -15,7 +15,7 @@ interface PlasmaTabProps {
 
 const props = withDefaults(defineProps<PlasmaTabProps>(), {
   isActive: false,
-  isWalletLocked: false
+  isWalletLocked: false,
 })
 
 const emit = defineEmits<{
@@ -53,20 +53,26 @@ onMounted(async () => {
 })
 
 // Watch for when the tab becomes active
-watch(() => props.isActive, async (isActive) => {
-  if (isActive && props.activeAccountAddress) {
-    await loadData()
+watch(
+  () => props.isActive,
+  async (isActive) => {
+    if (isActive && props.activeAccountAddress) {
+      await loadData()
+    }
   }
-})
+)
 
 // Watch for account changes
-watch(() => props.activeAccountAddress, async (newAddress) => {
-  if (newAddress && props.isActive) {
-    await loadData()
-    // Set beneficiary to current account by default
-    beneficiaryAddress.value = newAddress
+watch(
+  () => props.activeAccountAddress,
+  async (newAddress) => {
+    if (newAddress && props.isActive) {
+      await loadData()
+      // Set beneficiary to current account by default
+      beneficiaryAddress.value = newAddress
+    }
   }
-})
+)
 
 async function loadData() {
   if (!props.activeAccountAddress) {
@@ -83,7 +89,7 @@ async function loadData() {
     plasma.loadFusionEntries(props.activeAccountAddress),
     network.loadFrontierMomentum(),
     account.loadBalances(),
-    account.loadPlasmaInfo()
+    account.loadPlasmaInfo(),
   ])
 }
 
@@ -189,26 +195,29 @@ async function handleCancel(fusionId: string) {
 
 <template>
   <div>
-    <div v-if="plasma.isLoading.value && plasma.fusionEntries.value.length === 0" class="text-center py-8 text-muted-foreground">
+    <div
+      v-if="plasma.isLoading.value && plasma.fusionEntries.value.length === 0"
+      class="py-8 text-center text-muted-foreground"
+    >
       Loading plasma data...
     </div>
     <div v-else class="space-y-6">
-
       <!-- plazma.bot prompt: only when the account can neither transact nor self-fuse -->
       <div
-          v-if="showBotPrompt"
-          class="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 p-4"
+        v-if="showBotPrompt"
+        class="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 p-4"
       >
         <div class="text-sm">
           <div class="font-medium">No QSR for plasma?</div>
           <div class="text-muted-foreground">
             Get some plasma from
             <a
-                href="https://plazma.bot"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="underline underline-offset-2 hover:text-foreground"
-            >plazma.bot</a>
+              href="https://plazma.bot"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="underline underline-offset-2 hover:text-foreground"
+              >plazma.bot</a
+            >
           </div>
         </div>
         <Button type="button" @click="botDialogOpen = true">Get free plasma</Button>
@@ -220,10 +229,10 @@ async function handleCancel(fusionId: string) {
         <div class="space-y-2">
           <label for="fuse-beneficiary" class="text-sm font-medium">Beneficiary Address</label>
           <Input
-              id="fuse-beneficiary"
-              v-model="beneficiaryAddress"
-              placeholder="z1..."
-              :disabled="plasma.isFusing.value"
+            id="fuse-beneficiary"
+            v-model="beneficiaryAddress"
+            placeholder="z1..."
+            :disabled="plasma.isFusing.value"
           />
           <div class="text-xs text-muted-foreground">
             The address that will receive the plasma (defaults to your current account)
@@ -234,13 +243,13 @@ async function handleCancel(fusionId: string) {
         <div class="space-y-2">
           <label for="fuse-amount" class="text-sm font-medium">Amount (QSR)</label>
           <Input
-              id="fuse-amount"
-              v-model="fuseAmount"
-              type="number"
-              step="any"
-              :min="minFuseAmount"
-              placeholder="10.00"
-              :disabled="plasma.isFusing.value"
+            id="fuse-amount"
+            v-model="fuseAmount"
+            type="number"
+            step="any"
+            :min="minFuseAmount"
+            placeholder="10.00"
+            :disabled="plasma.isFusing.value"
           />
           <div class="text-xs text-muted-foreground">
             Available: {{ qsrBalance }} QSR | Minimum: {{ minFuseAmount }} QSR
@@ -254,24 +263,24 @@ async function handleCancel(fusionId: string) {
 
         <!-- Fuse Button -->
         <Button
-            @click="handleFuse"
-            class="w-full"
-            :disabled="plasma.isFusing.value || isWalletLocked"
+          @click="handleFuse"
+          class="w-full"
+          :disabled="plasma.isFusing.value || isWalletLocked"
         >
           {{ plasma.isFusing.value ? 'Fusing...' : 'Fuse Plasma' }}
         </Button>
       </div>
 
       <PlasmaBotDialog
-          v-model:open="botDialogOpen"
-          :active-account-address="activeAccountAddress"
-          @show-toast="(m, t) => emit('showToast', m, t)"
-          @fused="onBotFused"
+        v-model:open="botDialogOpen"
+        :active-account-address="activeAccountAddress"
+        @show-toast="(m, t) => emit('showToast', m, t)"
+        @fused="onBotFused"
       />
 
       <!-- Active Fusions List -->
       <div v-if="plasma.fusionEntries.value.length > 0">
-        <div class="font-semibold text-lg mb-3">Active Plasma Fusions</div>
+        <div class="mb-3 text-lg font-semibold">Active Plasma Fusions</div>
         <FusionList
           :fusions="plasma.fusionEntries.value"
           :is-canceling="plasma.isCanceling.value"

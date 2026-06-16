@@ -64,17 +64,17 @@ Sending a transaction requires the active wallet to be unlocked — if it's lock
 
 ## Scripts
 
-| Command | Description |
-| --- | --- |
-| `npm run dev` | Start the web app dev server (`localhost:5173`) |
-| `npm run dev:extension` | Build the extension in watch mode |
-| `npm run build` | Production build of the web app → `dist/` |
+| Command                   | Description                                           |
+| ------------------------- | ----------------------------------------------------- |
+| `npm run dev`             | Start the web app dev server (`localhost:5173`)       |
+| `npm run dev:extension`   | Build the extension in watch mode                     |
+| `npm run build`           | Production build of the web app → `dist/`             |
 | `npm run build:extension` | Production build of the extension → `dist-extension/` |
-| `npm run preview` | Preview the production web build |
-| `npm run typecheck` | Type-check with `vue-tsc` |
-| `npm run lint` | Run ESLint |
-| `npm run lint:fix` | Run ESLint with autofix |
-| `npm run format` | Format with Prettier |
+| `npm run preview`         | Preview the production web build                      |
+| `npm run typecheck`       | Type-check with `vue-tsc`                             |
+| `npm run lint`            | Run ESLint                                            |
+| `npm run lint:fix`        | Run ESLint with autofix                               |
+| `npm run format`          | Format with Prettier                                  |
 
 > There is no automated test suite. TypeScript strict mode, `typecheck`, and `lint` are the correctness checks.
 

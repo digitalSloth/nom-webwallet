@@ -14,7 +14,7 @@ import {
   ItemContent,
   ItemDescription,
   ItemTitle,
-  useToast
+  useToast,
 } from 'nom-ui'
 import type {AccountBlock} from 'znn-typescript-sdk'
 import {addNumberDecimals} from 'znn-typescript-sdk'
@@ -118,15 +118,11 @@ function goBack() {
 
 <template>
   <!-- Full Page Overlay -->
-  <div class="fixed inset-0 bg-background z-50 overflow-y-auto">
+  <div class="fixed inset-0 z-50 overflow-y-auto bg-background">
     <!-- Header with Back Button -->
-    <div class="border-b sticky top-0 bg-background z-10">
-      <div class="container mx-auto p-4 flex items-center gap-4">
-        <Button
-          @click="goBack"
-          variant="outline"
-          title="Go back"
-        >
+    <div class="sticky top-0 z-10 border-b bg-background">
+      <div class="container mx-auto flex items-center gap-4 p-4">
+        <Button @click="goBack" variant="outline" title="Go back">
           <ArrowLeftIcon />
         </Button>
         <h1 class="text-2xl font-bold">Receive</h1>
@@ -134,10 +130,10 @@ function goBack() {
     </div>
 
     <!-- Content -->
-    <div class="container mx-auto p-6 max-w-4xl">
+    <div class="container mx-auto max-w-4xl p-6">
       <!-- No Account Warning -->
       <Card v-if="!wallet.activeAccountAddress.value">
-        <CardContent class="text-center py-12 text-muted-foreground">
+        <CardContent class="py-12 text-center text-muted-foreground">
           No active account. Please create or select a wallet first.
         </CardContent>
       </Card>
@@ -150,14 +146,14 @@ function goBack() {
             <h3 class="text-xl font-semibold">Your Address</h3>
           </CardHeader>
           <CardContent class="space-y-4">
-            <div class="p-4 bg-muted rounded-md break-all font-mono text-sm">
+            <div class="rounded-md bg-muted p-4 font-mono text-sm break-all">
               {{ wallet.activeAccountAddress.value }}
             </div>
             <Button @click="copyAddress" class="w-full">
-              <CopyIcon/>
+              <CopyIcon />
               Copy Address
             </Button>
-            <p class="text-sm text-muted-foreground text-center">
+            <p class="text-center text-sm text-muted-foreground">
               Share this address to receive tokens
             </p>
           </CardContent>
@@ -169,12 +165,15 @@ function goBack() {
             <h3 class="text-xl font-semibold">Pending Transactions</h3>
           </CardHeader>
           <CardContent>
-            <div v-if="isLoadingBlocks" class="text-center py-8 text-muted-foreground">
+            <div v-if="isLoadingBlocks" class="py-8 text-center text-muted-foreground">
               Loading transactions...
             </div>
 
-            <div v-else-if="unreceivedBlocks.length === 0" class="text-center py-8 text-muted-foreground">
-              <ArrowDownCircleIcon class="w-12 h-12 mx-auto mb-3 opacity-50" />
+            <div
+              v-else-if="unreceivedBlocks.length === 0"
+              class="py-8 text-center text-muted-foreground"
+            >
+              <ArrowDownCircleIcon class="mx-auto mb-3 h-12 w-12 opacity-50" />
               <p>No pending transactions</p>
             </div>
 
@@ -189,25 +188,35 @@ function goBack() {
                 v-for="block in unreceivedBlocks"
                 :key="block.hash.toString()"
                 variant="muted"
-                class="border-border flex-col items-stretch sm:flex-row sm:items-center"
+                class="flex-col items-stretch border-border sm:flex-row sm:items-center"
               >
-                <ItemContent class="flex-1 min-w-0">
+                <ItemContent class="min-w-0 flex-1">
                   <ItemTitle>
-                    {{ block.token ? addNumberDecimals(block.amount, block.token.decimals) : block.amount.toString() }}
+                    {{
+                      block.token
+                        ? addNumberDecimals(block.amount, block.token.decimals)
+                        : block.amount.toString()
+                    }}
                     {{ block.token?.symbol || 'Unknown' }}
                   </ItemTitle>
-                  <ItemDescription class="space-y-2 line-clamp-none">
+                  <ItemDescription class="line-clamp-none space-y-2">
                     <div>
                       <div class="text-xs font-medium text-muted-foreground">From</div>
-                      <div class="font-mono break-all text-foreground">{{ block.address.toString() }}</div>
+                      <div class="font-mono break-all text-foreground">
+                        {{ block.address.toString() }}
+                      </div>
                     </div>
                     <div>
                       <div class="text-xs font-medium text-muted-foreground">ZTS</div>
-                      <div class="font-mono break-all text-foreground">{{ block.tokenStandard.toString() }}</div>
+                      <div class="font-mono break-all text-foreground">
+                        {{ block.tokenStandard.toString() }}
+                      </div>
                     </div>
                     <div>
                       <div class="text-xs font-medium text-muted-foreground">Time</div>
-                      <div class="text-foreground">{{ formatDate(block.confirmationDetail?.momentumTimestamp || 0) }}</div>
+                      <div class="text-foreground">
+                        {{ formatDate(block.confirmationDetail?.momentumTimestamp || 0) }}
+                      </div>
                     </div>
                   </ItemDescription>
                 </ItemContent>
@@ -218,14 +227,16 @@ function goBack() {
                     size="sm"
                     class="w-full sm:w-auto"
                   >
-                    <span v-if="currentlyReceivingHash === block.hash.toString()">Receiving...</span>
+                    <span v-if="currentlyReceivingHash === block.hash.toString()"
+                      >Receiving...</span
+                    >
                     <span v-else>Receive</span>
                   </Button>
                 </ItemActions>
               </Item>
 
               <!-- Pagination -->
-              <div class="flex justify-between items-center pt-4">
+              <div class="flex items-center justify-between pt-4">
                 <Button
                   @click="prevPage"
                   :disabled="currentPage === 0 || isLoadingBlocks"

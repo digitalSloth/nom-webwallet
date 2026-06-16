@@ -16,7 +16,7 @@
 - [ ] Import wallet
 - [ ] Unlock / lock
 - [ ] Dashboard renders balances
-- [ ] Send a small testnet transaction — **BLOCKED: see "Known blocker: PoW under extension CSP" below.** Sends that require PoW currently fail in the extension.
+- [ ] Send a small testnet transaction — **KEY PoW VERIFICATION.** Exercises the sandbox PoW path (see "PoW under extension CSP" below). Confirm no `EvalError` in the `pow-sandbox.html` context and the block is published.
 - [ ] Receive address shows
 - [ ] Switch network / node
 - [ ] Reload popup → no route 404 (hash routing)
@@ -29,23 +29,27 @@
 ## Store upload
 - Upload `dist-extension.zip` only after security review (Phase 2 + audit).
 
-## Known blocker: PoW under extension CSP (must fix before shipping)
+## PoW under extension CSP (implemented; needs Chrome verification)
 The MV3 extension-page CSP allows `'wasm-unsafe-eval'` (WASM compilation) but NOT
 `'unsafe-eval'` (JS `eval` / `new Function`) — and Chrome forbids relaxing the
 extension-page CSP with `'unsafe-eval'`. The SDK's PoW module
 (`znn-typescript-sdk/dist/browser/pow.js`) is emscripten+embind compiled and calls
 `new Function` **during module init** (verified: 2 calls before `generate()` is even
-invoked). This is true on BOTH the worker and main-thread paths, since both inherit
-the extension-page CSP — so disabling the worker (`src/core/zenon-service.ts`) does
-not avoid it. Net effect: any transaction that requires PoW fails in the extension
-with an `EvalError` (refused to evaluate a string as JavaScript).
+invoked). Both the worker and main-thread paths inherit the extension-page CSP, so
+without a sandbox any PoW-requiring send fails with an `EvalError`.
 
-Remediation (designed, NOT yet implemented — needs Chrome verification): run PoW in
-a manifest-declared **sandbox page** (`content_security_policy.sandbox` may include
-`'unsafe-eval'`), loaded as a hidden iframe, and register a custom
-`Zenon.setPowProvider(...)` that proxies `(hashHex, difficulty) => Promise<nonce>`
-to the sandbox via `postMessage`. See the Phase 1 plan, "Task 8: Sandboxed PoW
-execution page".
+**Implemented fix (Task 8):** PoW runs in a manifest-declared **sandbox page**
+(`pow-sandbox.html`, `content_security_policy.sandbox` includes `'unsafe-eval'` +
+`blob:`), loaded as a hidden iframe. `src/core/extension-pow-provider.ts` registers
+a custom `Zenon.setPowProvider(...)` that fetches `pow.js`/`pow.wasm` on the
+extension origin and proxies `(hashHex, difficulty) => Promise<nonce>` to the
+sandbox via `postMessage`; the sandbox (`src/pow-sandbox.ts`) imports the pow.js
+source as a Blob module and runs `generate`.
+
+**Verified headlessly:** the build emits the sandbox page + assets; `createPowModule({wasmBinary})`
++ `generate()` produces a valid nonce in Node. **NOT yet verified in Chrome:** that the
+sandbox CSP permits the Blob-module import + `new Function` and that the postMessage
+round-trip works. The send smoke test above is the acceptance gate.
 
 ## Known limitations
 - Off-thread PoW worker is disabled under the extension CSP (`blob:` workers are

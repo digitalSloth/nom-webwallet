@@ -1,12 +1,13 @@
 import {isPowWorkerSupported, Zenon} from 'znn-typescript-sdk'
 import {DEFAULT_NODE_URL} from '@/config'
 import {trackPow} from './pow-status'
+import {sandboxPowProvider} from './extension-pow-provider'
 
 /**
- * True when running inside the MV3 browser extension (popup / service worker),
- * as opposed to the standalone web app. The extension's default CSP
- * (`script-src 'self'`) forbids `blob:` workers, so the SDK's blob-based
- * `usePowWorker()` cannot be used there — we fall back to main-thread PoW.
+ * True when running inside the MV3 browser extension (popup / full page), as
+ * opposed to the standalone web app. The extension CSP forbids both the SDK's
+ * `blob:` PoW worker and the PoW module's `new Function` init on normal pages,
+ * so PoW runs in a sandbox page instead (see {@link sandboxPowProvider}).
  */
 function isExtensionContext(): boolean {
   return (
@@ -49,22 +50,31 @@ export class ZenonService {
       ZenonService.powConfigured = true
     }
 
-    // Run PoW off the main thread so it no longer blocks the UI or starves the
+    // Run PoW off the main page so it no longer blocks the UI or starves the
     // WebSocket heartbeat (which previously caused the connection to drop while
-    // a block's nonce was being computed). The SDK's built-in worker is spawned
-    // from a blob: URL, which the MV3 extension CSP forbids — so we only enable
-    // it in the standalone web app and let the extension fall back to the
-    // (synchronous) main-thread generator.
-    if (!ZenonService.powWorkerEnabled && !isExtensionContext() && isPowWorkerSupported()) {
-      try {
-        const worker = Zenon.usePowWorker()
-        // Wrap the worker's generator so global isGeneratingPow tracks PoW.
-        Zenon.setPowProvider(trackPow(worker.generate))
-        ZenonService.powWorkerEnabled = true
-      } catch (error) {
-        // A blocked worker (e.g. strict CSP) must not break sending — the SDK
-        // transparently falls back to main-thread PoW when no provider is set.
-        console.warn('Off-thread PoW worker unavailable; using main-thread PoW.', error)
+    // a block's nonce was being computed), and — in the extension — so its
+    // eval-using emscripten init runs where the CSP allows it.
+    if (!ZenonService.powWorkerEnabled) {
+      if (isExtensionContext()) {
+        // The SDK PoW module needs `new Function` at init, forbidden on MV3
+        // extension pages. Delegate to the sandbox page, where the sandbox CSP
+        // permits it. Only meaningful in a document context (popup / full page),
+        // not the background service worker, which never generates PoW.
+        if (typeof document !== 'undefined') {
+          Zenon.setPowProvider(trackPow(sandboxPowProvider))
+          ZenonService.powWorkerEnabled = true
+        }
+      } else if (isPowWorkerSupported()) {
+        try {
+          const worker = Zenon.usePowWorker()
+          // Wrap the worker's generator so global isGeneratingPow tracks PoW.
+          Zenon.setPowProvider(trackPow(worker.generate))
+          ZenonService.powWorkerEnabled = true
+        } catch (error) {
+          // A blocked worker (e.g. strict CSP) must not break sending — the SDK
+          // transparently falls back to main-thread PoW when no provider is set.
+          console.warn('Off-thread PoW worker unavailable; using main-thread PoW.', error)
+        }
       }
     }
   }

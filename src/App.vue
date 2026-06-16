@@ -21,7 +21,7 @@ import NetworkIndicator from '@/components/NetworkIndicator.vue'
 import SettingsDialog from '@/components/SettingsDialog.vue'
 import UnlockWalletDialog from '@/components/UnlockWalletDialog.vue'
 import AccountList from '@/components/AccountList.vue'
-import {ChevronDownIcon, LockIcon, LockOpenIcon, SettingsIcon} from 'lucide-vue-next'
+import {ChevronDownIcon, CopyIcon, LockIcon, LockOpenIcon, SettingsIcon} from 'lucide-vue-next'
 
 const router = useRouter()
 const route = useRoute()
@@ -32,6 +32,17 @@ const toast = useToast()
 const wallet = useWallet()
 const account = useAccount(() => wallet.activeAccountAddress.value)
 const network = useNetwork()
+
+// Copy the active account's full address (the header only shows a truncated form).
+async function copyAccountAddress() {
+  if (!wallet.activeAccountAddress.value) return
+  try {
+    await navigator.clipboard.writeText(wallet.activeAccountAddress.value)
+    toast.show('Address copied to clipboard!', 'success')
+  } catch {
+    toast.show('Failed to copy address.', 'error')
+  }
+}
 
 // Global unlock dialog state
 const showUnlockDialog = ref(false)
@@ -306,12 +317,18 @@ async function handleWalletAdded(address: string) {
                   </PopoverContent>
                 </Popover>
               </div>
-              <p
-                v-if="wallet.activeAccountAddress.value"
-                class="font-mono text-sm text-muted-foreground"
-              >
-                {{ truncateAddress(wallet.activeAccountAddress.value) }}
-              </p>
+              <div v-if="wallet.activeAccountAddress.value" class="flex items-center gap-1">
+                <p class="font-mono text-sm text-muted-foreground">
+                  {{ truncateAddress(wallet.activeAccountAddress.value) }}
+                </p>
+                <button
+                  @click="copyAccountAddress"
+                  class="p-1 text-muted-foreground transition-colors hover:text-foreground"
+                  title="Copy address"
+                >
+                  <CopyIcon class="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
           </div>
 

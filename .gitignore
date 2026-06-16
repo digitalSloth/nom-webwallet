@@ -1,6 +1,7 @@
 node_modules
 dist
 dist-extension
+dist-extension.zip
 .DS_Store
 *.local
 .vscode

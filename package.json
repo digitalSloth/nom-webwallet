@@ -8,6 +8,7 @@
     "dev:extension": "vite build --watch --mode development --config vite.config.extension.ts",
     "build": "vite build --config vite.config.web.ts",
     "build:extension": "vite build --config vite.config.extension.ts",
+    "package:extension": "npm run build:extension && node scripts/package-extension.mjs",
     "preview": "vite preview --config vite.config.web.ts",
     "typecheck": "vue-tsc --noEmit",
     "lint": "eslint .",

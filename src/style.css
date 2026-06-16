@@ -1,1 +1,13 @@
 @import "@nom/ui/style.css";
+
+/* Browser-extension popup: give the document a fixed width (and a sensible
+   min-height) so Chrome doesn't size the popup to content — which otherwise
+   collapses narrow pages like /setup into a tall, clipped sliver. Scoped to the
+   extension build via the `is-extension` class set in main.ts; the web app is
+   unaffected. */
+html.is-extension,
+html.is-extension body {
+  width: 400px;
+  min-height: 600px;
+}
+

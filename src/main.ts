@@ -8,6 +8,13 @@ import './style.css'
 // Make Buffer available globally for SDK
 globalThis.Buffer = Buffer
 
+// An extension popup sizes itself to its content unless the document has an
+// explicit width, which collapses narrow pages (e.g. /setup) into a tall sliver.
+// Mark the document so the popup-sizing CSS applies; no-op in the web app.
+if (__IS_EXTENSION__) {
+  document.documentElement.classList.add('is-extension')
+}
+
 const app = createApp(App)
 
 // Global error handler — surface otherwise-silent errors from render,

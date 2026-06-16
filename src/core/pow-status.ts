@@ -9,9 +9,9 @@ import {computed, ref} from 'vue'
  * otherwise invisible; this module exposes a reactive flag so the UI can show
  * it. Tracking is wired in {@link ZenonService} by wrapping the PoW provider.
  *
- * Note: only the off-thread PoW worker (standalone web app) is wrapped. In the
- * MV3 extension PoW falls back to the main-thread WASM generator, which has no
- * pluggable provider to hook — there the operation-level toast still applies.
+ * Both PoW providers are wrapped with this: the off-thread worker (standalone
+ * web app) and the sandbox-iframe provider (MV3 extension), so the flag reflects
+ * PoW activity in both runtime modes.
  */
 
 // In-flight PoW generations. A counter (not a boolean) so overlapping/sequential

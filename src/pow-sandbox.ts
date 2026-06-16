@@ -58,3 +58,7 @@ window.addEventListener('message', async (event: MessageEvent) => {
     })
   }
 })
+
+// Tell the parent the message listener is live (and that this sandbox script
+// wasn't blocked by CSP). The parent waits for this before sending requests.
+window.parent.postMessage({type: 'pow-ready'}, '*')

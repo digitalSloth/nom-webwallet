@@ -9,11 +9,11 @@ NoM Wallet is a Vue 3 + TypeScript application that ships as two build targets f
 - a **standalone web app**, and
 - a **Chrome/Edge browser extension** (Manifest V3).
 
-Both targets share the same application code under `src/` and the same shared component library under `packages/ui/` (`@nom/ui`). All blockchain and wallet logic lives in a platform-agnostic **service layer**; the differences between web and extension are confined to the storage backend and the build configuration.
+Both targets share the same application code under `src/` and the same shared component library, `nom-ui` (an external package installed from GitHub). All blockchain and wallet logic lives in a platform-agnostic **service layer**; the differences between web and extension are confined to the storage backend and the build configuration.
 
 ## Build targets
 
-The repository is an npm-workspaces monorepo (`workspaces: ["packages/*"]` in `package.json`). The only workspace package today is `packages/ui` (`@nom/ui`).
+The shared shadcn-vue component library lives in a separate repository and is consumed as an external dependency: `"nom-ui": "github:digitalSloth/nom-ui"` in `package.json`. Components import it by its bare package name (`import { Button } from 'nom-ui'`).
 
 Two Vite configs drive the two targets:
 
@@ -22,7 +22,7 @@ Two Vite configs drive the two targets:
 | Web | `vite.config.web.ts` | `dist/` | Vue + Tailwind + node polyfills; custom plugin copies the SDK's PoW assets (see below) |
 | Extension | `vite.config.extension.ts` | `dist-extension/` | Uses `@crxjs/vite-plugin` with `manifest.json` |
 
-The `@` alias maps to `src/`, and `@nom/ui` maps to `packages/ui/src` (defined in the web config's `resolve.alias`).
+Both configs define a single `@` alias mapping to `src/` (`resolve.alias`). `nom-ui` is resolved from `node_modules` like any other dependency; the web config also lists it (alongside `znn-typescript-sdk`) in `optimizeDeps.exclude`.
 
 ### Proof-of-work assets
 
@@ -32,7 +32,7 @@ The `@` alias maps to `src/`, and `@nom/ui` maps to `packages/ui/src` (defined i
 
 ```
 Components / Pages (src/components, src/pages)
-        │  import only from @/core and @nom/ui
+        │  import only from @/core and nom-ui
         ▼
 Composables (src/core/composables)        ← reactive Vue wrappers
         │  call Service.getInstance()

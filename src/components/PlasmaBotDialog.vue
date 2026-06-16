@@ -1,16 +1,7 @@
 <script setup lang="ts">
 import {computed, ref, watch} from 'vue'
 import {PLASMA_BOT_TIERS, PlasmaBotError, type PlasmaBotTierKey, useAccount, usePlasmaBot} from '@/core'
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Input,
-} from '@nom/ui'
+import {Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input,} from 'nom-ui'
 
 interface PlasmaBotDialogProps {
   open: boolean

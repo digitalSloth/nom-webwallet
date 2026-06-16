@@ -9,7 +9,8 @@ A cryptocurrency wallet for the Zenon Network, supporting both browser extension
 - **Styling**: Tailwind CSS 4 + shadcn-vue + Reka UI
 - **Language**: TypeScript (strict mode)
 - **Blockchain**: znn-typescript-sdk (Zenon Network)
-- **Package Manager**: npm workspaces (monorepo)
+- **Package Manager**: npm
+- **UI Library**: `nom-ui` — external shadcn-vue component library (`github:digitalSloth/nom-ui`)
 
 ## Project Structure
 
@@ -24,8 +25,6 @@ nom-webwallet/
 │   ├── types/              # TypeScript type definitions
 │   ├── main.ts             # App entry point
 │   └── background.ts       # Extension service worker
-├── packages/
-│   └── ui/                 # Shared shadcn-vue component library
 ├── vite.config.web.ts      # Web app build config
 ├── vite.config.extension.ts# Extension build config
 └── manifest.json           # Chrome extension manifest (MV3)
@@ -34,7 +33,7 @@ nom-webwallet/
 ## Commands
 
 ```bash
-npm install               # Install all workspaces
+npm install               # Install dependencies
 npm run dev               # Web dev server (localhost:5173)
 npm run dev:extension     # Extension watch build
 npm run build             # Web production build → dist/

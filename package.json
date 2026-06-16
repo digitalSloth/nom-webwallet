@@ -28,7 +28,7 @@
     "lucide-vue-next": "^0.563.0",
     "vue": "^3.4.0",
     "vue-router": "^4.2.0",
-    "znn-typescript-sdk": "^1.0.4"
+    "znn-typescript-sdk": "^1.0.5"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.0.0-beta.23",

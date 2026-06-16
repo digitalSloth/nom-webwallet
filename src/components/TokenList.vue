@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { addNumberDecimals } from 'znn-typescript-sdk'
-import { ZNN_ZTS, QSR_ZTS } from 'znn-typescript-sdk'
-import type { BalanceInfo } from '@/types'
-import { Input, Item, ItemContent, ItemTitle, ItemDescription, ItemActions } from '@nom/ui'
+import {computed, ref} from 'vue'
+import {addNumberDecimals, QSR_ZTS, ZNN_ZTS} from 'znn-typescript-sdk'
+import type {BalanceInfo} from '@/types'
+import {Input, Item, ItemActions, ItemContent, ItemDescription, ItemTitle} from 'nom-ui'
 
 export interface TokenListProps {
   tokens: BalanceInfo[]
@@ -76,15 +75,10 @@ function handleItemClick(token: BalanceInfo) {
 <template>
   <div class="space-y-3">
     <!-- Search Input -->
-    <Input
-      v-if="searchable"
-      v-model="searchQuery"
-      placeholder="Search tokens..."
-      class="w-full"
-    />
+    <Input v-if="searchable" v-model="searchQuery" placeholder="Search tokens..." class="w-full" />
 
     <!-- Token List -->
-    <div v-if="sortedAndFilteredTokens.length === 0" class="text-center py-8 text-muted-foreground">
+    <div v-if="sortedAndFilteredTokens.length === 0" class="py-8 text-center text-muted-foreground">
       <p v-if="searchQuery">No tokens found matching "{{ searchQuery }}"</p>
       <p v-else>No tokens available</p>
     </div>
@@ -101,8 +95,11 @@ function handleItemClick(token: BalanceInfo) {
           <ItemTitle class="flex items-center gap-2">
             {{ token.symbol || 'Unknown' }}
             <span
-              v-if="token.tokenStandard === ZNN_ZTS.toString() || token.tokenStandard === QSR_ZTS.toString()"
-              class="text-xs px-2 py-0.5 bg-primary/20 text-primary rounded"
+              v-if="
+                token.tokenStandard === ZNN_ZTS.toString() ||
+                token.tokenStandard === QSR_ZTS.toString()
+              "
+              class="rounded bg-primary/20 px-2 py-0.5 text-xs text-primary"
             >
               Core
             </span>

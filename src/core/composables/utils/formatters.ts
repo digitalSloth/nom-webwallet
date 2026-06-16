@@ -131,11 +131,7 @@ export function formatTokenDisplay(value: string, maxDecimals: number = 4): stri
  * @param decimals - Number of decimal places to show (default: 2)
  * @returns Formatted balance with symbol
  */
-export function formatBalance(
-  balance: string,
-  symbol: string,
-  decimals: number = 2
-): string {
+export function formatBalance(balance: string, symbol: string, decimals: number = 2): string {
   const num = parseFloat(balance)
   if (isNaN(num)) return `0 ${symbol}`
 

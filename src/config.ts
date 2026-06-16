@@ -7,8 +7,20 @@
 // --- Node / network defaults ---
 export const DEFAULT_NODE_URL = 'wss://node.zenonhub.io:35998'
 
+// --- Network storage keys ---
+export const STORAGE_KEY_SELECTED_NODE = 'nom-wallet-selected-node'
+export const STORAGE_KEY_CHAIN_ID = 'nom-wallet-chain-id'
+export const STORAGE_KEY_NETWORK_ID = 'nom-wallet-network-id'
+
 /** Built-in node URLs offered in the network selector. */
 export const DEFAULT_NODES: string[] = [DEFAULT_NODE_URL, 'wss://my.hc1node.com:35998']
+
+/**
+ * Websocket connect timeout (ms) for node switches. The SDK defaults to 30s,
+ * which leaves the UI hanging that long on an unreachable node before reporting
+ * failure — 8s fails fast while still tolerating a slower-but-healthy node.
+ */
+export const CONNECT_TIMEOUT_MS = 8000
 
 // --- Momentum / block timing ---
 /** Target time between momentums (blocks), in seconds. */
@@ -58,13 +70,7 @@ export const MIN_PASSWORD_LENGTH = 12
 export const MIN_PASSWORD_SCORE = 2
 
 /** Human labels for the 0–4 password-strength score. */
-export const PASSWORD_STRENGTH_LABELS = [
-  'Very weak',
-  'Weak',
-  'Fair',
-  'Good',
-  'Strong'
-] as const
+export const PASSWORD_STRENGTH_LABELS = ['Very weak', 'Weak', 'Fair', 'Good', 'Strong'] as const
 
 /**
  * Strong Argon2id KDF params for new and upgraded wallets. Passed to the SDK's
@@ -78,5 +84,5 @@ export const KDF_CONFIG = {
   timeCost: 3,
   memoryCost: 64 * 1024,
   hashLength: 32,
-  parallelism: 4
+  parallelism: 4,
 } as const

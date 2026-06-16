@@ -11,8 +11,8 @@ import {
   Item,
   ItemContent,
   ItemDescription,
-  ItemTitle
-} from '@nom/ui'
+  ItemTitle,
+} from 'nom-ui'
 import {CheckIcon, CopyIcon, EyeIcon, TriangleAlertIcon} from 'lucide-vue-next'
 
 interface Props {
@@ -61,7 +61,8 @@ function handleConfirm() {
       <TriangleAlertIcon />
       <AlertTitle>Important: Save Your Recovery Phrase</AlertTitle>
       <AlertDescription>
-        Write down these {{ mnemonic.split(' ').length }} words in order and store them safely. This is the ONLY way to recover your wallet if you lose access.
+        Write down these {{ mnemonic.split(' ').length }} words in order and store them safely. This
+        is the ONLY way to recover your wallet if you lose access.
       </AlertDescription>
     </Alert>
 
@@ -70,7 +71,7 @@ function handleConfirm() {
       <ItemContent>
         <ItemTitle>Your Address</ItemTitle>
         <ItemDescription>
-          <div class="p-4 bg-muted rounded-md font-mono text-sm break-all">
+          <div class="rounded-md bg-muted p-4 font-mono text-sm break-all">
             {{ address }}
           </div>
         </ItemDescription>
@@ -82,35 +83,38 @@ function handleConfirm() {
     <div class="relative">
       <!-- Blur Overlay -->
       <div
-          v-if="!mnemonicVisible"
-          class="absolute inset-0 bg-background/95 backdrop-blur-sm rounded-md flex items-center justify-center z-10"
+        v-if="!mnemonicVisible"
+        class="absolute inset-0 z-10 flex items-center justify-center rounded-md bg-background/95 backdrop-blur-sm"
       >
         <Button @click="mnemonicVisible = true">
-          <EyeIcon class="h-4 w-4 mr-2" />
+          <EyeIcon class="mr-2 h-4 w-4" />
           Reveal Recovery Phrase
         </Button>
       </div>
 
       <!-- Mnemonic Grid -->
-      <div class="p-4 bg-muted rounded-md font-mono text-sm border shadow" :aria-hidden="!mnemonicVisible">
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+      <div
+        class="rounded-md border bg-muted p-4 font-mono text-sm shadow"
+        :aria-hidden="!mnemonicVisible"
+      >
+        <div class="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
           <div
-              v-for="(word, index) in mnemonic.split(' ')"
-              :key="index"
-              class="p-2 bg-background rounded"
+            v-for="(word, index) in mnemonic.split(' ')"
+            :key="index"
+            class="rounded bg-background p-2"
           >
-            <span class="text-muted-foreground mr-1">{{ index + 1 }}.</span>{{ word }}
+            <span class="mr-1 text-muted-foreground">{{ index + 1 }}.</span>{{ word }}
           </div>
         </div>
         <!-- Copy Button -->
         <Button
-            v-if="mnemonicVisible"
-            variant="outline"
-            size="sm"
-            class="w-full"
-            @click="copyMnemonic"
+          v-if="mnemonicVisible"
+          variant="outline"
+          size="sm"
+          class="w-full"
+          @click="copyMnemonic"
         >
-          <CheckIcon v-if="mnemonicCopied" class="h-4 w-4 mr-2" />
+          <CheckIcon v-if="mnemonicCopied" class="mr-2 h-4 w-4" />
           <CopyIcon v-else class="mr-2" />
           {{ mnemonicCopied ? 'Copied!' : 'Copy Recovery Phrase' }}
         </Button>
@@ -119,7 +123,11 @@ function handleConfirm() {
 
     <!-- Confirmation Checkbox -->
     <Field orientation="horizontal" v-if="showCheckbox">
-      <Checkbox v-model="mnemonicConfirmed" id="mnemonic-confirm" @update:model-value="handleConfirm" />
+      <Checkbox
+        v-model="mnemonicConfirmed"
+        id="mnemonic-confirm"
+        @update:model-value="handleConfirm"
+      />
       <FieldLabel for="mnemonic-confirm">
         I have saved my recovery phrase in a safe place
       </FieldLabel>

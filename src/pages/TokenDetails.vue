@@ -2,7 +2,7 @@
 import {computed, inject, onMounted, ref} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {formatNumber, formatTokenDisplay, useAccount, useToken, useWallet} from '@/core'
-import {Button, Card, CardContent, CardHeader, Item, ItemContent, ItemGroup, ItemSeparator,} from '@nom/ui'
+import {Button, Card, CardContent, CardHeader, Item, ItemContent, ItemGroup, ItemSeparator,} from 'nom-ui'
 import {ArrowDownCircleIcon, ArrowLeftIcon, ArrowUpCircleIcon} from 'lucide-vue-next'
 import {addNumberDecimals} from 'znn-typescript-sdk'
 
@@ -49,10 +49,7 @@ onMounted(async () => {
   await wallet.loadWalletData()
 
   if (wallet.activeAccountAddress.value) {
-    await Promise.all([
-      account.loadAccountData(),
-      token.loadTokenInfo(tokenStandard.value)
-    ])
+    await Promise.all([account.loadAccountData(), token.loadTokenInfo(tokenStandard.value)])
   }
 })
 
@@ -77,15 +74,11 @@ function handleNavigateToSendReceive(path: string) {
 
 <template>
   <!-- Full Page Overlay -->
-  <div class="fixed inset-0 bg-background z-50 overflow-y-auto">
+  <div class="fixed inset-0 z-50 overflow-y-auto bg-background">
     <!-- Header with Back Button -->
-    <div class="border-b sticky top-0 bg-background z-10">
-      <div class="container mx-auto p-4 flex items-center gap-4">
-        <Button
-          @click="goBack"
-          variant="outline"
-          title="Go back"
-        >
+    <div class="sticky top-0 z-10 border-b bg-background">
+      <div class="container mx-auto flex items-center gap-4 p-4">
+        <Button @click="goBack" variant="outline" title="Go back">
           <ArrowLeftIcon />
         </Button>
         <h1 class="text-2xl font-bold">
@@ -95,28 +88,26 @@ function handleNavigateToSendReceive(path: string) {
     </div>
 
     <!-- Content -->
-    <div class="container mx-auto p-6 max-w-4xl">
+    <div class="container mx-auto max-w-4xl p-6">
       <!-- No Account Warning -->
       <Card v-if="!wallet.activeAccountAddress.value">
-        <CardContent class="text-center py-12 text-muted-foreground">
+        <CardContent class="py-12 text-center text-muted-foreground">
           No active account. Please create or select a wallet first.
         </CardContent>
       </Card>
 
       <!-- Loading State -->
       <Card v-else-if="token.isLoading.value || account.isLoading.value">
-        <CardContent class="text-center py-12 text-muted-foreground">
+        <CardContent class="py-12 text-center text-muted-foreground">
           Loading token information...
         </CardContent>
       </Card>
 
       <!-- Error State -->
       <Card v-else-if="token.error.value || !token.tokenInfo.value">
-        <CardContent class="text-center py-12 text-muted-foreground">
+        <CardContent class="py-12 text-center text-muted-foreground">
           <p>Failed to load token information</p>
-          <Button @click="goBack" variant="outline" class="mt-4">
-            Go Back
-          </Button>
+          <Button @click="goBack" variant="outline" class="mt-4"> Go Back </Button>
         </CardContent>
       </Card>
 
@@ -125,23 +116,20 @@ function handleNavigateToSendReceive(path: string) {
         <!-- Balance Display -->
         <Card>
           <CardContent class="py-8 text-center">
-            <div class="text-sm text-muted-foreground mb-2">Your Balance</div>
-            <div
-              class="text-5xl font-mono font-bold mb-6"
-              :title="formattedBalance"
-            >
+            <div class="mb-2 text-sm text-muted-foreground">Your Balance</div>
+            <div class="mb-6 font-mono text-5xl font-bold" :title="formattedBalance">
               {{ formattedBalanceCompact }}
             </div>
-            <div class="text-xl text-muted-foreground mb-6">
+            <div class="mb-6 text-xl text-muted-foreground">
               {{ tokenBalance?.symbol || 'Unknown' }}
             </div>
 
             <!-- Action Buttons -->
-            <div class="flex gap-3 justify-center max-w-md mx-auto">
+            <div class="mx-auto flex max-w-md justify-center gap-3">
               <Button
                 @click="handleNavigateToSendReceive('/send')"
                 variant="outline"
-                class="flex-1 flex items-center justify-center gap-2 border-primary/50 hover:border-primary hover:bg-primary/10"
+                class="flex flex-1 items-center justify-center gap-2 border-primary/50 hover:border-primary hover:bg-primary/10"
               >
                 <ArrowUpCircleIcon class="text-primary" />
                 <span class="font-medium">Send</span>
@@ -150,7 +138,7 @@ function handleNavigateToSendReceive(path: string) {
               <Button
                 @click="handleNavigateToSendReceive('/receive')"
                 variant="outline"
-                class="flex-1 flex items-center justify-center gap-2 border-primary/50 hover:border-primary hover:bg-primary/10"
+                class="flex flex-1 items-center justify-center gap-2 border-primary/50 hover:border-primary hover:bg-primary/10"
               >
                 <ArrowDownCircleIcon class="text-primary" />
                 <span class="font-medium">Receive</span>
@@ -167,15 +155,21 @@ function handleNavigateToSendReceive(path: string) {
           <CardContent>
             <ItemGroup>
               <Item size="sm">
-                <ItemContent class="flex-col items-start gap-0.5 sm:flex-row sm:justify-between sm:items-center sm:gap-2">
-                  <span class="text-muted-foreground shrink-0">Name</span>
-                  <span class="font-medium break-words sm:text-right">{{ token.tokenInfo.value.name || 'N/A' }}</span>
+                <ItemContent
+                  class="flex-col items-start gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2"
+                >
+                  <span class="shrink-0 text-muted-foreground">Name</span>
+                  <span class="font-medium break-words sm:text-right">{{
+                    token.tokenInfo.value.name || 'N/A'
+                  }}</span>
                 </ItemContent>
               </Item>
               <ItemSeparator />
 
               <Item size="sm">
-                <ItemContent class="flex-col items-start gap-0.5 sm:flex-row sm:justify-between sm:items-center sm:gap-2">
+                <ItemContent
+                  class="flex-col items-start gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2"
+                >
                   <span class="text-muted-foreground">Symbol</span>
                   <span class="font-medium">{{ token.tokenInfo.value.symbol || 'N/A' }}</span>
                 </ItemContent>
@@ -183,15 +177,19 @@ function handleNavigateToSendReceive(path: string) {
               <ItemSeparator />
 
               <Item size="sm">
-                <ItemContent class="flex-col items-start gap-0.5 sm:flex-row sm:justify-between sm:items-center sm:gap-2">
-                  <span class="text-muted-foreground shrink-0">Token Standard</span>
+                <ItemContent
+                  class="flex-col items-start gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2"
+                >
+                  <span class="shrink-0 text-muted-foreground">Token Standard</span>
                   <span class="font-mono text-sm break-all sm:text-right">{{ tokenStandard }}</span>
                 </ItemContent>
               </Item>
               <ItemSeparator />
 
               <Item size="sm">
-                <ItemContent class="flex-col items-start gap-0.5 sm:flex-row sm:justify-between sm:items-center sm:gap-2">
+                <ItemContent
+                  class="flex-col items-start gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2"
+                >
                   <span class="text-muted-foreground">Decimals</span>
                   <span class="font-medium">{{ token.tokenInfo.value.decimals }}</span>
                 </ItemContent>
@@ -199,34 +197,64 @@ function handleNavigateToSendReceive(path: string) {
               <ItemSeparator />
 
               <Item size="sm">
-                <ItemContent class="flex-col items-start gap-0.5 sm:flex-row sm:justify-between sm:items-center sm:gap-2">
-                  <span class="text-muted-foreground shrink-0">Total Supply</span>
+                <ItemContent
+                  class="flex-col items-start gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2"
+                >
+                  <span class="shrink-0 text-muted-foreground">Total Supply</span>
                   <span
                     class="font-mono break-all sm:text-right"
-                    :title="addNumberDecimals(token.tokenInfo.value.totalSupply.toString(), token.tokenInfo.value.decimals)"
+                    :title="
+                      addNumberDecimals(
+                        token.tokenInfo.value.totalSupply.toString(),
+                        token.tokenInfo.value.decimals
+                      )
+                    "
                   >
-                    {{ formatTokenDisplay(addNumberDecimals(token.tokenInfo.value.totalSupply.toString(), token.tokenInfo.value.decimals)) }}
+                    {{
+                      formatTokenDisplay(
+                        addNumberDecimals(
+                          token.tokenInfo.value.totalSupply.toString(),
+                          token.tokenInfo.value.decimals
+                        )
+                      )
+                    }}
                   </span>
                 </ItemContent>
               </Item>
               <ItemSeparator />
 
               <Item size="sm">
-                <ItemContent class="flex-col items-start gap-0.5 sm:flex-row sm:justify-between sm:items-center sm:gap-2">
-                  <span class="text-muted-foreground shrink-0">Max Supply</span>
+                <ItemContent
+                  class="flex-col items-start gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2"
+                >
+                  <span class="shrink-0 text-muted-foreground">Max Supply</span>
                   <span
                     class="font-mono break-all sm:text-right"
-                    :title="addNumberDecimals(token.tokenInfo.value.maxSupply.toString(), token.tokenInfo.value.decimals)"
+                    :title="
+                      addNumberDecimals(
+                        token.tokenInfo.value.maxSupply.toString(),
+                        token.tokenInfo.value.decimals
+                      )
+                    "
                   >
-                    {{ formatTokenDisplay(addNumberDecimals(token.tokenInfo.value.maxSupply.toString(), token.tokenInfo.value.decimals)) }}
+                    {{
+                      formatTokenDisplay(
+                        addNumberDecimals(
+                          token.tokenInfo.value.maxSupply.toString(),
+                          token.tokenInfo.value.decimals
+                        )
+                      )
+                    }}
                   </span>
                 </ItemContent>
               </Item>
               <ItemSeparator />
 
               <Item size="sm">
-                <ItemContent class="flex-col items-start gap-0.5 sm:flex-row sm:justify-between sm:items-start sm:gap-2">
-                  <span class="text-muted-foreground shrink-0">Owner</span>
+                <ItemContent
+                  class="flex-col items-start gap-0.5 sm:flex-row sm:items-start sm:justify-between sm:gap-2"
+                >
+                  <span class="shrink-0 text-muted-foreground">Owner</span>
                   <span class="font-mono text-sm break-all sm:text-right">
                     {{ token.tokenInfo.value.owner.toString() }}
                   </span>
@@ -236,7 +264,9 @@ function handleNavigateToSendReceive(path: string) {
 
               <template v-if="token.tokenInfo.value.domain">
                 <Item size="sm">
-                  <ItemContent class="flex-col items-start gap-0.5 sm:flex-row sm:justify-between sm:items-center sm:gap-2">
+                  <ItemContent
+                    class="flex-col items-start gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2"
+                  >
                     <span class="text-muted-foreground">Domain</span>
                     <span class="font-medium">{{ token.tokenInfo.value.domain }}</span>
                   </ItemContent>
@@ -245,25 +275,37 @@ function handleNavigateToSendReceive(path: string) {
               </template>
 
               <Item size="sm">
-                <ItemContent class="flex-col items-start gap-0.5 sm:flex-row sm:justify-between sm:items-center sm:gap-2">
+                <ItemContent
+                  class="flex-col items-start gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2"
+                >
                   <span class="text-muted-foreground">Mintable</span>
-                  <span class="font-medium">{{ token.tokenInfo.value.isMintable ? 'Yes' : 'No' }}</span>
+                  <span class="font-medium">{{
+                    token.tokenInfo.value.isMintable ? 'Yes' : 'No'
+                  }}</span>
                 </ItemContent>
               </Item>
               <ItemSeparator />
 
               <Item size="sm">
-                <ItemContent class="flex-col items-start gap-0.5 sm:flex-row sm:justify-between sm:items-center sm:gap-2">
+                <ItemContent
+                  class="flex-col items-start gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2"
+                >
                   <span class="text-muted-foreground">Burnable</span>
-                  <span class="font-medium">{{ token.tokenInfo.value.isBurnable ? 'Yes' : 'No' }}</span>
+                  <span class="font-medium">{{
+                    token.tokenInfo.value.isBurnable ? 'Yes' : 'No'
+                  }}</span>
                 </ItemContent>
               </Item>
               <ItemSeparator />
 
               <Item size="sm">
-                <ItemContent class="flex-col items-start gap-0.5 sm:flex-row sm:justify-between sm:items-center sm:gap-2">
+                <ItemContent
+                  class="flex-col items-start gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2"
+                >
                   <span class="text-muted-foreground">Utility</span>
-                  <span class="font-medium">{{ token.tokenInfo.value.isUtility ? 'Yes' : 'No' }}</span>
+                  <span class="font-medium">{{
+                    token.tokenInfo.value.isUtility ? 'Yes' : 'No'
+                  }}</span>
                 </ItemContent>
               </Item>
             </ItemGroup>

@@ -19,8 +19,8 @@ import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
-  InputGroupInput
-} from '@nom/ui'
+  InputGroupInput,
+} from 'nom-ui'
 import {
   CheckIcon,
   EyeIcon,
@@ -31,7 +31,7 @@ import {
   MoreVerticalIcon,
   PencilIcon,
   PlusIcon,
-  TrashIcon
+  TrashIcon,
 } from 'lucide-vue-next'
 
 interface Props {
@@ -84,19 +84,22 @@ function isUnlocked(address: string): boolean {
 }
 
 // Watch for wallet unlock to proceed with pending actions
-watch(() => props.unlockedWallets, (newUnlockedWallets) => {
-  // Handle pending export
-  if (pendingExportAddress.value && newUnlockedWallets.includes(pendingExportAddress.value)) {
-    emit('exportMnemonic', pendingExportAddress.value)
-    pendingExportAddress.value = null
-  }
+watch(
+  () => props.unlockedWallets,
+  (newUnlockedWallets) => {
+    // Handle pending export
+    if (pendingExportAddress.value && newUnlockedWallets.includes(pendingExportAddress.value)) {
+      emit('exportMnemonic', pendingExportAddress.value)
+      pendingExportAddress.value = null
+    }
 
-  // Handle pending derive account
-  if (pendingDeriveAddress.value && newUnlockedWallets.includes(pendingDeriveAddress.value)) {
-    emit('deriveAccount', pendingDeriveAddress.value)
-    pendingDeriveAddress.value = null
+    // Handle pending derive account
+    if (pendingDeriveAddress.value && newUnlockedWallets.includes(pendingDeriveAddress.value)) {
+      emit('deriveAccount', pendingDeriveAddress.value)
+      pendingDeriveAddress.value = null
+    }
   }
-})
+)
 
 function handleExportMnemonic(address: string) {
   // If wallet is locked, unlock it first and track pending export
@@ -161,48 +164,43 @@ function handleAddWalletCancel() {
 
 <template>
   <div class="space-y-3">
-    <div
-      v-for="wallet in wallets"
-      :key="wallet.baseAddress"
-    >
+    <div v-for="wallet in wallets" :key="wallet.baseAddress">
       <div class="pb-3">
         <div class="flex items-start justify-between gap-3">
           <!-- Left: Wallet Info -->
-          <div class="flex-1 min-w-0">
+          <div class="min-w-0 flex-1">
             <!-- Wallet Name (Editable) -->
-            <div v-if="editingWalletAddress === wallet.baseAddress" class="flex items-center gap-2 mb-2">
+            <div
+              v-if="editingWalletAddress === wallet.baseAddress"
+              class="mb-2 flex items-center gap-2"
+            >
               <InputGroup>
                 <InputGroupInput
-                    v-model="editingWalletName"
-                    @keyup.enter="saveEdit(wallet.baseAddress)"
-                    @keyup.esc="cancelEdit"
+                  v-model="editingWalletName"
+                  @keyup.enter="saveEdit(wallet.baseAddress)"
+                  @keyup.esc="cancelEdit"
                 />
                 <InputGroupAddon align="inline-end">
                   <InputGroupButton
-                      aria-label="Save"
-                      title="Save"
-                      size="icon-xs"
-                      @click="saveEdit(wallet.baseAddress)"
+                    aria-label="Save"
+                    title="Save"
+                    size="icon-xs"
+                    @click="saveEdit(wallet.baseAddress)"
                   >
                     <CheckIcon />
                   </InputGroupButton>
                 </InputGroupAddon>
               </InputGroup>
             </div>
-            <div v-else class="flex items-center gap-2 mb-2">
-              <h3 class="text-lg font-semibold truncate">{{ wallet.name }}</h3>
-              <Button
-                  size="sm"
-                  variant="ghost"
-                  @click="startEdit(wallet)"
-                  class="h-6 w-6 p-0"
-              >
+            <div v-else class="mb-2 flex items-center gap-2">
+              <h3 class="truncate text-lg font-semibold">{{ wallet.name }}</h3>
+              <Button size="sm" variant="ghost" @click="startEdit(wallet)" class="h-6 w-6 p-0">
                 <PencilIcon class="h-3 w-3" />
               </Button>
             </div>
 
             <!-- Wallet Address -->
-            <p class="text-sm text-muted-foreground font-mono">
+            <p class="font-mono text-sm text-muted-foreground">
               {{ truncateAddress(wallet.baseAddress) }}
             </p>
           </div>
@@ -230,9 +228,7 @@ function handleAddWalletCancel() {
             <LockOpenIcon />
             Lock
           </Button>
-          <Button
-              variant="outline"
-              @click="handleDeriveAccount(wallet.baseAddress)">
+          <Button variant="outline" @click="handleDeriveAccount(wallet.baseAddress)">
             <PlusIcon class="mr-1" />
             Account
           </Button>
@@ -249,15 +245,17 @@ function handleAddWalletCancel() {
                 v-if="hiddenAccountCount(wallet) > 0"
                 @click="toggleShowHidden(wallet.baseAddress)"
               >
-                <EyeOffIcon v-if="!showHiddenByWallet[wallet.baseAddress]" class="h-4 w-4 mr-2" />
-                <EyeIcon v-else class="h-4 w-4 mr-2" />
-                {{ showHiddenByWallet[wallet.baseAddress] ? 'Hide hidden accounts' : `Show ${hiddenAccountCount(wallet)} hidden account${hiddenAccountCount(wallet) === 1 ? '' : 's'}` }}
+                <EyeOffIcon v-if="!showHiddenByWallet[wallet.baseAddress]" class="mr-2 h-4 w-4" />
+                <EyeIcon v-else class="mr-2 h-4 w-4" />
+                {{
+                  showHiddenByWallet[wallet.baseAddress]
+                    ? 'Hide hidden accounts'
+                    : `Show ${hiddenAccountCount(wallet)} hidden account${hiddenAccountCount(wallet) === 1 ? '' : 's'}`
+                }}
               </DropdownMenuItem>
               <DropdownMenuSeparator v-if="hiddenAccountCount(wallet) > 0" />
-              <DropdownMenuItem
-                @click="handleExportMnemonic(wallet.baseAddress)"
-              >
-                <KeyIcon class="h-4 w-4 mr-2" />
+              <DropdownMenuItem @click="handleExportMnemonic(wallet.baseAddress)">
+                <KeyIcon class="mr-2 h-4 w-4" />
                 Export Mnemonic
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -265,7 +263,7 @@ function handleAddWalletCancel() {
                 class="text-destructive focus:text-destructive"
                 @click="emit('delete', wallet.baseAddress)"
               >
-                <TrashIcon class="h-4 w-4 mr-2" />
+                <TrashIcon class="mr-2 h-4 w-4" />
                 Delete Wallet
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -282,8 +280,12 @@ function handleAddWalletCancel() {
           compact
           @derive-account="emit('deriveAccount', wallet.baseAddress)"
           @select-account="(address) => emit('selectAccount', address)"
-          @rename-account="(address, newLabel) => emit('renameAccount', wallet.baseAddress, address, newLabel)"
-          @toggle-hidden="(address, hidden) => emit('toggleHidden', wallet.baseAddress, address, hidden)"
+          @rename-account="
+            (address, newLabel) => emit('renameAccount', wallet.baseAddress, address, newLabel)
+          "
+          @toggle-hidden="
+            (address, hidden) => emit('toggleHidden', wallet.baseAddress, address, hidden)
+          "
         />
       </div>
     </div>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {computed, onMounted, ref, watch} from 'vue'
 import {useAccount, usePillar, useWallet} from '@/core'
-import {Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useToast,} from '@nom/ui'
+import {Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useToast,} from 'nom-ui'
 import PillarList from './PillarList.vue'
 
 export interface PillarTabProps {
@@ -33,11 +33,14 @@ onMounted(async () => {
 })
 
 // Load pillars when tab becomes active
-watch(() => props.isActive, async (isActive) => {
-  if (isActive && pillar.pillars.value.length === 0) {
-    await pillar.loadPillars()
+watch(
+  () => props.isActive,
+  async (isActive) => {
+    if (isActive && pillar.pillars.value.length === 0) {
+      await pillar.loadPillars()
+    }
   }
-})
+)
 
 // Filter and sort pillars
 const filteredPillars = computed(() => {
@@ -78,8 +81,14 @@ async function handleDelegate(pillarName: string) {
   delegatingToPillar.value = pillarName
 
   try {
-    const shouldUndelegate = account.delegatedPillar.value !== null && account.delegatedPillar.value !== pillarName
-    await pillar.delegateToPillar(wallet.activeWallet.value, props.activeAccountAddress, pillarName, shouldUndelegate)
+    const shouldUndelegate =
+      account.delegatedPillar.value !== null && account.delegatedPillar.value !== pillarName
+    await pillar.delegateToPillar(
+      wallet.activeWallet.value,
+      props.activeAccountAddress,
+      pillarName,
+      shouldUndelegate
+    )
     toast.show('Successfully delegated to pillar', 'success')
     emit('delegationSuccess')
   } catch (err) {
@@ -94,17 +103,14 @@ async function handleDelegate(pillarName: string) {
 <template>
   <div class="space-y-4">
     <!-- Search and Sort Controls -->
-    <div class="flex flex-col sm:flex-row gap-2">
+    <div class="flex flex-col gap-2 sm:flex-row">
       <Input
         v-model="searchQuery"
         placeholder="Search pillars by name..."
         class="w-full sm:flex-1"
         :disabled="pillar.isLoading.value || pillar.isDelegating.value"
       />
-      <Select
-        v-model="sortBy"
-        :disabled="pillar.isLoading.value || pillar.isDelegating.value"
-      >
+      <Select v-model="sortBy" :disabled="pillar.isLoading.value || pillar.isDelegating.value">
         <SelectTrigger class="sm:w-[160px]">
           <SelectValue placeholder="Sort by..." />
         </SelectTrigger>
@@ -116,7 +122,7 @@ async function handleDelegate(pillarName: string) {
     </div>
 
     <!-- Loading State -->
-    <div v-if="pillar.isLoading.value" class="text-center py-8 text-muted-foreground">
+    <div v-if="pillar.isLoading.value" class="py-8 text-center text-muted-foreground">
       Loading pillars and calculating APRs...
     </div>
 

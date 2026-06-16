@@ -26,7 +26,7 @@ export class AccountService {
   }
 
   // Get account balance information
-  async getAccountInfo(address: string): Promise<AccountInfo|null> {
+  async getAccountInfo(address: string): Promise<AccountInfo | null> {
     await this.ensureInitialized()
     const addr = Address.parse(address)
     return await this.zenon.ledger.getAccountInfoByAddress(addr)

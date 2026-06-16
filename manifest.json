@@ -5,6 +5,7 @@
   "description": "A secure cryptocurrency wallet for the Zenon Network of Momentum.",
   "minimum_chrome_version": "116",
   "permissions": ["storage"],
+  "host_permissions": ["https://plazma.bot/*"],
   "action": {
     "default_popup": "index.html",
     "default_title": "NoM Wallet"

@@ -2,7 +2,7 @@
 import {computed, ref} from 'vue'
 import type {PlasmaLevel} from '@/core'
 import {ZapIcon} from 'lucide-vue-next'
-import {useScrollFade} from '@nom/ui'
+import {useScrollFade} from 'nom-ui'
 
 export interface WalletStatsProps {
   tokenCount: number
@@ -35,11 +35,11 @@ const getPlasmaColor = () => {
 </script>
 
 <template>
-  <div class="px-4 py-3 border rounded-lg bg-muted/30">
+  <div class="rounded-lg border bg-muted/30 px-4 py-3">
     <div
       ref="scrollRef"
       :style="maskStyle"
-      class="flex items-center gap-6 text-sm overflow-x-auto overflow-y-hidden touch-pan-x [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+      class="flex touch-pan-x [scrollbar-width:none] items-center gap-6 overflow-x-auto overflow-y-hidden text-sm [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
     >
       <!-- Account Height -->
       <div class="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
@@ -57,7 +57,7 @@ const getPlasmaColor = () => {
       <div class="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
         <span class="text-muted-foreground">Plasma:</span>
         <div class="flex items-center gap-1">
-          <ZapIcon :class="['w-4 h-4', getPlasmaColor()]" />
+          <ZapIcon :class="['h-4 w-4', getPlasmaColor()]" />
           <span class="font-medium capitalize">{{ plasmaLevel }}</span>
         </div>
       </div>
@@ -70,8 +70,8 @@ const getPlasmaColor = () => {
 
       <!-- Rewards -->
       <div v-if="hasRewards" class="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
-        <span class="text-primary font-medium">Pending Rewards</span>
-        <span class="w-2 h-2 bg-primary rounded-full animate-pulse" />
+        <span class="font-medium text-primary">Pending Rewards</span>
+        <span class="h-2 w-2 animate-pulse rounded-full bg-primary" />
       </div>
     </div>
   </div>

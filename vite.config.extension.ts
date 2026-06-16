@@ -20,8 +20,6 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@nom/ui/style.css': resolve(__dirname, './packages/ui/src/style.css'),
-      '@nom/ui': resolve(__dirname, './packages/ui/src'),
       '@': resolve(__dirname, './src'),
     },
   },

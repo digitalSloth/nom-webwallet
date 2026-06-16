@@ -15,8 +15,8 @@ import {
   PopoverTrigger,
   Toaster,
   useTheme,
-  useToast
-} from '@nom/ui'
+  useToast,
+} from 'nom-ui'
 import NetworkIndicator from '@/components/NetworkIndicator.vue'
 import SettingsDialog from '@/components/SettingsDialog.vue'
 import UnlockWalletDialog from '@/components/UnlockWalletDialog.vue'
@@ -76,34 +76,43 @@ onMounted(async () => {
 })
 
 // Watch for route changes to reload wallet data (in case user just finished setup)
-watch(() => route.path, async (newPath) => {
-  if (newPath !== '/setup') {
-    await wallet.loadWalletData()
+watch(
+  () => route.path,
+  async (newPath) => {
+    if (newPath !== '/setup') {
+      await wallet.loadWalletData()
 
-    // Initialize network if we have wallets
-    if (wallet.hasWallets.value) {
-      await network.initialize()
+      // Initialize network if we have wallets
+      if (wallet.hasWallets.value) {
+        await network.initialize()
+      }
+
+      if (wallet.activeAccountAddress.value) {
+        await account.loadAccountData()
+      }
     }
+  }
+)
 
-    if (wallet.activeAccountAddress.value) {
+// Watch for active account changes to update account data
+watch(
+  () => wallet.activeAccountAddress.value,
+  async (newAddress) => {
+    if (newAddress) {
       await account.loadAccountData()
     }
   }
-})
-
-// Watch for active account changes to update account data
-watch(() => wallet.activeAccountAddress.value, async (newAddress) => {
-  if (newAddress) {
-    await account.loadAccountData()
-  }
-})
+)
 
 // Watch for wallet deletion - redirect to setup if no wallets remain
-watch(() => wallet.hasWallets.value, (hasWallets) => {
-  if (!hasWallets && route.path !== '/setup') {
-    router.push('/setup')
+watch(
+  () => wallet.hasWallets.value,
+  (hasWallets) => {
+    if (!hasWallets && route.path !== '/setup') {
+      router.push('/setup')
+    }
   }
-})
+)
 
 // The router guard redirects a locked user off a protected route to "/" with
 // ?unlock=<target>. Open the unlock dialog for that target, then clear the query.
@@ -126,7 +135,10 @@ async function handleUnlock(address: string, password: string) {
     await wallet.unlockWallet(address, password)
   } catch (error) {
     console.error('Failed to unlock wallet:', error)
-    const errorMessage = error instanceof Error ? error.message : 'Failed to unlock wallet. Please check your password.'
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : 'Failed to unlock wallet. Please check your password.'
     settingsDialogRef.value?.setUnlockError(errorMessage)
   }
 }
@@ -149,9 +161,10 @@ async function handleQuickUnlock(password: string) {
       pendingNavigation.value = null
     }
   } catch (error) {
-    unlockError.value = error instanceof Error
-      ? error.message
-      : 'Failed to unlock wallet. Please check your password.'
+    unlockError.value =
+      error instanceof Error
+        ? error.message
+        : 'Failed to unlock wallet. Please check your password.'
   }
 }
 
@@ -160,7 +173,6 @@ function handleCancelUnlock() {
   unlockError.value = null
   pendingNavigation.value = null
 }
-
 
 function handleLock(address: string) {
   wallet.lockWallet(address)
@@ -225,7 +237,18 @@ async function handleToggleAccountHidden(
 }
 
 async function handleNetworkChange(nodeUrl: string) {
+  // NetworkSelector calls network.changeNode() directly before emitting 'select',
+  // so skip if already on this node to avoid a redundant disconnect/reconnect.
+  if (nodeUrl === network.currentNode.value) return
   await network.changeNode(nodeUrl)
+}
+
+async function handleNetworkConfigChange(chainId: number, networkId: number) {
+  // NetworkSelector calls network.updateNetworkConfig() directly (and reports
+  // the result) before emitting, so skip if the config already matches to avoid
+  // a redundant SDK update and storage write.
+  if (chainId === network.chainId.value && networkId === network.networkId.value) return
+  await network.updateNetworkConfig(chainId, networkId)
 }
 
 function handleThemeToggle() {
@@ -247,39 +270,46 @@ async function handleWalletAdded(address: string) {
     <!-- Only show header if not on setup page -->
     <template v-if="route.path !== '/setup'">
       <header class="border-b p-4">
-        <div class="container mx-auto flex justify-between items-center">
+        <div class="container mx-auto flex items-center justify-between">
           <!-- Left: Wallet Name, Account Selector, and Address -->
           <div class="flex items-center gap-3">
             <div>
               <div class="flex items-center gap-2">
-                <h1 class="text-xl font-bold">{{ wallet.activeWallet.value?.name || 'NoM Wallet' }}</h1>
+                <h1 class="text-xl font-bold">
+                  {{ wallet.activeWallet.value?.name || 'NoM Wallet' }}
+                </h1>
 
                 <!-- Account Selector Popover -->
                 <Popover v-model:open="showAccountSelector">
                   <PopoverTrigger as-child>
                     <button
-                      class="text-muted-foreground hover:text-foreground transition-colors p-1"
+                      class="p-1 text-muted-foreground transition-colors hover:text-foreground"
                       title="Select Account"
                     >
-                      <ChevronDownIcon/>
+                      <ChevronDownIcon />
                     </button>
                   </PopoverTrigger>
                   <PopoverContent align="start" class="p-3">
                     <AccountList
                       v-if="wallet.activeWallet.value"
-                      :accounts="wallet.activeWallet.value.accounts.filter(a => !a.hidden)"
+                      :accounts="wallet.activeWallet.value.accounts.filter((a) => !a.hidden)"
                       :active-account-address="wallet.activeAccountAddress.value"
                       :can-derive="false"
                       compact
-                      @select-account="(address) => {
-                        handleSelectAccount(address)
-                        showAccountSelector = false
-                      }"
+                      @select-account="
+                        (address) => {
+                          handleSelectAccount(address)
+                          showAccountSelector = false
+                        }
+                      "
                     />
                   </PopoverContent>
                 </Popover>
               </div>
-              <p v-if="wallet.activeAccountAddress.value" class="text-sm text-muted-foreground font-mono">
+              <p
+                v-if="wallet.activeAccountAddress.value"
+                class="font-mono text-sm text-muted-foreground"
+              >
                 {{ truncateAddress(wallet.activeAccountAddress.value) }}
               </p>
             </div>
@@ -291,34 +321,32 @@ async function handleWalletAdded(address: string) {
             <button
               v-if="wallet.isActiveWalletUnlocked.value"
               @click="handleLock(wallet.activeWallet.value!.baseAddress)"
-              class="text-zenon-green hover:text-zenon-green/80 transition-colors p-2"
+              class="p-2 text-zenon-green transition-colors hover:text-zenon-green/80"
               title="Lock Wallet"
             >
-              <LockOpenIcon class="w-5 h-5" />
+              <LockOpenIcon class="h-5 w-5" />
             </button>
             <button
               v-else-if="wallet.activeWallet.value"
               @click="() => requestUnlock()"
-              class="text-muted-foreground hover:text-foreground transition-colors p-2"
+              class="p-2 text-muted-foreground transition-colors hover:text-foreground"
               title="Unlock Wallet"
             >
-              <LockIcon class="w-5 h-5" />
+              <LockIcon class="h-5 w-5" />
             </button>
 
             <!-- Network Indicator (read-only) -->
             <div class="p-2">
-              <NetworkIndicator
-                :connected="network.isConnected.value"
-              />
+              <NetworkIndicator :connected="network.isConnected.value" />
             </div>
 
             <!-- Settings Button -->
             <button
               @click="showSettings = true"
-              class="text-muted-foreground hover:text-foreground transition-colors p-2"
+              class="p-2 text-muted-foreground transition-colors hover:text-foreground"
               title="Settings"
             >
-              <SettingsIcon/>
+              <SettingsIcon />
             </button>
           </div>
         </div>
@@ -362,6 +390,7 @@ async function handleWalletAdded(address: string) {
       @rename-account="handleRenameAccount"
       @toggle-account-hidden="handleToggleAccountHidden"
       @select-network="handleNetworkChange"
+      @update-network-config="handleNetworkConfigChange"
       @toggle-theme="handleThemeToggle"
       @wallet-added="handleWalletAdded"
     />

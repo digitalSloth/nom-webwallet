@@ -1,4 +1,4 @@
-import {AccountBlockTemplate, Address, Hash, KeyPair, TokenStandard, Zenon} from 'znn-typescript-sdk'
+import {AccountBlockTemplate, Address, Hash, KeyPair, TokenStandard, Zenon,} from 'znn-typescript-sdk'
 import {ZenonService} from './zenon-service'
 
 export class TransactionService {
@@ -47,7 +47,10 @@ export class TransactionService {
   }
 
   // Send an embedded contract block (for rewards, staking, etc)
-  async sendEmbeddedContractBlock(block: AccountBlockTemplate, keyPair: KeyPair): Promise<AccountBlockTemplate> {
+  async sendEmbeddedContractBlock(
+    block: AccountBlockTemplate,
+    keyPair: KeyPair
+  ): Promise<AccountBlockTemplate> {
     await this.ensureInitialized()
     return await this.zenon.send(block, keyPair)
   }

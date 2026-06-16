@@ -9,4 +9,5 @@ dist-extension.zip
 *.log
 .env
 .air
+.pipeline/
 docs/superpowers/

@@ -1,4 +1,6 @@
-@import "@nom/ui/style.css";
+@import "tailwindcss";
+@import "nom-ui/style.css";
+@source "../node_modules/nom-ui/src";
 
 /* Browser-extension popup: give the document a fixed width (and a sensible
    min-height) so Chrome doesn't size the popup to content — which otherwise
@@ -10,4 +12,3 @@ html.is-extension body {
   width: 400px;
   min-height: 600px;
 }
-

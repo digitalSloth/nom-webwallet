@@ -21,7 +21,7 @@ Your keys stay on your device. Wallets are encrypted with a password you choose,
 ### Prerequisites
 
 - **Node.js** 20.19+ or 22.12+ (required by Vite 7)
-- **npm** 7+ (required for workspaces)
+- **npm** (used to install dependencies, including `nom-ui` from GitHub)
 
 ### Install
 
@@ -64,17 +64,17 @@ Sending a transaction requires the active wallet to be unlocked — if it's lock
 
 ## Scripts
 
-| Command | Description |
-| --- | --- |
-| `npm run dev` | Start the web app dev server (`localhost:5173`) |
-| `npm run dev:extension` | Build the extension in watch mode |
-| `npm run build` | Production build of the web app → `dist/` |
+| Command                   | Description                                           |
+| ------------------------- | ----------------------------------------------------- |
+| `npm run dev`             | Start the web app dev server (`localhost:5173`)       |
+| `npm run dev:extension`   | Build the extension in watch mode                     |
+| `npm run build`           | Production build of the web app → `dist/`             |
 | `npm run build:extension` | Production build of the extension → `dist-extension/` |
-| `npm run preview` | Preview the production web build |
-| `npm run typecheck` | Type-check with `vue-tsc` |
-| `npm run lint` | Run ESLint |
-| `npm run lint:fix` | Run ESLint with autofix |
-| `npm run format` | Format with Prettier |
+| `npm run preview`         | Preview the production web build                      |
+| `npm run typecheck`       | Type-check with `vue-tsc`                             |
+| `npm run lint`            | Run ESLint                                            |
+| `npm run lint:fix`        | Run ESLint with autofix                               |
+| `npm run format`          | Format with Prettier                                  |
 
 > There is no automated test suite. TypeScript strict mode, `typecheck`, and `lint` are the correctness checks.
 
@@ -84,7 +84,7 @@ Sending a transaction requires the active wallet to be unlocked — if it's lock
 - **Tailwind CSS 4** with **shadcn-vue** / **Reka UI** components
 - **TypeScript** (strict mode)
 - **znn-typescript-sdk** for Zenon Network connectivity
-- **npm workspaces** monorepo (`@nom/ui` shared component library)
+- **nom-ui** — external shadcn-vue shared component library (`github:digitalSloth/nom-ui`)
 
 ## Project Layout
 
@@ -96,7 +96,6 @@ nom-webwallet/
 │   ├── pages/                # Routed views
 │   ├── App.vue / main.ts     # App shell and entry point
 │   └── background.ts         # Extension service worker
-├── packages/ui/              # Shared shadcn-vue component library (@nom/ui)
 ├── vite.config.web.ts        # Web build config
 ├── vite.config.extension.ts  # Extension build config
 └── manifest.json             # Chrome extension manifest (MV3)

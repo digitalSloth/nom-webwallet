@@ -4,7 +4,7 @@ import type {RewardType} from '@/core'
 import {formatNumber, useRewards, useWallet} from '@/core'
 import {addNumberDecimals} from 'znn-typescript-sdk'
 import RewardsList from './RewardsList.vue'
-import {Button} from '@nom/ui'
+import {Button} from 'nom-ui'
 
 interface RewardsTabProps {
   activeAccountAddress: string | null
@@ -14,7 +14,7 @@ interface RewardsTabProps {
 
 const props = withDefaults(defineProps<RewardsTabProps>(), {
   isActive: false,
-  isWalletLocked: false
+  isWalletLocked: false,
 })
 
 const emit = defineEmits<{
@@ -40,12 +40,18 @@ const totalQsrRewards = computed(() => {
   return addNumberDecimals(total.toString(), 8)
 })
 
-const formattedZnnRewards = computed(() => formatNumber(totalZnnRewards.value, { decimals: 2, compact: true }))
-const formattedQsrRewards = computed(() => formatNumber(totalQsrRewards.value, { decimals: 2, compact: true }))
+const formattedZnnRewards = computed(() =>
+  formatNumber(totalZnnRewards.value, { decimals: 2, compact: true })
+)
+const formattedQsrRewards = computed(() =>
+  formatNumber(totalQsrRewards.value, { decimals: 2, compact: true })
+)
 
 const hasAnyRewards = computed(() => {
-  return BigInt(totalZnnRewards.value.replace(/\./g, '')) > 0n ||
-         BigInt(totalQsrRewards.value.replace(/\./g, '')) > 0n
+  return (
+    BigInt(totalZnnRewards.value.replace(/\./g, '')) > 0n ||
+    BigInt(totalQsrRewards.value.replace(/\./g, '')) > 0n
+  )
 })
 
 // Load on mount if active and account exists
@@ -56,18 +62,24 @@ onMounted(async () => {
 })
 
 // Watch for when the tab becomes active
-watch(() => props.isActive, async (isActive) => {
-  if (isActive && props.activeAccountAddress) {
-    await loadRewards()
+watch(
+  () => props.isActive,
+  async (isActive) => {
+    if (isActive && props.activeAccountAddress) {
+      await loadRewards()
+    }
   }
-})
+)
 
 // Watch for account changes
-watch(() => props.activeAccountAddress, async (newAddress) => {
-  if (newAddress && props.isActive) {
-    await loadRewards()
+watch(
+  () => props.activeAccountAddress,
+  async (newAddress) => {
+    if (newAddress && props.isActive) {
+      await loadRewards()
+    }
   }
-})
+)
 
 async function loadRewards() {
   await rewards.loadRewards(props.activeAccountAddress)
@@ -90,7 +102,11 @@ async function collectReward(type: RewardType) {
     emit('showToast', `Successfully collected ${type} rewards!`, 'success')
   } catch (error) {
     console.error('Failed to collect reward:', error)
-    emit('showToast', `Failed to collect reward: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error')
+    emit(
+      'showToast',
+      `Failed to collect reward: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      'error'
+    )
   }
 }
 
@@ -110,8 +126,10 @@ async function collectAllRewards() {
   const rewardTypes = [...rewards.rewards.value]
   for (const reward of rewardTypes) {
     // Skip if no rewards
-    if (BigInt(reward.reward.znnAmount.toString()) === 0n &&
-        BigInt(reward.reward.qsrAmount.toString()) === 0n) {
+    if (
+      BigInt(reward.reward.znnAmount.toString()) === 0n &&
+      BigInt(reward.reward.qsrAmount.toString()) === 0n
+    ) {
       continue
     }
 
@@ -119,7 +137,7 @@ async function collectAllRewards() {
       await rewards.collectReward(activeWallet, accountAddress, reward.type)
       successCount++
       // Small delay between collections
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      await new Promise((resolve) => setTimeout(resolve, 1000))
     } catch (error) {
       console.error(`Failed to collect ${reward.type} reward:`, error)
       failCount++
@@ -130,7 +148,11 @@ async function collectAllRewards() {
 
   if (successCount > 0) {
     emit('rewardsCollected')
-    emit('showToast', `Successfully collected ${successCount} reward(s)${failCount > 0 ? `, ${failCount} failed` : ''}`, 'success')
+    emit(
+      'showToast',
+      `Successfully collected ${successCount} reward(s)${failCount > 0 ? `, ${failCount} failed` : ''}`,
+      'success'
+    )
   } else if (failCount > 0) {
     emit('showToast', 'Failed to collect all rewards', 'error')
   }
@@ -139,43 +161,43 @@ async function collectAllRewards() {
 
 <template>
   <div>
-    <div v-if="rewards.isLoading.value" class="text-center py-8 text-muted-foreground">
+    <div v-if="rewards.isLoading.value" class="py-8 text-center text-muted-foreground">
       Loading rewards...
     </div>
     <div v-else class="space-y-6">
       <!-- Total Rewards Summary -->
       <div v-if="hasAnyRewards" class="space-y-3">
         <div class="flex items-center justify-between">
-          <div class="font-semibold text-lg">Total Uncollected Rewards</div>
+          <div class="text-lg font-semibold">Total Uncollected Rewards</div>
           <Button
-              size="sm"
-              :disabled="rewards.isCollecting.value || isWalletLocked"
-              @click="collectAllRewards"
+            size="sm"
+            :disabled="rewards.isCollecting.value || isWalletLocked"
+            @click="collectAllRewards"
           >
             {{ rewards.isCollecting.value ? 'Collecting...' : 'Collect All' }}
           </Button>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div
-              v-if="parseFloat(totalZnnRewards) > 0"
-              class="p-3 rounded-md bg-green-500/10 border border-green-500/20"
+            v-if="parseFloat(totalZnnRewards) > 0"
+            class="rounded-md border border-green-500/20 bg-green-500/10 p-3"
           >
-            <div class="text-xs text-muted-foreground mb-1">Total ZNN</div>
+            <div class="mb-1 text-xs text-muted-foreground">Total ZNN</div>
             <div
-                class="text-2xl font-mono font-bold text-green-600 dark:text-green-400"
-                :title="totalZnnRewards"
+              class="font-mono text-2xl font-bold text-green-600 dark:text-green-400"
+              :title="totalZnnRewards"
             >
               {{ formattedZnnRewards }}
             </div>
           </div>
           <div
-              v-if="parseFloat(totalQsrRewards) > 0"
-              class="p-3 rounded-md bg-blue-500/10 border border-blue-500/20"
+            v-if="parseFloat(totalQsrRewards) > 0"
+            class="rounded-md border border-blue-500/20 bg-blue-500/10 p-3"
           >
-            <div class="text-xs text-muted-foreground mb-1">Total QSR</div>
+            <div class="mb-1 text-xs text-muted-foreground">Total QSR</div>
             <div
-                class="text-2xl font-mono font-bold text-blue-600 dark:text-blue-400"
-                :title="totalQsrRewards"
+              class="font-mono text-2xl font-bold text-blue-600 dark:text-blue-400"
+              :title="totalQsrRewards"
             >
               {{ formattedQsrRewards }}
             </div>

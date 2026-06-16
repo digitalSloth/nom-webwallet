@@ -1,9 +1,5 @@
-import {ref, watch, type Ref} from 'vue'
-import {
-  EMPTY_PASSWORD_STRENGTH,
-  estimatePasswordStrength,
-  type PasswordStrength
-} from '../password-strength'
+import {ref, type Ref, watch} from 'vue'
+import {EMPTY_PASSWORD_STRENGTH, estimatePasswordStrength, type PasswordStrength,} from '../password-strength'
 
 /**
  * Reactive password strength. Wraps the async (lazy-loaded zxcvbn) scorer.
@@ -29,7 +25,7 @@ export function usePasswordStrength(password: Ref<string>): Ref<PasswordStrength
         if (token === seq) strength.value = result
       })
     },
-    {immediate: true}
+    { immediate: true }
   )
 
   return strength

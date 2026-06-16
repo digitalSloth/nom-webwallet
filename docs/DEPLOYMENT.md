@@ -13,6 +13,7 @@ This guide explains how to deploy the web app to your server using GitHub Action
 Add these secrets to your GitHub repository (Settings → Secrets and variables → Actions):
 
 ### SSH Configuration
+
 1. **SSH_PRIVATE_KEY** - Your SSH private key for server access
 2. **SSH_HOST** - Server hostname or IP address (e.g., `example.com` or `192.168.1.100`)
 3. **SSH_USER** - SSH username (e.g., `deploy` or `root`)
@@ -86,6 +87,7 @@ sudo certbot --nginx -d your-domain.com
 ## Deployment
 
 The workflow automatically deploys when:
+
 - You push to the `main` branch
 - You manually trigger it via Actions tab
 
@@ -102,20 +104,24 @@ Go to GitHub Actions → Deploy Web App → Run workflow
 ## Troubleshooting
 
 ### Build fails
+
 - Check GitHub Actions logs
 - Ensure all dependencies are in package.json
 
 ### SSH connection fails
+
 - Verify SSH secrets are correct
 - Test SSH connection manually: `ssh -i ~/.ssh/deploy_key user@host`
 - Check firewall allows SSH (port 22)
 
 ### nginx 502/404 errors
+
 - Check files are in deployment directory: `ls -la /var/www/nom-wallet`
 - Check nginx error logs: `sudo tail -f /var/log/nginx/error.log`
 - Verify nginx config: `sudo nginx -t`
 
 ### CORS/COOP errors
+
 - Ensure nginx config includes the COOP/COEP headers
 - Clear browser cache
 
@@ -132,6 +138,7 @@ add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style
 ```
 
 Key directives:
+
 - `script-src 'self'` - Blocks inline scripts and third-party JS (prevents XSS)
 - `connect-src 'self' wss:` - Allows WebSocket connections only to same origin and WSS nodes
 - `img-src 'self' data: https:` - Allows inline data URIs and images served over HTTPS

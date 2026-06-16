@@ -12,8 +12,8 @@ import {
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
-  useToast
-} from '@nom/ui'
+  useToast,
+} from 'nom-ui'
 import {EyeIcon, EyeOffIcon} from 'lucide-vue-next'
 import MnemonicDisplay from './MnemonicDisplay.vue'
 import PasswordStrengthMeter from './PasswordStrengthMeter.vue'
@@ -86,10 +86,8 @@ function handleComplete() {
 <template>
   <div class="space-y-4">
     <div v-if="step === 'password'">
-      <h2 class="text-2xl font-bold mb-2">Create New Wallet</h2>
-      <p class="text-sm text-muted-foreground mb-6">
-        Set a strong password to encrypt your wallet
-      </p>
+      <h2 class="mb-2 text-2xl font-bold">Create New Wallet</h2>
+      <p class="mb-6 text-sm text-muted-foreground">Set a strong password to encrypt your wallet</p>
 
       <FieldGroup>
         <Field>
@@ -101,19 +99,31 @@ function handleComplete() {
           <FieldLabel for="wallet-password">Password</FieldLabel>
           <InputGroup>
             <InputGroupInput
-                id="wallet-password"
-                v-model="password"
-                :type="showPassword ? 'text' : 'password'"
-                placeholder="Enter password"
-                name="password"
-                autocomplete="new-password"
-                autocapitalize="off"
-                spellcheck="false"
+              id="wallet-password"
+              v-model="password"
+              :type="showPassword ? 'text' : 'password'"
+              placeholder="Enter password"
+              name="password"
+              autocomplete="new-password"
+              autocapitalize="off"
+              spellcheck="false"
             />
             <InputGroupAddon align="inline-end">
-              <InputGroupButton variant="invisible" type="button" size="icon-xs" tabindex="-1" @click.stop="showPassword = !showPassword">
-                <EyeIcon v-if="!showPassword" class="h-4 w-4 text-muted-foreground hover:text-foreground hover:bg-transparent" />
-                <EyeOffIcon v-else class="h-4 w-4 text-muted-foreground hover:text-foreground hover:bg-transparent" />
+              <InputGroupButton
+                variant="invisible"
+                type="button"
+                size="icon-xs"
+                tabindex="-1"
+                @click.stop="showPassword = !showPassword"
+              >
+                <EyeIcon
+                  v-if="!showPassword"
+                  class="h-4 w-4 text-muted-foreground hover:bg-transparent hover:text-foreground"
+                />
+                <EyeOffIcon
+                  v-else
+                  class="h-4 w-4 text-muted-foreground hover:bg-transparent hover:text-foreground"
+                />
               </InputGroupButton>
             </InputGroupAddon>
           </InputGroup>
@@ -139,7 +149,11 @@ function handleComplete() {
 
         <div class="flex gap-3">
           <Button variant="outline" class="flex-1" @click="emit('cancel')">Cancel</Button>
-          <Button class="flex-1" @click="handleCreate" :disabled="!passwordsMatch || !passwordStrong || isCreating">
+          <Button
+            class="flex-1"
+            @click="handleCreate"
+            :disabled="!passwordsMatch || !passwordStrong || isCreating"
+          >
             {{ isCreating ? 'Creating...' : 'Continue' }}
           </Button>
         </div>
@@ -147,8 +161,8 @@ function handleComplete() {
     </div>
 
     <div v-if="step === 'mnemonic' && mnemonic">
-      <h2 class="text-2xl font-bold mb-2">Save Your Recovery Phrase</h2>
-      <p class="text-sm text-muted-foreground mb-6">
+      <h2 class="mb-2 text-2xl font-bold">Save Your Recovery Phrase</h2>
+      <p class="mb-6 text-sm text-muted-foreground">
         Write down these words in order and keep them safe
       </p>
 
@@ -161,9 +175,7 @@ function handleComplete() {
           @confirmed="handleComplete"
         />
 
-        <Button class="w-full" @click="handleComplete">
-          Continue
-        </Button>
+        <Button class="w-full" @click="handleComplete"> Continue </Button>
       </FieldGroup>
     </div>
   </div>

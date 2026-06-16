@@ -24,7 +24,7 @@ export async function runActivity<T>(
   let step = initialStep
 
   const render = () => {
-    toast.loading(isGeneratingPow.value ? `${step} — generating plasma...` : step, {id})
+    toast.loading(isGeneratingPow.value ? `${step} — generating plasma...` : step, { id })
   }
 
   // Re-render the toast whenever PoW starts/stops mid-operation.

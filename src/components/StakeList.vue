@@ -1,14 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { addNumberDecimals } from 'znn-typescript-sdk'
-import type { StakeEntry } from 'znn-typescript-sdk'
-import {
-  Button,
-  Item,
-  ItemContent,
-  ItemTitle,
-  ItemDescription
-} from '@nom/ui'
+import {computed} from 'vue'
+import type {StakeEntry} from 'znn-typescript-sdk'
+import {addNumberDecimals} from 'znn-typescript-sdk'
+import {Button, Item, ItemContent, ItemDescription, ItemTitle} from 'nom-ui'
 
 export interface StakeListProps {
   stakes: StakeEntry[]
@@ -78,18 +72,18 @@ function formatDuration(startTimestamp: number, expirationTimestamp: number): st
 
 // Compute stakes with cancel status
 const stakesWithStatus = computed(() => {
-  return props.stakes.map(stake => ({
+  return props.stakes.map((stake) => ({
     ...stake,
     canCancel: canCancel(stake),
     timeRemaining: getTimeRemaining(stake),
-    duration: formatDuration(stake.startTimestamp, stake.expirationTimestamp)
+    duration: formatDuration(stake.startTimestamp, stake.expirationTimestamp),
   }))
 })
 </script>
 
 <template>
   <div class="space-y-3">
-    <div v-if="stakes.length === 0" class="text-center py-8 text-muted-foreground">
+    <div v-if="stakes.length === 0" class="py-8 text-center text-muted-foreground">
       <p>No active stakes</p>
     </div>
 
@@ -112,16 +106,14 @@ const stakesWithStatus = computed(() => {
               {{ cancelingStakeId === stake.id.toString() ? 'Canceling...' : 'Cancel' }}
             </Button>
           </div>
-          <ItemDescription class="space-y-2 line-clamp-none">
-            <div class="text-xs">
-              Duration: {{ stake.duration }}
-            </div>
+          <ItemDescription class="line-clamp-none space-y-2">
+            <div class="text-xs">Duration: {{ stake.duration }}</div>
             <div class="text-xs">
               {{ stake.timeRemaining }}
             </div>
-            <div class="p-3 rounded-md bg-green-500/10 border border-green-500/20">
-              <div class="text-xs text-muted-foreground mb-1">Staked Amount</div>
-              <div class="text-lg font-mono font-bold text-green-600 dark:text-green-400">
+            <div class="rounded-md border border-green-500/20 bg-green-500/10 p-3">
+              <div class="mb-1 text-xs text-muted-foreground">Staked Amount</div>
+              <div class="font-mono text-lg font-bold text-green-600 dark:text-green-400">
                 {{ formatZnnAmount(stake.amount.toString()) }} ZNN
               </div>
             </div>

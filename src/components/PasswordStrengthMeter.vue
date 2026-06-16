@@ -2,7 +2,7 @@
 import {computed} from 'vue'
 import type {PasswordStrength} from '@/core'
 
-const props = defineProps<{strength: PasswordStrength}>()
+const props = defineProps<{ strength: PasswordStrength }>()
 
 const barClass = computed(() => {
   const s = props.strength.score
@@ -17,10 +17,10 @@ const barClass = computed(() => {
   <div class="space-y-1">
     <div class="flex gap-1">
       <div
-          v-for="i in 4"
-          :key="i"
-          class="h-1.5 flex-1 rounded-full"
-          :class="i <= strength.score ? barClass : 'bg-muted'"
+        v-for="i in 4"
+        :key="i"
+        class="h-1.5 flex-1 rounded-full"
+        :class="i <= strength.score ? barClass : 'bg-muted'"
       />
     </div>
     <div class="flex items-center justify-between text-xs">

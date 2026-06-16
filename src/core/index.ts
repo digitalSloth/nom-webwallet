@@ -3,6 +3,8 @@
 // (src/core/composables) — components should never import a service directly.
 export type { PlasmaLevel } from './account-service'
 export type { RewardType, RewardInfo } from './rewards-service'
+export { PlasmaBotError, PLASMA_BOT_TIERS } from './plasma-bot-service'
+export type { PlasmaBotTierKey, PlasmaBotTier } from './plasma-bot-service'
 export { isGeneratingPow } from './pow-status'
 export { estimatePasswordStrength } from './password-strength'
 export type { PasswordStrength } from './password-strength'

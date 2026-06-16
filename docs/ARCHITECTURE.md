@@ -26,7 +26,7 @@ The `@` alias maps to `src/`, and `@nom/ui` maps to `packages/ui/src` (defined i
 
 ### Proof-of-work assets
 
-`znn-typescript-sdk` loads `pow.js` and `pow.wasm` from the web root at runtime. Vite doesn't know about these files, so `vite.config.web.ts` defines a `copyPowFiles` plugin that serves them from the SDK's `dist/browser` directory during dev and copies them into the build output during production. The SDK itself is excluded from dependency pre-bundling (`optimizeDeps.exclude`).
+`znn-typescript-sdk` loads `pow.js` and `pow.wasm` from the app root at runtime. Vite doesn't know about these files, so `vite.shared.ts` defines a `copyPowFiles` plugin — shared by both the web and extension builds — that serves them from the SDK's `dist/browser` directory during dev and copies them into the build output during production. The SDK itself is excluded from dependency pre-bundling (`optimizeDeps.exclude`).
 
 ## Layered structure
 

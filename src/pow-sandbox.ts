@@ -8,7 +8,10 @@
 // {id, hashHex, difficulty} -> {id, nonce}.
 
 type PowModule = {generate: (hashHex: string, difficulty: number) => string}
-type CreatePowModule = (options: {wasmBinary: ArrayBuffer}) => Promise<PowModule>
+type CreatePowModule = (options: {
+  wasmBinary: ArrayBuffer
+  locateFile?: (path: string) => string
+}) => Promise<PowModule>
 
 type PowRequest = {
   type?: string
@@ -28,7 +31,11 @@ function getModule(powJsSource: string, wasmBinary: ArrayBuffer): Promise<PowMod
       .then((imported) => {
         URL.revokeObjectURL(blobUrl)
         const createPowModule = imported.default as CreatePowModule
-        return createPowModule({wasmBinary})
+        // Pass locateFile so the emscripten glue doesn't evaluate
+        // `new URL('pow.wasm', import.meta.url)` — import.meta.url here is the
+        // Blob URL we imported from, which is an invalid base. With wasmBinary
+        // supplied, the returned path is only a lookup key, never fetched.
+        return createPowModule({wasmBinary, locateFile: (path) => path})
       })
       .catch((error) => {
         URL.revokeObjectURL(blobUrl)

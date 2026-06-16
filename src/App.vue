@@ -21,7 +21,7 @@ import NetworkIndicator from '@/components/NetworkIndicator.vue'
 import SettingsDialog from '@/components/SettingsDialog.vue'
 import UnlockWalletDialog from '@/components/UnlockWalletDialog.vue'
 import AccountList from '@/components/AccountList.vue'
-import {ChevronDownIcon, LockIcon, LockOpenIcon, SettingsIcon} from 'lucide-vue-next'
+import {ChevronDownIcon, CopyIcon, LockIcon, LockOpenIcon, SettingsIcon} from 'lucide-vue-next'
 
 const router = useRouter()
 const route = useRoute()
@@ -32,6 +32,14 @@ const toast = useToast()
 const wallet = useWallet()
 const account = useAccount(() => wallet.activeAccountAddress.value)
 const network = useNetwork()
+
+// Copy the active account's full address (the header only shows a truncated form).
+function copyAccountAddress() {
+  if (wallet.activeAccountAddress.value) {
+    navigator.clipboard.writeText(wallet.activeAccountAddress.value)
+    toast.show('Address copied to clipboard!', 'success')
+  }
+}
 
 // Global unlock dialog state
 const showUnlockDialog = ref(false)
@@ -306,12 +314,18 @@ async function handleWalletAdded(address: string) {
                   </PopoverContent>
                 </Popover>
               </div>
-              <p
-                v-if="wallet.activeAccountAddress.value"
-                class="font-mono text-sm text-muted-foreground"
-              >
-                {{ truncateAddress(wallet.activeAccountAddress.value) }}
-              </p>
+              <div v-if="wallet.activeAccountAddress.value" class="flex items-center gap-1">
+                <p class="font-mono text-sm text-muted-foreground">
+                  {{ truncateAddress(wallet.activeAccountAddress.value) }}
+                </p>
+                <button
+                  @click="copyAccountAddress"
+                  class="text-muted-foreground hover:text-foreground transition-colors p-1"
+                  title="Copy address"
+                >
+                  <CopyIcon class="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
           </div>
 

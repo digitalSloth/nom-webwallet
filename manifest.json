@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "A secure cryptocurrency wallet for the Nom network",
   "permissions": ["storage"],
+  "host_permissions": ["https://plazma.bot/*"],
   "action": {
     "default_popup": "index.html",
     "default_title": "NoM Wallet"

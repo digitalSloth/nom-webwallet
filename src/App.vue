@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import {onMounted, provide, ref, watch} from 'vue'
-import {useRoute, useRouter} from 'vue-router'
-import {useAccount, useNetwork, useWallet} from '@/core'
+import { onMounted, provide, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { isGeneratingPow, useAccount, useNetwork, useWallet } from '@/core'
 import {
   Address,
   Button,
@@ -15,15 +15,18 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Separator,
   Toaster,
+  TooltipProvider,
   useTheme,
   useToast,
 } from 'nom-ui'
 import NetworkIndicator from '@/components/NetworkIndicator.vue'
+import PlasmaIndicator from '@/components/PlasmaIndicator.vue'
 import SettingsDialog from '@/components/SettingsDialog.vue'
 import UnlockWalletDialog from '@/components/UnlockWalletDialog.vue'
 import AccountList from '@/components/AccountList.vue'
-import {ChevronDownIcon, LockIcon, LockOpenIcon, SettingsIcon} from 'lucide-vue-next'
+import { ChevronDownIcon, LockIcon, LockOpenIcon, SettingsIcon } from 'lucide-vue-next'
 
 const router = useRouter()
 const route = useRoute()
@@ -262,148 +265,183 @@ async function handleWalletAdded(address: string) {
 </script>
 
 <template>
-  <div class="min-h-screen">
-    <Toaster />
-    <!-- Only show header if not on setup page -->
-    <template v-if="route.path !== '/setup'">
-      <header class="border-b p-4">
-        <div class="container mx-auto flex items-center justify-between">
-          <!-- Left: Wallet Name, Account Selector, and Address -->
-          <div class="flex items-center gap-3">
-            <div>
-              <div class="flex items-center gap-2">
-                <Heading as="h1" :level="4">
-                  {{ wallet.activeWallet.value?.name || 'NoM Wallet' }}
-                </Heading>
+  <TooltipProvider disable-hoverable-content>
+    <div class="relative min-h-screen overflow-x-hidden">
+      <Toaster />
+      <!-- Ambient brand glow -->
+      <div
+        class="pointer-events-none fixed -top-40 left-1/2 -z-10 h-72 w-[40rem] -translate-x-1/2 rounded-full bg-zenon-green/15 blur-[110px]"
+        aria-hidden="true"
+      />
+      <!-- Only show header if not on setup page -->
+      <template v-if="route.path !== '/setup'">
+        <header class="sticky top-0 z-20 border-b bg-card/60 p-4 shadow-sm backdrop-blur">
+          <div class="container mx-auto flex items-center justify-between">
+            <!-- Left: Wallet Name, Account Selector, and Address -->
+            <div class="flex items-center gap-3">
+              <div>
+                <div class="flex items-center gap-2">
+                  <Heading as="h1" :level="4">
+                    {{ wallet.activeWallet.value?.name || 'NoM Wallet' }}
+                  </Heading>
 
-                <!-- Account Selector Popover -->
-                <Popover v-model:open="showAccountSelector">
-                  <PopoverTrigger as-child>
-                    <button
-                      class="p-1 text-muted-foreground transition-colors hover:text-foreground"
-                      title="Select Account"
-                    >
-                      <ChevronDownIcon />
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent align="start" class="p-3">
-                    <AccountList
-                      v-if="wallet.activeWallet.value"
-                      :accounts="wallet.activeWallet.value.accounts.filter((a) => !a.hidden)"
-                      :active-account-address="wallet.activeAccountAddress.value"
-                      :can-derive="false"
-                      compact
-                      @select-account="
-                        (address) => {
-                          handleSelectAccount(address)
-                          showAccountSelector = false
-                        }
-                      "
-                    />
-                  </PopoverContent>
-                </Popover>
+                  <!-- Account Selector Popover -->
+                  <Popover v-model:open="showAccountSelector">
+                    <PopoverTrigger as-child>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        class="text-muted-foreground"
+                        aria-label="Select account"
+                      >
+                        <ChevronDownIcon class="h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" class="p-3">
+                      <AccountList
+                        v-if="wallet.activeWallet.value"
+                        :accounts="wallet.activeWallet.value.accounts.filter((a) => !a.hidden)"
+                        :active-account-address="wallet.activeAccountAddress.value"
+                        :can-derive="false"
+                        compact
+                        @select-account="
+                          (address) => {
+                            handleSelectAccount(address)
+                            showAccountSelector = false
+                          }
+                        "
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <Address
+                  v-if="wallet.activeAccountAddress.value"
+                  :address="wallet.activeAccountAddress.value"
+                  :copy="true"
+                  :hoverable="false"
+                  :start="4"
+                  :end="6"
+                  :tooltip="false"
+                  class="text-sm text-muted-foreground"
+                />
               </div>
-              <Address
+            </div>
+
+            <!-- Right: Network status, then Lock and Settings actions -->
+            <div class="flex items-center gap-1">
+              <!-- Network Indicator (read-only status) -->
+              <div class="flex h-9 w-9 items-center justify-center">
+                <NetworkIndicator
+                  :connected="network.isConnected.value"
+                  :node="network.currentNode.value"
+                />
+              </div>
+
+              <!-- Plasma Indicator (read-only status) -->
+              <div
                 v-if="wallet.activeAccountAddress.value"
-                :address="wallet.activeAccountAddress.value"
-                :copy="true"
-                class="text-sm text-muted-foreground"
-              />
+                class="flex h-9 w-9 items-center justify-center"
+              >
+                <PlasmaIndicator
+                  :plasma-level="account.plasmaLevel.value"
+                  :is-generating-pow="isGeneratingPow"
+                />
+              </div>
+
+              <Separator orientation="vertical" class="mx-1 h-5" />
+
+              <!-- Lock/Unlock Button -->
+              <Button
+                v-if="wallet.isActiveWalletUnlocked.value"
+                variant="ghost"
+                size="icon"
+                class="text-success hover:text-success"
+                @click="handleLock(wallet.activeWallet.value!.baseAddress)"
+                aria-label="Lock wallet"
+              >
+                <LockOpenIcon class="h-5 w-5" />
+              </Button>
+              <Button
+                v-else-if="wallet.activeWallet.value"
+                variant="ghost"
+                size="icon"
+                class="text-muted-foreground"
+                @click="() => requestUnlock()"
+                aria-label="Unlock wallet"
+              >
+                <LockIcon class="h-5 w-5" />
+              </Button>
+
+              <!-- Settings Button -->
+              <Button
+                variant="ghost"
+                size="icon"
+                class="text-muted-foreground"
+                @click="showSettings = true"
+                aria-label="Settings"
+              >
+                <SettingsIcon class="h-5 w-5" />
+              </Button>
             </div>
           </div>
+        </header>
 
-          <!-- Right: Lock, Network Indicator, and Settings -->
-          <div class="flex items-center gap-2">
-            <!-- Lock/Unlock Button -->
-            <button
-              v-if="wallet.isActiveWalletUnlocked.value"
-              @click="handleLock(wallet.activeWallet.value!.baseAddress)"
-              class="p-2 text-zenon-green transition-colors hover:text-zenon-green/80"
-              title="Lock Wallet"
-            >
-              <LockOpenIcon class="h-5 w-5" />
-            </button>
-            <button
-              v-else-if="wallet.activeWallet.value"
-              @click="() => requestUnlock()"
-              class="p-2 text-muted-foreground transition-colors hover:text-foreground"
-              title="Unlock Wallet"
-            >
-              <LockIcon class="h-5 w-5" />
-            </button>
+        <main class="container mx-auto p-6">
+          <router-view :key="wallet.activeAccountAddress.value || route.fullPath" />
+        </main>
+      </template>
 
-            <!-- Network Indicator (read-only) -->
-            <div class="p-2">
-              <NetworkIndicator :connected="network.isConnected.value" />
-            </div>
+      <!-- Setup page gets full screen -->
+      <router-view v-else />
 
-            <!-- Settings Button -->
-            <button
-              @click="showSettings = true"
-              class="p-2 text-muted-foreground transition-colors hover:text-foreground"
-              title="Settings"
-            >
-              <SettingsIcon />
-            </button>
-          </div>
-        </div>
-      </header>
+      <!-- Unlock Dialog -->
+      <UnlockWalletDialog
+        v-if="wallet.activeWallet.value"
+        v-model:open="showUnlockDialog"
+        :wallet-address="wallet.activeWallet.value.baseAddress"
+        :wallet-name="wallet.activeWallet.value.name"
+        :unlock-error="unlockError"
+        @unlock="handleQuickUnlock"
+        @cancel="handleCancelUnlock"
+      />
 
-      <main class="container mx-auto p-6">
-        <router-view :key="wallet.activeAccountAddress.value || route.fullPath" />
-      </main>
-    </template>
+      <!-- Settings Dialog -->
+      <SettingsDialog
+        ref="settingsDialogRef"
+        v-model:open="showSettings"
+        :wallets="wallet.wallets.value"
+        :active-account-address="wallet.activeAccountAddress.value"
+        :unlocked-wallets="wallet.unlockedWallets.value"
+        :current-node="network.currentNode.value"
+        @unlock="handleUnlock"
+        @lock="handleLock"
+        @delete-wallet="requestDeleteWallet"
+        @rename-wallet="handleRenameWallet"
+        @export-mnemonic="handleExportMnemonic"
+        @derive-account="handleDeriveAccount"
+        @select-account="handleSelectAccount"
+        @rename-account="handleRenameAccount"
+        @toggle-account-hidden="handleToggleAccountHidden"
+        @select-network="handleNetworkChange"
+        @update-network-config="handleNetworkConfigChange"
+        @wallet-added="handleWalletAdded"
+      />
 
-    <!-- Setup page gets full screen -->
-    <router-view v-else />
-
-    <!-- Unlock Dialog -->
-    <UnlockWalletDialog
-      v-if="wallet.activeWallet.value"
-      v-model:open="showUnlockDialog"
-      :wallet-address="wallet.activeWallet.value.baseAddress"
-      :wallet-name="wallet.activeWallet.value.name"
-      :unlock-error="unlockError"
-      @unlock="handleQuickUnlock"
-      @cancel="handleCancelUnlock"
-    />
-
-    <!-- Settings Dialog -->
-    <SettingsDialog
-      ref="settingsDialogRef"
-      v-model:open="showSettings"
-      :wallets="wallet.wallets.value"
-      :active-account-address="wallet.activeAccountAddress.value"
-      :unlocked-wallets="wallet.unlockedWallets.value"
-      :current-node="network.currentNode.value"
-      @unlock="handleUnlock"
-      @lock="handleLock"
-      @delete-wallet="requestDeleteWallet"
-      @rename-wallet="handleRenameWallet"
-      @export-mnemonic="handleExportMnemonic"
-      @derive-account="handleDeriveAccount"
-      @select-account="handleSelectAccount"
-      @rename-account="handleRenameAccount"
-      @toggle-account-hidden="handleToggleAccountHidden"
-      @select-network="handleNetworkChange"
-      @update-network-config="handleNetworkConfigChange"
-      @wallet-added="handleWalletAdded"
-    />
-
-    <!-- Delete wallet confirmation dialog -->
-    <Dialog :open="showDeleteConfirm" @update:open="showDeleteConfirm = $event">
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Delete Wallet</DialogTitle>
-          <DialogDescription>
-            Are you sure you want to delete this wallet? This action cannot be undone.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" @click="showDeleteConfirm = false">Cancel</Button>
-          <Button variant="destructive" @click="confirmDeleteWallet">Delete</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  </div>
+      <!-- Delete wallet confirmation dialog -->
+      <Dialog :open="showDeleteConfirm" @update:open="showDeleteConfirm = $event">
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Wallet</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this wallet? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" @click="showDeleteConfirm = false">Cancel</Button>
+            <Button variant="destructive" @click="confirmDeleteWallet">Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  </TooltipProvider>
 </template>

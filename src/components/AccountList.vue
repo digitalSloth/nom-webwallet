@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import {computed, ref} from 'vue'
 import type {WalletAccount} from '@/types'
-import {truncateAddress} from '@/core'
 import {
+  Address,
   Button,
   Heading,
   InputGroup,
@@ -133,8 +133,8 @@ function handleRowClick(account: WalletAccount) {
                 <PencilIcon class="h-3 w-3" />
               </Button>
             </div>
-            <ItemDescription class="font-mono">
-              {{ truncateAddress(account.address) }}
+            <ItemDescription>
+              <Address :address="account.address" :copy="false" />
             </ItemDescription>
           </template>
         </ItemContent>

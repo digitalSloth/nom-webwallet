@@ -25,7 +25,7 @@ import {
 } from 'nom-ui'
 import type {AccountBlock} from 'znn-typescript-sdk'
 import {addNumberDecimals} from 'znn-typescript-sdk'
-import {ArrowDownCircleIcon, ArrowLeftIcon} from 'lucide-vue-next'
+import {ArrowDownCircleIcon, ArrowLeftIcon, WalletIcon} from 'lucide-vue-next'
 
 const router = useRouter()
 
@@ -134,7 +134,8 @@ function goBack() {
       <!-- No Account Warning -->
       <Card v-if="!wallet.activeAccountAddress.value">
         <CardContent class="py-12 text-center text-muted-foreground">
-          No active account. Please create or select a wallet first.
+          <WalletIcon class="mx-auto mb-3 h-12 w-12 opacity-50" />
+          <p>No active account. Please create or select a wallet first.</p>
         </CardContent>
       </Card>
 
@@ -146,10 +147,16 @@ function goBack() {
             <Heading as="h3" :level="4">Your Address</Heading>
           </CardHeader>
           <CardContent class="space-y-4">
-            <div class="rounded-md bg-muted p-4 font-mono text-sm break-all">
-              {{ wallet.activeAccountAddress.value }}
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div class="min-w-0 flex-1 rounded-md bg-muted p-4 font-mono text-sm break-all">
+                {{ wallet.activeAccountAddress.value }}
+              </div>
+              <CopyButton
+                :value="wallet.activeAccountAddress.value ?? ''"
+                size="default"
+                class="w-full sm:w-auto"
+              />
             </div>
-            <CopyButton :value="wallet.activeAccountAddress.value ?? ''" class="w-full" />
             <p class="text-center text-sm text-muted-foreground">
               Share this address to receive tokens
             </p>

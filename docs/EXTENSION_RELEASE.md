@@ -29,7 +29,7 @@
 ## Store upload
 - Upload `dist-extension.zip` only after security review (Phase 2 + audit).
 
-## PoW under extension CSP (implemented; needs Chrome verification)
+## PoW under extension CSP (implemented and VERIFIED in-browser)
 The MV3 extension-page CSP allows `'wasm-unsafe-eval'` (WASM compilation) but NOT
 `'unsafe-eval'` (JS `eval` / `new Function`) — and Chrome forbids relaxing the
 extension-page CSP with `'unsafe-eval'`. The SDK's PoW module
@@ -46,10 +46,12 @@ extension origin and proxies `(hashHex, difficulty) => Promise<nonce>` to the
 sandbox via `postMessage`; the sandbox (`src/pow-sandbox.ts`) imports the pow.js
 source as a Blob module and runs `generate`.
 
-**Verified headlessly:** the build emits the sandbox page + assets; `createPowModule({wasmBinary})`
-+ `generate()` produces a valid nonce in Node. **NOT yet verified in Chrome:** that the
-sandbox CSP permits the Blob-module import + `new Function` and that the postMessage
-round-trip works. The send smoke test above is the acceptance gate.
+**Verified:** the build emits the sandbox page + assets, and `createPowModule({wasmBinary})`
++ `generate()` produces a valid nonce both in Node and (via the loaded extension) in
+Chromium. **Confirmed end-to-end in the browser extension: sending and receiving
+transactions that require PoW both work** — the sandbox CSP permits the Blob-module
+import + `new Function`, and the parent↔sandbox `postMessage` round-trip publishes a
+real block. The CSP/PoW path is no longer a blocker.
 
 ## Known limitations
 - Off-thread PoW worker is disabled under the extension CSP (`blob:` workers are

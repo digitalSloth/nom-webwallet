@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import {computed, inject, onMounted, onUnmounted, ref} from 'vue'
 import {useRouter} from 'vue-router'
-import {formatNumber, useAccount, useWallet} from '@/core'
-import {Button, Card, CardContent, Tabs, TabsContent, TabsList, TabsTrigger, useToast,} from 'nom-ui'
+import {useAccount, useWallet} from '@/core'
+import {Amount, Button, Card, CardContent, Tabs, TabsContent, TabsList, TabsTrigger, useToast,} from 'nom-ui'
 import TokensTab from '@/components/TokensTab.vue'
 import RewardsTab from '@/components/RewardsTab.vue'
 import PlasmaTab from '@/components/PlasmaTab.vue'
 import PillarTab from '@/components/PillarTab.vue'
 import StakeTab from '@/components/StakeTab.vue'
 import WalletStats from '@/components/WalletStats.vue'
-import {ArrowDownCircleIcon, ArrowUpCircleIcon} from 'lucide-vue-next'
+import {ArrowDownCircleIcon, ArrowUpCircleIcon, WalletIcon} from 'lucide-vue-next'
 
 const router = useRouter()
 
@@ -78,15 +78,6 @@ function handleNavigateToSendReceive(path: string) {
     router.push(path)
   }
 }
-
-// Computed formatted balances
-const formattedZnnBalance = computed(() =>
-  formatNumber(account.znnBalance.value, { decimals: 2, compact: true })
-)
-
-const formattedQsrBalance = computed(() =>
-  formatNumber(account.qsrBalance.value, { decimals: 2, compact: true })
-)
 </script>
 
 <template>
@@ -94,7 +85,8 @@ const formattedQsrBalance = computed(() =>
     <!-- No Account Warning -->
     <Card v-if="!wallet.activeAccountAddress.value">
       <CardContent class="py-12 text-center text-muted-foreground">
-        No active account. Please create or select a wallet first.
+        <WalletIcon class="mx-auto mb-3 h-12 w-12 opacity-50" />
+        <p>No active account. Please create or select a wallet first.</p>
       </CardContent>
     </Card>
 
@@ -106,22 +98,24 @@ const formattedQsrBalance = computed(() =>
         <div class="flex items-center gap-3 md:col-span-1">
           <div class="flex-1 rounded-md border border-primary/20 bg-primary/10 p-3">
             <div class="mb-1 text-xs text-muted-foreground">ZNN</div>
-            <div
-              class="font-mono tabular-nums text-2xl font-bold"
+            <Amount
+              :value="account.znnBalance.value"
+              :decimals="2"
+              :compact="true"
+              class="text-2xl font-bold"
               :title="account.znnBalance.value"
-            >
-              {{ formattedZnnBalance }}
-            </div>
+            />
           </div>
 
           <div class="flex-1 rounded-md border border-info/20 bg-info/10 p-3">
             <div class="mb-1 text-xs text-muted-foreground">QSR</div>
-            <div
-              class="font-mono tabular-nums text-2xl font-bold"
+            <Amount
+              :value="account.qsrBalance.value"
+              :decimals="2"
+              :compact="true"
+              class="text-2xl font-bold"
               :title="account.qsrBalance.value"
-            >
-              {{ formattedQsrBalance }}
-            </div>
+            />
           </div>
         </div>
 
@@ -130,16 +124,16 @@ const formattedQsrBalance = computed(() =>
           <Button
             @click="handleNavigateToSendReceive('/send')"
             variant="outline"
-            class="flex min-h-19 flex-col items-center justify-center gap-1 rounded-lg border border-primary/50 transition-colors hover:border-primary hover:bg-primary/10"
+            class="flex min-h-20 flex-col items-center justify-center gap-1 rounded-lg border border-primary/50 transition-colors hover:border-primary hover:bg-primary/10"
           >
-            <ArrowUpCircleIcon class="text-primary" />
+            <ArrowUpCircleIcon class="h-6 w-6 text-primary" />
             <span class="text-sm font-medium">Send</span>
           </Button>
 
           <Button
             @click="handleNavigateToSendReceive('/receive')"
             variant="outline"
-            class="relative flex min-h-19 flex-col items-center justify-center gap-1 rounded-lg border border-primary/50 transition-colors hover:border-primary hover:bg-primary/10"
+            class="relative flex min-h-20 flex-col items-center justify-center gap-1 rounded-lg border border-primary/50 transition-colors hover:border-primary hover:bg-primary/10"
           >
             <ArrowDownCircleIcon class="h-6 w-6 text-primary" />
             <span class="text-sm font-medium">Receive</span>

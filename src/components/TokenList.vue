@@ -2,7 +2,8 @@
 import {computed, ref} from 'vue'
 import {addNumberDecimals, QSR_ZTS, ZNN_ZTS} from 'znn-typescript-sdk'
 import type {BalanceInfo} from '@/types'
-import {Amount, Badge, Input, Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle, TokenIcon} from 'nom-ui'
+import {Amount, Badge, Input, Item, ItemActions, ItemContent, ItemDescription, ItemTitle} from 'nom-ui'
+import {CoinsIcon} from 'lucide-vue-next'
 
 export interface TokenListProps {
   tokens: BalanceInfo[]
@@ -79,6 +80,7 @@ function handleItemClick(token: BalanceInfo) {
 
     <!-- Token List -->
     <div v-if="sortedAndFilteredTokens.length === 0" class="py-8 text-center text-muted-foreground">
+      <CoinsIcon class="mx-auto mb-3 h-12 w-12 opacity-50" />
       <p v-if="searchQuery">No tokens found matching "{{ searchQuery }}"</p>
       <p v-else>No tokens available</p>
     </div>
@@ -91,9 +93,6 @@ function handleItemClick(token: BalanceInfo) {
         size="sm"
         @click="(selectable || clickable) && handleItemClick(token)"
       >
-        <ItemMedia>
-          <TokenIcon :symbol="token.symbol ?? 'Unknown'" class="size-8" />
-        </ItemMedia>
         <ItemContent class="flex-1">
           <ItemTitle class="flex items-center gap-2">
             {{ token.symbol || 'Unknown' }}

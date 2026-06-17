@@ -1,8 +1,21 @@
 <script setup lang="ts">
 import {computed, inject, onMounted, ref} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
-import {formatNumber, formatTokenDisplay, useAccount, useToken, useWallet} from '@/core'
-import {Address, Button, Card, CardContent, CardHeader, Heading, Item, ItemContent, ItemGroup, ItemSeparator, Spinner,} from 'nom-ui'
+import {useAccount, useToken, useWallet} from '@/core'
+import {
+  Address,
+  Amount,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  Heading,
+  Item,
+  ItemContent,
+  ItemGroup,
+  ItemSeparator,
+  Spinner,
+} from 'nom-ui'
 import {ArrowDownCircleIcon, ArrowLeftIcon, ArrowUpCircleIcon} from 'lucide-vue-next'
 import {addNumberDecimals} from 'znn-typescript-sdk'
 
@@ -31,11 +44,6 @@ const tokenBalance = computed(() => {
 const formattedBalance = computed(() => {
   if (!tokenBalance.value) return '0'
   return addNumberDecimals(tokenBalance.value.balance, tokenBalance.value.decimals)
-})
-
-const formattedBalanceCompact = computed(() => {
-  if (!tokenBalance.value) return '0'
-  return formatNumber(formattedBalance.value, { decimals: 2, compact: true })
 })
 
 onMounted(async () => {
@@ -117,9 +125,13 @@ function handleNavigateToSendReceive(path: string) {
         <Card>
           <CardContent class="py-8 text-center">
             <div class="mb-2 text-sm text-muted-foreground">Your Balance</div>
-            <div class="mb-6 font-mono tabular-nums text-5xl font-bold" :title="formattedBalance">
-              {{ formattedBalanceCompact }}
-            </div>
+            <Amount
+              :value="formattedBalance"
+              :decimals="2"
+              compact
+              class="mb-6 text-5xl font-bold"
+              :title="formattedBalance"
+            />
             <div class="mb-6 text-xl text-muted-foreground">
               {{ tokenBalance?.symbol || 'Unknown' }}
             </div>
@@ -201,24 +213,22 @@ function handleNavigateToSendReceive(path: string) {
                   class="flex-col items-start gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2"
                 >
                   <span class="shrink-0 text-muted-foreground">Total Supply</span>
-                  <span
-                    class="font-mono tabular-nums break-all sm:text-right"
+                  <Amount
+                    :value="
+                      addNumberDecimals(
+                        token.tokenInfo.value.totalSupply.toString(),
+                        token.tokenInfo.value.decimals
+                      )
+                    "
+                    :decimals="4"
+                    class="sm:text-right"
                     :title="
                       addNumberDecimals(
                         token.tokenInfo.value.totalSupply.toString(),
                         token.tokenInfo.value.decimals
                       )
                     "
-                  >
-                    {{
-                      formatTokenDisplay(
-                        addNumberDecimals(
-                          token.tokenInfo.value.totalSupply.toString(),
-                          token.tokenInfo.value.decimals
-                        )
-                      )
-                    }}
-                  </span>
+                  />
                 </ItemContent>
               </Item>
               <ItemSeparator />
@@ -228,24 +238,22 @@ function handleNavigateToSendReceive(path: string) {
                   class="flex-col items-start gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2"
                 >
                   <span class="shrink-0 text-muted-foreground">Max Supply</span>
-                  <span
-                    class="font-mono tabular-nums break-all sm:text-right"
+                  <Amount
+                    :value="
+                      addNumberDecimals(
+                        token.tokenInfo.value.maxSupply.toString(),
+                        token.tokenInfo.value.decimals
+                      )
+                    "
+                    :decimals="4"
+                    class="sm:text-right"
                     :title="
                       addNumberDecimals(
                         token.tokenInfo.value.maxSupply.toString(),
                         token.tokenInfo.value.decimals
                       )
                     "
-                  >
-                    {{
-                      formatTokenDisplay(
-                        addNumberDecimals(
-                          token.tokenInfo.value.maxSupply.toString(),
-                          token.tokenInfo.value.decimals
-                        )
-                      )
-                    }}
-                  </span>
+                  />
                 </ItemContent>
               </Item>
               <ItemSeparator />

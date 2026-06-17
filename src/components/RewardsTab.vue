@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import {computed, onMounted, watch} from 'vue'
 import type {RewardType} from '@/core'
-import {formatNumber, useRewards, useWallet} from '@/core'
+import {useRewards, useWallet} from '@/core'
 import {addNumberDecimals} from 'znn-typescript-sdk'
 import RewardsList from './RewardsList.vue'
-import {Button} from 'nom-ui'
+import {Amount, Button} from 'nom-ui'
 
 interface RewardsTabProps {
   activeAccountAddress: string | null
@@ -39,13 +39,6 @@ const totalQsrRewards = computed(() => {
   }, 0n)
   return addNumberDecimals(total.toString(), 8)
 })
-
-const formattedZnnRewards = computed(() =>
-  formatNumber(totalZnnRewards.value, { decimals: 2, compact: true })
-)
-const formattedQsrRewards = computed(() =>
-  formatNumber(totalQsrRewards.value, { decimals: 2, compact: true })
-)
 
 const hasAnyRewards = computed(() => {
   return (
@@ -183,24 +176,26 @@ async function collectAllRewards() {
             class="rounded-md border border-primary/20 bg-primary/10 p-3"
           >
             <div class="mb-1 text-xs text-muted-foreground">Total ZNN</div>
-            <div
-              class="font-mono tabular-nums text-2xl font-bold"
+            <Amount
+              :value="totalZnnRewards"
+              :decimals="2"
+              compact
+              class="text-2xl font-bold"
               :title="totalZnnRewards"
-            >
-              {{ formattedZnnRewards }}
-            </div>
+            />
           </div>
           <div
             v-if="parseFloat(totalQsrRewards) > 0"
             class="rounded-md border border-info/20 bg-info/10 p-3"
           >
             <div class="mb-1 text-xs text-muted-foreground">Total QSR</div>
-            <div
-              class="font-mono tabular-nums text-2xl font-bold"
+            <Amount
+              :value="totalQsrRewards"
+              :decimals="2"
+              compact
+              class="text-2xl font-bold"
               :title="totalQsrRewards"
-            >
-              {{ formattedQsrRewards }}
-            </div>
+            />
           </div>
         </div>
       </div>

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type {PillarWithApr} from '@/core'
-import {formatNumber} from '@/core'
-import {Button, Item, ItemContent, ItemDescription, ItemTitle} from 'nom-ui'
+import {Amount, Button, Item, ItemContent, ItemDescription, ItemTitle} from 'nom-ui'
 import {addNumberDecimals} from 'znn-typescript-sdk'
 
 export interface PillarListProps {
@@ -27,11 +26,6 @@ const emit = defineEmits<{
 function formatApr(apr: number): string {
   if (apr === 0) return 'N/A'
   return `${apr.toFixed(2)}%`
-}
-
-function formatWeight(weight: string): string {
-  weight = addNumberDecimals(weight, 8)
-  return formatNumber(weight, { decimals: 2, compact: true })
 }
 </script>
 
@@ -69,15 +63,19 @@ function formatWeight(weight: string): string {
         <div class="grid grid-cols-2 gap-3 text-sm">
           <div>
             <ItemDescription class="mb-1 text-xs">Est. APR</ItemDescription>
-            <div class="font-mono tabular-nums font-medium text-success">
+            <div class="font-mono font-medium text-success tabular-nums">
               {{ formatApr(pillarInfo.delegateApr) }}
             </div>
           </div>
           <div>
             <ItemDescription class="mb-1 text-xs">Weight</ItemDescription>
-            <div class="font-mono font-medium">
-              {{ formatWeight(pillarInfo.weight.toString()) }} ZNN
-            </div>
+            <Amount
+              :value="addNumberDecimals(pillarInfo.weight.toString(), 8)"
+              :decimals="2"
+              compact
+              symbol="ZNN"
+              class="font-medium"
+            />
           </div>
         </div>
 
@@ -110,7 +108,7 @@ function formatWeight(weight: string): string {
           <ItemDescription class="mb-1 text-xs" title="Estimated annual return for delegators">
             Est. APR
           </ItemDescription>
-          <div class="font-mono tabular-nums text-sm font-medium text-success">
+          <div class="font-mono text-sm font-medium text-success tabular-nums">
             {{ formatApr(pillarInfo.delegateApr) }}
           </div>
         </div>
@@ -120,9 +118,13 @@ function formatWeight(weight: string): string {
           <ItemDescription class="mb-1 text-xs" title="Total delegated weight">
             Weight
           </ItemDescription>
-          <div class="font-mono text-sm font-medium">
-            {{ formatWeight(pillarInfo.weight.toString()) }} ZNN
-          </div>
+          <Amount
+            :value="addNumberDecimals(pillarInfo.weight.toString(), 8)"
+            :decimals="2"
+            compact
+            symbol="ZNN"
+            class="text-sm font-medium"
+          />
         </div>
 
         <!-- Delegate Button -->

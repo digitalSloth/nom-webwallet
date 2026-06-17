@@ -1,13 +1,10 @@
 <script setup lang="ts">
 import {computed, ref} from 'vue'
-import type {PlasmaLevel} from '@/core'
-import {ZapIcon} from 'lucide-vue-next'
 import {useScrollFade} from 'nom-ui'
 
 export interface WalletStatsProps {
   tokenCount: number
   accountHeight: number
-  plasmaLevel: PlasmaLevel
   delegatedPillar: string | null
   totalZnnRewards: string
   totalQsrRewards: string
@@ -21,17 +18,6 @@ const hasRewards = computed(() => {
 
 const scrollRef = ref<HTMLElement>()
 const { maskStyle } = useScrollFade(scrollRef)
-
-const getPlasmaColor = () => {
-  switch (props.plasmaLevel) {
-    case 'high':
-      return 'text-success'
-    case 'medium':
-      return 'text-warning'
-    case 'low':
-      return 'text-destructive'
-  }
-}
 </script>
 
 <template>
@@ -39,7 +25,7 @@ const getPlasmaColor = () => {
     <div
       ref="scrollRef"
       :style="maskStyle"
-      class="flex touch-pan-x [scrollbar-width:none] items-center gap-6 overflow-x-auto overflow-y-hidden text-sm [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+      class="flex touch-pan-x scrollbar-none items-center gap-6 overflow-x-auto overflow-y-hidden text-sm [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
     >
       <!-- Account Height -->
       <div class="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
@@ -51,15 +37,6 @@ const getPlasmaColor = () => {
       <div class="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
         <span class="text-ledger text-muted-foreground">Tokens:</span>
         <span class="font-medium tabular-nums">{{ tokenCount }}</span>
-      </div>
-
-      <!-- Plasma Level -->
-      <div class="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
-        <span class="text-ledger text-muted-foreground">Plasma:</span>
-        <div class="flex items-center gap-1">
-          <ZapIcon :class="['h-4 w-4', getPlasmaColor()]" />
-          <span class="font-medium capitalize">{{ plasmaLevel }}</span>
-        </div>
       </div>
 
       <!-- Delegated Pillar -->

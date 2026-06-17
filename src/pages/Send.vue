@@ -31,7 +31,7 @@ import {
 import TokenList from '@/components/TokenList.vue'
 import type {BalanceInfo} from '@/types'
 import {addNumberDecimals, extractNumberDecimals} from 'znn-typescript-sdk'
-import {ArrowLeftIcon, CoinsIcon, SendHorizontalIcon, TriangleAlertIcon, WalletIcon,} from 'lucide-vue-next'
+import {ArrowLeftIcon, CoinsIcon, TriangleAlertIcon, WalletIcon,} from 'lucide-vue-next'
 
 const router = useRouter()
 const route = useRoute()
@@ -356,7 +356,6 @@ async function handleSend() {
                     class="flex items-center justify-center gap-2"
                   >
                     Send
-                    <SendHorizontalIcon class="inline" />
                   </span>
                   <span v-else class="flex items-center justify-center gap-2">
                     <Spinner />

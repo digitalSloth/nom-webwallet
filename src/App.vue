@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {onMounted, provide, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
-import {useAccount, useNetwork, useWallet} from '@/core'
+import {isGeneratingPow, useAccount, useNetwork, useWallet} from '@/core'
 import {
   Address,
   Button,
@@ -22,6 +22,7 @@ import {
   useToast,
 } from 'nom-ui'
 import NetworkIndicator from '@/components/NetworkIndicator.vue'
+import PlasmaIndicator from '@/components/PlasmaIndicator.vue'
 import SettingsDialog from '@/components/SettingsDialog.vue'
 import UnlockWalletDialog from '@/components/UnlockWalletDialog.vue'
 import AccountList from '@/components/AccountList.vue'
@@ -314,6 +315,7 @@ async function handleWalletAdded(address: string) {
                   :copy="true"
                   :hoverable="false"
                   :end="6"
+                  :tooltip="false"
                   class="text-sm text-muted-foreground"
                 />
               </div>
@@ -326,6 +328,17 @@ async function handleWalletAdded(address: string) {
                 <NetworkIndicator
                   :connected="network.isConnected.value"
                   :node="network.currentNode.value"
+                />
+              </div>
+
+              <!-- Plasma Indicator (read-only status) -->
+              <div
+                v-if="wallet.activeAccountAddress.value"
+                class="flex h-9 w-9 items-center justify-center"
+              >
+                <PlasmaIndicator
+                  :plasma-level="account.plasmaLevel.value"
+                  :is-generating-pow="isGeneratingPow"
                 />
               </div>
 

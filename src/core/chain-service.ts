@@ -19,10 +19,15 @@ import {ZenonService} from './zenon-service'
 // wiring; the singleton / module-const export is just the prod wrapper. No code is
 // shared with this base — the dependencies genuinely differ — but the shape is the
 // same, so any service is constructable with fakes.
+export interface IZenonService {
+  getZenon(): Zenon
+  ensureInitialized(): Promise<void>
+}
+
 export abstract class ChainService {
   protected zenon: Zenon
 
-  constructor(protected zenonService: ZenonService = ZenonService.getInstance()) {
+  constructor(protected zenonService: IZenonService = ZenonService.getInstance()) {
     this.zenon = zenonService.getZenon()
   }
 

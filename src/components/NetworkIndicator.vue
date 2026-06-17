@@ -11,13 +11,13 @@ defineProps<NetworkIndicatorProps>()
 <template>
   <GlobeIcon
     v-if="connected"
-    class="h-6 w-6 text-green-500"
+    class="h-6 w-6 text-success"
     role="img"
     aria-label="Network connected"
   />
   <GlobeXIcon
     v-else
-    class="h-6 w-6 animate-pulse text-red-500"
+    class="h-6 w-6 animate-pulse text-destructive"
     role="img"
     aria-label="Network disconnected"
   />

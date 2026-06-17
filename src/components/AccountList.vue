@@ -4,6 +4,7 @@ import type {WalletAccount} from '@/types'
 import {truncateAddress} from '@/core'
 import {
   Button,
+  Heading,
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
@@ -74,7 +75,7 @@ function handleRowClick(account: WalletAccount) {
 <template>
   <div class="space-y-3">
     <div v-if="!compact" class="flex items-center justify-between">
-      <h3 class="text-lg font-semibold">Accounts</h3>
+      <Heading as="h3" :level="5">Accounts</Heading>
       <Button :disabled="!canDerive" @click="emit('deriveAccount')">
         <PlusIcon class="mr-1" />
         Add Account

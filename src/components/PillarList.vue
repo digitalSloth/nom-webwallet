@@ -69,7 +69,7 @@ function formatWeight(weight: string): string {
         <div class="grid grid-cols-2 gap-3 text-sm">
           <div>
             <ItemDescription class="mb-1 text-xs">Est. APR</ItemDescription>
-            <div class="font-mono font-medium text-green-600 dark:text-green-400">
+            <div class="font-mono tabular-nums font-medium text-success">
               {{ formatApr(pillarInfo.delegateApr) }}
             </div>
           </div>
@@ -110,7 +110,7 @@ function formatWeight(weight: string): string {
           <ItemDescription class="mb-1 text-xs" title="Estimated annual return for delegators">
             Est. APR
           </ItemDescription>
-          <div class="font-mono text-sm font-medium text-green-600 dark:text-green-400">
+          <div class="font-mono tabular-nums text-sm font-medium text-success">
             {{ formatApr(pillarInfo.delegateApr) }}
           </div>
         </div>

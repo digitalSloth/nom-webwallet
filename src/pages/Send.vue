@@ -6,6 +6,7 @@ import {
   Alert,
   AlertDescription,
   AlertTitle,
+  Amount,
   Button,
   Card,
   CardContent,
@@ -14,6 +15,7 @@ import {
   FieldDescription,
   FieldGroup,
   FieldLabel,
+  Heading,
   Input,
   InputGroup,
   InputGroupAddon,
@@ -23,6 +25,7 @@ import {
   ItemContent,
   ItemDescription,
   ItemTitle,
+  Spinner,
   useToast,
 } from 'nom-ui'
 import TokenList from '@/components/TokenList.vue'
@@ -172,9 +175,9 @@ async function handleSend() {
         <Button @click="goBack" variant="outline" title="Go back">
           <ArrowLeftIcon />
         </Button>
-        <h1 class="text-2xl font-bold">
+        <Heading as="h1">
           Send {{ currentStep === 2 && selectedToken ? selectedToken.symbol : 'Tokens' }}
-        </h1>
+        </Heading>
       </div>
     </div>
 
@@ -190,7 +193,7 @@ async function handleSend() {
       <!-- Step 1: Token Selection -->
       <Card v-else-if="currentStep === 1">
         <CardHeader>
-          <h3 class="text-xl font-semibold">Select Token to Send</h3>
+          <Heading as="h3" :level="4">Select Token to Send</Heading>
           <p class="text-sm text-muted-foreground">Choose which token you want to send</p>
         </CardHeader>
         <CardContent>
@@ -218,8 +221,12 @@ async function handleSend() {
           </ItemContent>
           <ItemContent class="text-right">
             <ItemDescription>Available</ItemDescription>
-            <ItemTitle class="font-mono">
-              {{ addNumberDecimals(selectedToken.balance, selectedToken.decimals) }}
+            <ItemTitle>
+              <Amount
+                :value="addNumberDecimals(selectedToken.balance, selectedToken.decimals)"
+                :decimals="selectedToken.decimals"
+                :symbol="selectedToken.symbol"
+              />
             </ItemTitle>
           </ItemContent>
         </Item>
@@ -227,7 +234,7 @@ async function handleSend() {
         <!-- Transaction Form -->
         <Card>
           <CardHeader>
-            <h3 class="text-xl font-semibold">Transaction Details</h3>
+            <Heading as="h3" :level="4">Transaction Details</Heading>
           </CardHeader>
           <CardContent>
             <FieldGroup>
@@ -273,8 +280,11 @@ async function handleSend() {
                   </InputGroupAddon>
                 </InputGroup>
                 <FieldDescription>
-                  Available: {{ addNumberDecimals(selectedToken.balance, selectedToken.decimals) }}
-                  {{ selectedToken.symbol }}
+                  Available: <Amount
+                    :value="addNumberDecimals(selectedToken.balance, selectedToken.decimals)"
+                    :decimals="selectedToken.decimals"
+                    :symbol="selectedToken.symbol"
+                  />
                 </FieldDescription>
               </Field>
 
@@ -307,26 +317,7 @@ async function handleSend() {
                   <SendHorizontalIcon class="inline" />
                 </span>
                 <span v-else class="flex items-center justify-center gap-2">
-                  <svg
-                    class="h-4 w-4 animate-spin"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      class="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      stroke-width="4"
-                    ></circle>
-                    <path
-                      class="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
+                  <Spinner />
                   <span v-if="isGeneratingPow">Generating plasma...</span>
                   <span v-else>Sending...</span>
                 </span>

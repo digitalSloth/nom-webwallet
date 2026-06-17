@@ -2,9 +2,8 @@
 import {computed} from 'vue'
 import type {FusionEntry} from 'znn-typescript-sdk'
 import {addNumberDecimals} from 'znn-typescript-sdk'
-import {formatTokenDisplay, truncateAddress} from '@/core'
 import {BLOCKS_PER_HOUR, PLASMA_REVOKE_BLOCKS as REVOKE_TIME_BLOCKS} from '@/config'
-import {Button, Item, ItemContent, ItemDescription, ItemTitle} from 'nom-ui'
+import {Address, Amount, Button, Item, ItemContent, ItemDescription, ItemTitle} from 'nom-ui'
 
 export interface FusionListProps {
   fusions: FusionEntry[]
@@ -24,11 +23,6 @@ const props = withDefaults(defineProps<FusionListProps>(), {
 const emit = defineEmits<{
   cancel: [fusionId: string]
 }>()
-
-// Helper to format QSR amount for display
-function formatQsrAmount(amount: string): string {
-  return formatTokenDisplay(addNumberDecimals(amount, 8))
-}
 
 // Helper to check if fusion can be canceled
 function canCancel(fusion: FusionEntry): boolean {
@@ -93,17 +87,20 @@ const fusionsWithStatus = computed(() => {
             </Button>
           </div>
           <ItemDescription class="line-clamp-none space-y-2">
-            <div class="text-xs" :title="fusion.beneficiary.toString()">
-              Beneficiary: {{ truncateAddress(fusion.beneficiary.toString()) }}
+            <div class="text-xs">
+              Beneficiary: <Address :address="fusion.beneficiary.toString()" :copy="false" />
             </div>
             <div class="text-xs">
               {{ fusion.timeRemaining }}
             </div>
-            <div class="rounded-md border border-blue-500/20 bg-blue-500/10 p-3">
+            <div class="rounded-md border border-info/20 bg-info/10 p-3">
               <div class="mb-1 text-xs text-muted-foreground">Fused Amount</div>
-              <div class="font-mono text-lg font-bold break-all text-blue-600 dark:text-blue-400">
-                {{ formatQsrAmount(fusion.qsrAmount.toString()) }} QSR
-              </div>
+              <Amount
+                :value="addNumberDecimals(fusion.qsrAmount.toString(), 8)"
+                :decimals="8"
+                symbol="QSR"
+                class="font-mono text-lg font-bold break-all"
+              />
             </div>
           </ItemDescription>
         </ItemContent>

@@ -25,11 +25,11 @@ const { maskStyle } = useScrollFade(scrollRef)
 const getPlasmaColor = () => {
   switch (props.plasmaLevel) {
     case 'high':
-      return 'text-green-500'
+      return 'text-success'
     case 'medium':
-      return 'text-yellow-500'
+      return 'text-warning'
     case 'low':
-      return 'text-red-500'
+      return 'text-destructive'
   }
 }
 </script>
@@ -43,19 +43,19 @@ const getPlasmaColor = () => {
     >
       <!-- Account Height -->
       <div class="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
-        <span class="text-muted-foreground">Account Height:</span>
-        <span class="font-medium">{{ accountHeight }}</span>
+        <span class="text-ledger text-muted-foreground">Account Height:</span>
+        <span class="tabular-nums font-medium">{{ accountHeight }}</span>
       </div>
 
       <!-- Token Count -->
       <div class="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
-        <span class="text-muted-foreground">Tokens:</span>
-        <span class="font-medium">{{ tokenCount }}</span>
+        <span class="text-ledger text-muted-foreground">Tokens:</span>
+        <span class="tabular-nums font-medium">{{ tokenCount }}</span>
       </div>
 
       <!-- Plasma Level -->
       <div class="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
-        <span class="text-muted-foreground">Plasma:</span>
+        <span class="text-ledger text-muted-foreground">Plasma:</span>
         <div class="flex items-center gap-1">
           <ZapIcon :class="['h-4 w-4', getPlasmaColor()]" />
           <span class="font-medium capitalize">{{ plasmaLevel }}</span>
@@ -64,7 +64,7 @@ const getPlasmaColor = () => {
 
       <!-- Delegated Pillar -->
       <div class="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
-        <span class="text-muted-foreground">Pillar:</span>
+        <span class="text-ledger text-muted-foreground">Pillar:</span>
         <span class="font-medium">{{ delegatedPillar || 'None' }}</span>
       </div>
 

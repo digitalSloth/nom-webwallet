@@ -2,7 +2,7 @@
 import {computed} from 'vue'
 import type {StakeEntry} from 'znn-typescript-sdk'
 import {addNumberDecimals} from 'znn-typescript-sdk'
-import {Button, Item, ItemContent, ItemDescription, ItemTitle} from 'nom-ui'
+import {Amount, Button, Item, ItemContent, ItemDescription, ItemTitle} from 'nom-ui'
 
 export interface StakeListProps {
   stakes: StakeEntry[]
@@ -20,11 +20,6 @@ const props = withDefaults(defineProps<StakeListProps>(), {
 const emit = defineEmits<{
   cancel: [stakeId: string]
 }>()
-
-// Helper to format ZNN amount
-function formatZnnAmount(amount: string): string {
-  return addNumberDecimals(amount, 8)
-}
 
 // Helper to check if stake can be canceled (stake has expired)
 function canCancel(stake: StakeEntry): boolean {
@@ -111,11 +106,14 @@ const stakesWithStatus = computed(() => {
             <div class="text-xs">
               {{ stake.timeRemaining }}
             </div>
-            <div class="rounded-md border border-green-500/20 bg-green-500/10 p-3">
+            <div class="rounded-md border border-primary/20 bg-primary/10 p-3">
               <div class="mb-1 text-xs text-muted-foreground">Staked Amount</div>
-              <div class="font-mono text-lg font-bold text-green-600 dark:text-green-400">
-                {{ formatZnnAmount(stake.amount.toString()) }} ZNN
-              </div>
+              <Amount
+                :value="addNumberDecimals(stake.amount.toString(), 8)"
+                :decimals="8"
+                symbol="ZNN"
+                class="font-mono text-lg font-bold"
+              />
             </div>
           </ItemDescription>
         </ItemContent>

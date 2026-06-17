@@ -5,7 +5,7 @@ import {MIN_FUSE_AMOUNT_QSR} from '@/config'
 import {extractNumberDecimals} from 'znn-typescript-sdk'
 import FusionList from './FusionList.vue'
 import PlasmaBotDialog from './PlasmaBotDialog.vue'
-import {Alert, AlertDescription, Button, Input} from 'nom-ui'
+import {Alert, AlertDescription, Button, Input, Spinner} from 'nom-ui'
 
 interface PlasmaTabProps {
   activeAccountAddress: string | null
@@ -199,7 +199,7 @@ async function handleCancel(fusionId: string) {
       v-if="plasma.isLoading.value && plasma.fusionEntries.value.length === 0"
       class="py-8 text-center text-muted-foreground"
     >
-      Loading plasma data...
+      <Spinner class="mx-auto" />
     </div>
     <div v-else class="space-y-6">
       <!-- plazma.bot prompt: only when the account can neither transact nor self-fuse -->
@@ -267,7 +267,8 @@ async function handleCancel(fusionId: string) {
           class="w-full"
           :disabled="plasma.isFusing.value || isWalletLocked"
         >
-          {{ plasma.isFusing.value ? 'Fusing...' : 'Fuse Plasma' }}
+          <span v-if="plasma.isFusing.value" class="flex items-center gap-2"><Spinner class="size-4" />Fusing...</span>
+          <span v-else>Fuse Plasma</span>
         </Button>
       </div>
 

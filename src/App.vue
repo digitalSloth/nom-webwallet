@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import {onMounted, provide, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
-import {truncateAddress, useAccount, useNetwork, useWallet} from '@/core'
+import {useAccount, useNetwork, useWallet} from '@/core'
 import {
+  Address,
   Button,
   Dialog,
   DialogContent,
@@ -10,6 +11,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Heading,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -251,11 +253,6 @@ async function handleNetworkConfigChange(chainId: number, networkId: number) {
   await network.updateNetworkConfig(chainId, networkId)
 }
 
-function handleThemeToggle() {
-  const { toggleTheme } = useTheme()
-  toggleTheme()
-}
-
 async function handleWalletAdded(address: string) {
   // Reload wallet data to include the newly added wallet
   await wallet.loadWalletData()
@@ -275,9 +272,9 @@ async function handleWalletAdded(address: string) {
           <div class="flex items-center gap-3">
             <div>
               <div class="flex items-center gap-2">
-                <h1 class="text-xl font-bold">
+                <Heading as="h1" :level="4">
                   {{ wallet.activeWallet.value?.name || 'NoM Wallet' }}
-                </h1>
+                </Heading>
 
                 <!-- Account Selector Popover -->
                 <Popover v-model:open="showAccountSelector">
@@ -306,12 +303,12 @@ async function handleWalletAdded(address: string) {
                   </PopoverContent>
                 </Popover>
               </div>
-              <p
+              <Address
                 v-if="wallet.activeAccountAddress.value"
-                class="font-mono text-sm text-muted-foreground"
-              >
-                {{ truncateAddress(wallet.activeAccountAddress.value) }}
-              </p>
+                :address="wallet.activeAccountAddress.value"
+                :copy="true"
+                class="text-sm text-muted-foreground"
+              />
             </div>
           </div>
 
@@ -379,7 +376,6 @@ async function handleWalletAdded(address: string) {
       :active-account-address="wallet.activeAccountAddress.value"
       :unlocked-wallets="wallet.unlockedWallets.value"
       :current-node="network.currentNode.value"
-      :theme="useTheme().theme.value"
       @unlock="handleUnlock"
       @lock="handleLock"
       @delete-wallet="requestDeleteWallet"
@@ -391,7 +387,6 @@ async function handleWalletAdded(address: string) {
       @toggle-account-hidden="handleToggleAccountHidden"
       @select-network="handleNetworkChange"
       @update-network-config="handleNetworkConfigChange"
-      @toggle-theme="handleThemeToggle"
       @wallet-added="handleWalletAdded"
     />
 

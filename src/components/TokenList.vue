@@ -2,7 +2,7 @@
 import {computed, ref} from 'vue'
 import {addNumberDecimals, QSR_ZTS, ZNN_ZTS} from 'znn-typescript-sdk'
 import type {BalanceInfo} from '@/types'
-import {Input, Item, ItemActions, ItemContent, ItemDescription, ItemTitle} from 'nom-ui'
+import {Amount, Badge, Input, Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle, TokenIcon} from 'nom-ui'
 
 export interface TokenListProps {
   tokens: BalanceInfo[]
@@ -91,27 +91,31 @@ function handleItemClick(token: BalanceInfo) {
         size="sm"
         @click="(selectable || clickable) && handleItemClick(token)"
       >
+        <ItemMedia>
+          <TokenIcon :symbol="token.symbol ?? 'Unknown'" class="size-8" />
+        </ItemMedia>
         <ItemContent class="flex-1">
           <ItemTitle class="flex items-center gap-2">
             {{ token.symbol || 'Unknown' }}
-            <span
+            <Badge
               v-if="
                 token.tokenStandard === ZNN_ZTS.toString() ||
                 token.tokenStandard === QSR_ZTS.toString()
               "
-              class="rounded bg-primary/20 px-2 py-0.5 text-xs text-primary"
+              variant="secondary"
             >
               Core
-            </span>
+            </Badge>
           </ItemTitle>
           <ItemDescription>
             {{ token.name || token.tokenStandard }}
           </ItemDescription>
         </ItemContent>
         <ItemActions>
-          <span class="font-mono">
-            {{ addNumberDecimals(token.balance, token.decimals) }}
-          </span>
+          <Amount
+            :value="addNumberDecimals(token.balance, token.decimals)"
+            :decimals="token.decimals"
+          />
         </ItemActions>
       </Item>
     </div>

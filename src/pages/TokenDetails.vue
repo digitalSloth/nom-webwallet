@@ -2,7 +2,7 @@
 import {computed, inject, onMounted, ref} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {formatNumber, formatTokenDisplay, useAccount, useToken, useWallet} from '@/core'
-import {Button, Card, CardContent, CardHeader, Item, ItemContent, ItemGroup, ItemSeparator,} from 'nom-ui'
+import {Address, Button, Card, CardContent, CardHeader, Heading, Item, ItemContent, ItemGroup, ItemSeparator, Spinner,} from 'nom-ui'
 import {ArrowDownCircleIcon, ArrowLeftIcon, ArrowUpCircleIcon} from 'lucide-vue-next'
 import {addNumberDecimals} from 'znn-typescript-sdk'
 
@@ -81,9 +81,9 @@ function handleNavigateToSendReceive(path: string) {
         <Button @click="goBack" variant="outline" title="Go back">
           <ArrowLeftIcon />
         </Button>
-        <h1 class="text-2xl font-bold">
+        <Heading as="h1">
           {{ tokenBalance?.symbol || 'Token Details' }}
-        </h1>
+        </Heading>
       </div>
     </div>
 
@@ -99,7 +99,7 @@ function handleNavigateToSendReceive(path: string) {
       <!-- Loading State -->
       <Card v-else-if="token.isLoading.value || account.isLoading.value">
         <CardContent class="py-12 text-center text-muted-foreground">
-          Loading token information...
+          <Spinner class="mx-auto" />
         </CardContent>
       </Card>
 
@@ -117,7 +117,7 @@ function handleNavigateToSendReceive(path: string) {
         <Card>
           <CardContent class="py-8 text-center">
             <div class="mb-2 text-sm text-muted-foreground">Your Balance</div>
-            <div class="mb-6 font-mono text-5xl font-bold" :title="formattedBalance">
+            <div class="mb-6 font-mono tabular-nums text-5xl font-bold" :title="formattedBalance">
               {{ formattedBalanceCompact }}
             </div>
             <div class="mb-6 text-xl text-muted-foreground">
@@ -150,7 +150,7 @@ function handleNavigateToSendReceive(path: string) {
         <!-- Token Information -->
         <Card>
           <CardHeader>
-            <h3 class="text-xl font-semibold">Token Information</h3>
+            <Heading as="h3" :level="4">Token Information</Heading>
           </CardHeader>
           <CardContent>
             <ItemGroup>
@@ -181,7 +181,7 @@ function handleNavigateToSendReceive(path: string) {
                   class="flex-col items-start gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2"
                 >
                   <span class="shrink-0 text-muted-foreground">Token Standard</span>
-                  <span class="font-mono text-sm break-all sm:text-right">{{ tokenStandard }}</span>
+                  <Address :address="tokenStandard" :truncate="false" />
                 </ItemContent>
               </Item>
               <ItemSeparator />
@@ -202,7 +202,7 @@ function handleNavigateToSendReceive(path: string) {
                 >
                   <span class="shrink-0 text-muted-foreground">Total Supply</span>
                   <span
-                    class="font-mono break-all sm:text-right"
+                    class="font-mono tabular-nums break-all sm:text-right"
                     :title="
                       addNumberDecimals(
                         token.tokenInfo.value.totalSupply.toString(),
@@ -229,7 +229,7 @@ function handleNavigateToSendReceive(path: string) {
                 >
                   <span class="shrink-0 text-muted-foreground">Max Supply</span>
                   <span
-                    class="font-mono break-all sm:text-right"
+                    class="font-mono tabular-nums break-all sm:text-right"
                     :title="
                       addNumberDecimals(
                         token.tokenInfo.value.maxSupply.toString(),
@@ -255,9 +255,7 @@ function handleNavigateToSendReceive(path: string) {
                   class="flex-col items-start gap-0.5 sm:flex-row sm:items-start sm:justify-between sm:gap-2"
                 >
                   <span class="shrink-0 text-muted-foreground">Owner</span>
-                  <span class="font-mono text-sm break-all sm:text-right">
-                    {{ token.tokenInfo.value.owner.toString() }}
-                  </span>
+                  <Address :address="token.tokenInfo.value.owner.toString()" />
                 </ItemContent>
               </Item>
               <ItemSeparator />

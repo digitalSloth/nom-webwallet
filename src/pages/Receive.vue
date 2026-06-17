@@ -20,7 +20,6 @@ import {
   ItemTitle,
   Skeleton,
   Spinner,
-  TxDirection,
   useToast,
 } from 'nom-ui'
 import type {AccountBlock} from 'znn-typescript-sdk'
@@ -197,8 +196,7 @@ function goBack() {
                 class="flex-col items-stretch border-border sm:flex-row sm:items-center"
               >
                 <ItemContent class="min-w-0 flex-1">
-                  <ItemTitle class="flex items-center gap-2">
-                    <TxDirection direction="in" />
+                  <ItemTitle>
                     <Amount
                       :value="
                         addNumberDecimals(block.amount.toString(), block.token?.decimals ?? 8)
@@ -210,7 +208,7 @@ function goBack() {
                   <ItemDescription class="line-clamp-none space-y-2">
                     <div>
                       <div class="text-xs font-medium text-muted-foreground">From</div>
-                      <Address :address="block.address.toString()" :copy="false" />
+                      <Address :address="block.address.toString()" class="text-foreground" />
                     </div>
                     <div>
                       <div class="text-xs font-medium text-muted-foreground">ZTS</div>

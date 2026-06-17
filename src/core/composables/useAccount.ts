@@ -102,7 +102,7 @@ export function useAccount(accountAddress: string | null | (() => string | null)
     try {
       const plasmaInfo = await accountService.getPlasmaInfo(address.value)
       currentPlasma.value = plasmaInfo.currentPlasma
-      plasmaLevel.value = accountService.getPlasmaLevel(plasmaInfo.currentPlasma)
+      plasmaLevel.value = accountService.getPlasmaLevel(plasmaInfo.qsrAmount)
     } catch (err) {
       console.error('Failed to load plasma info:', err)
       plasmaLevel.value = 'low'

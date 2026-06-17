@@ -1,6 +1,6 @@
 import type {UncollectedReward} from 'znn-typescript-sdk'
-import {AccountBlockTemplate, Address, Zenon} from 'znn-typescript-sdk'
-import {ZenonService} from './zenon-service'
+import {AccountBlockTemplate, Address} from 'znn-typescript-sdk'
+import {ChainService} from './chain-service'
 
 export type RewardType = 'pillar' | 'sentinel' | 'stake' | 'liquidity'
 
@@ -9,25 +9,14 @@ export interface RewardInfo {
   reward: UncollectedReward
 }
 
-export class RewardsService {
-  private zenon: Zenon
-  private zenonService: ZenonService
+export class RewardsService extends ChainService {
   private static instance: RewardsService | null = null
-
-  private constructor() {
-    this.zenonService = ZenonService.getInstance()
-    this.zenon = this.zenonService.getZenon()
-  }
 
   static getInstance(): RewardsService {
     if (!RewardsService.instance) {
       RewardsService.instance = new RewardsService()
     }
     return RewardsService.instance
-  }
-
-  async ensureInitialized(): Promise<void> {
-    await this.zenonService.ensureInitialized()
   }
 
   // Get uncollected rewards for all reward types

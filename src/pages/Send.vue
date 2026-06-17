@@ -280,7 +280,8 @@ async function handleSend() {
                   </InputGroupAddon>
                 </InputGroup>
                 <FieldDescription>
-                  Available: <Amount
+                  Available:
+                  <Amount
                     :value="addNumberDecimals(selectedToken.balance, selectedToken.decimals)"
                     :decimals="selectedToken.decimals"
                     :symbol="selectedToken.symbol"

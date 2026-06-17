@@ -2,7 +2,18 @@
 import {computed, ref} from 'vue'
 import {addNumberDecimals, QSR_ZTS, ZNN_ZTS} from 'znn-typescript-sdk'
 import type {BalanceInfo} from '@/types'
-import {Amount, Badge, Input, Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle, TokenIcon} from 'nom-ui'
+import {
+  Amount,
+  Badge,
+  Input,
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
+  TokenIcon,
+} from 'nom-ui'
 
 export interface TokenListProps {
   tokens: BalanceInfo[]

@@ -44,13 +44,13 @@ const getPlasmaColor = () => {
       <!-- Account Height -->
       <div class="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
         <span class="text-ledger text-muted-foreground">Account Height:</span>
-        <span class="tabular-nums font-medium">{{ accountHeight }}</span>
+        <span class="font-medium tabular-nums">{{ accountHeight }}</span>
       </div>
 
       <!-- Token Count -->
       <div class="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
         <span class="text-ledger text-muted-foreground">Tokens:</span>
-        <span class="tabular-nums font-medium">{{ tokenCount }}</span>
+        <span class="font-medium tabular-nums">{{ tokenCount }}</span>
       </div>
 
       <!-- Plasma Level -->

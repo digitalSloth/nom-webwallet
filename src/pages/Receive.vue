@@ -193,7 +193,9 @@ function goBack() {
                   <ItemTitle class="flex items-center gap-2">
                     <TxDirection direction="in" />
                     <Amount
-                      :value="addNumberDecimals(block.amount.toString(), block.token?.decimals ?? 8)"
+                      :value="
+                        addNumberDecimals(block.amount.toString(), block.token?.decimals ?? 8)
+                      "
                       :decimals="block.token?.decimals ?? 8"
                       :symbol="block.token?.symbol ?? 'Unknown'"
                     />
@@ -224,7 +226,10 @@ function goBack() {
                     size="sm"
                     class="w-full sm:w-auto"
                   >
-                    <span v-if="currentlyReceivingHash === block.hash.toString()" class="flex items-center gap-2">
+                    <span
+                      v-if="currentlyReceivingHash === block.hash.toString()"
+                      class="flex items-center gap-2"
+                    >
                       <Spinner class="size-4" />Receiving...
                     </span>
                     <span v-else>Receive</span>

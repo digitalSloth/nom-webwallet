@@ -267,7 +267,9 @@ async function handleCancel(fusionId: string) {
           class="w-full"
           :disabled="plasma.isFusing.value || isWalletLocked"
         >
-          <span v-if="plasma.isFusing.value" class="flex items-center gap-2"><Spinner class="size-4" />Fusing...</span>
+          <span v-if="plasma.isFusing.value" class="flex items-center gap-2"
+            ><Spinner class="size-4" />Fusing...</span
+          >
           <span v-else>Fuse Plasma</span>
         </Button>
       </div>

@@ -107,7 +107,7 @@ const formattedQsrBalance = computed(() =>
           <div class="flex-1 rounded-md border border-primary/20 bg-primary/10 p-3">
             <div class="mb-1 text-xs text-muted-foreground">ZNN</div>
             <div
-              class="font-mono tabular-nums text-2xl font-bold"
+              class="font-mono text-2xl font-bold tabular-nums"
               :title="account.znnBalance.value"
             >
               {{ formattedZnnBalance }}
@@ -117,7 +117,7 @@ const formattedQsrBalance = computed(() =>
           <div class="flex-1 rounded-md border border-info/20 bg-info/10 p-3">
             <div class="mb-1 text-xs text-muted-foreground">QSR</div>
             <div
-              class="font-mono tabular-nums text-2xl font-bold"
+              class="font-mono text-2xl font-bold tabular-nums"
               :title="account.qsrBalance.value"
             >
               {{ formattedQsrBalance }}

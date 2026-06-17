@@ -2,7 +2,19 @@
 import {computed, inject, onMounted, ref} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {formatNumber, formatTokenDisplay, useAccount, useToken, useWallet} from '@/core'
-import {Address, Button, Card, CardContent, CardHeader, Heading, Item, ItemContent, ItemGroup, ItemSeparator, Spinner,} from 'nom-ui'
+import {
+  Address,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  Heading,
+  Item,
+  ItemContent,
+  ItemGroup,
+  ItemSeparator,
+  Spinner,
+} from 'nom-ui'
 import {ArrowDownCircleIcon, ArrowLeftIcon, ArrowUpCircleIcon} from 'lucide-vue-next'
 import {addNumberDecimals} from 'znn-typescript-sdk'
 
@@ -117,7 +129,7 @@ function handleNavigateToSendReceive(path: string) {
         <Card>
           <CardContent class="py-8 text-center">
             <div class="mb-2 text-sm text-muted-foreground">Your Balance</div>
-            <div class="mb-6 font-mono tabular-nums text-5xl font-bold" :title="formattedBalance">
+            <div class="mb-6 font-mono text-5xl font-bold tabular-nums" :title="formattedBalance">
               {{ formattedBalanceCompact }}
             </div>
             <div class="mb-6 text-xl text-muted-foreground">
@@ -202,7 +214,7 @@ function handleNavigateToSendReceive(path: string) {
                 >
                   <span class="shrink-0 text-muted-foreground">Total Supply</span>
                   <span
-                    class="font-mono tabular-nums break-all sm:text-right"
+                    class="font-mono break-all tabular-nums sm:text-right"
                     :title="
                       addNumberDecimals(
                         token.tokenInfo.value.totalSupply.toString(),
@@ -229,7 +241,7 @@ function handleNavigateToSendReceive(path: string) {
                 >
                   <span class="shrink-0 text-muted-foreground">Max Supply</span>
                   <span
-                    class="font-mono tabular-nums break-all sm:text-right"
+                    class="font-mono break-all tabular-nums sm:text-right"
                     :title="
                       addNumberDecimals(
                         token.tokenInfo.value.maxSupply.toString(),

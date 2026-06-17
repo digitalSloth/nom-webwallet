@@ -174,9 +174,7 @@ async function handleRequest() {
         <div
           v-if="statusLine"
           class="text-xs"
-          :class="
-            statusLine.warning ? 'text-warning' : 'text-muted-foreground'
-          "
+          :class="statusLine.warning ? 'text-warning' : 'text-muted-foreground'"
         >
           {{ statusLine.text }}
         </div>

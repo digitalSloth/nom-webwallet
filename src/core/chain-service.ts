@@ -12,6 +12,13 @@ import {ZenonService} from './zenon-service'
 // The ctor is PUBLIC: `abstract` on the class is what forbids `new ChainService()`;
 // a public ctor is required so the synthesized subclass default ctors stay public,
 // which is what lets a test module do `new AccountService(fakeZenonService)`.
+//
+// Tier B — every non-chain service (ZenonService, SessionManager, StorageService,
+// PlasmaBotService, the storage adapters) follows the convention instead of this
+// base: a public constructor injecting its own deps, defaulted to the production
+// wiring; the singleton / module-const export is just the prod wrapper. No code is
+// shared with this base — the dependencies genuinely differ — but the shape is the
+// same, so any service is constructable with fakes.
 export abstract class ChainService {
   protected zenon: Zenon
 

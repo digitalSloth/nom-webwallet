@@ -19,7 +19,7 @@ export class WalletService {
   private failedAttempts = new Map<string, FailedAttempt>()
   private static instance: WalletService | null = null
 
-  private constructor(private storage: StorageAdapter) {}
+  constructor(private storage: StorageAdapter = storageService) {}
 
   // Singleton accessor. Uses the auto-detecting storageService so the correct
   // adapter (localStorage vs chrome.storage) is selected per environment.

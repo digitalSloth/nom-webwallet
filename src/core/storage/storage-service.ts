@@ -5,6 +5,7 @@ import {ChromeStorageAdapter} from './chrome-storage-adapter'
 /**
  * Storage service that automatically selects the appropriate storage adapter
  * based on the environment (browser or Chrome extension)
+ * Tier B (see ChainService header): public defaulted-DI ctor; the module-const below is the prod wrapper.
  */
 class StorageService implements StorageAdapter {
   private adapter: StorageAdapter

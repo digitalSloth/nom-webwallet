@@ -1,0 +1,58 @@
+name: Release Extension
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Do not persist the contents:write token in the local git config;
+          # npm ci and the build run arbitrary dependency scripts, and the
+          # upload step below passes GH_TOKEN explicitly, so the build phase
+          # never needs a write-scoped credential.
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Use HTTPS for GitHub git deps
+        # nom-ui and znn-typescript-sdk are pinned in the lockfile to git
+        # URLs; the runner has no SSH key, so rewrite both the scp-style
+        # (git@github.com:) and git+ssh:// forms to HTTPS before npm ci so
+        # the public repos can be cloned without authentication.
+        run: |
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          git config --global url."https://github.com/".insteadOf "git+ssh://git@github.com/"
+          git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+
+      - name: Install dependencies
+        # npm ci installs the exact, committed lockfile and fails if
+        # package.json and package-lock.json have drifted out of sync,
+        # guaranteeing the built bundle matches the audited repo state.
+        run: npm ci
+
+      - name: Build extension
+        run: npm run build:extension
+
+      - name: Zip extension
+        env:
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: cd dist-extension && zip -r -q "../nom-webwallet-extension-${TAG_NAME}.zip" .
+
+      - name: Upload extension to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG_NAME" "nom-webwallet-extension-${TAG_NAME}.zip"

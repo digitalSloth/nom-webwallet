@@ -173,27 +173,27 @@ async function collectAllRewards() {
         <div class="grid grid-cols-2 gap-3">
           <div
             v-if="parseFloat(totalZnnRewards) > 0"
-            class="rounded-md border border-primary/20 bg-primary/10 p-3"
+            class="rounded-md border border-zenon-green/30 bg-zenon-green/20 p-3"
           >
-            <div class="mb-1 text-xs text-muted-foreground">Total ZNN</div>
+            <div class="mb-1 text-ledger text-muted-foreground">Total ZNN</div>
             <Amount
               :value="totalZnnRewards"
               :decimals="2"
               compact
-              class="text-2xl font-bold"
+              class="text-2xl font-semibold tracking-tight"
               :title="totalZnnRewards"
             />
           </div>
           <div
             v-if="parseFloat(totalQsrRewards) > 0"
-            class="rounded-md border border-info/20 bg-info/10 p-3"
+            class="rounded-md border border-zenon-blue/30 bg-zenon-blue/20 p-3"
           >
-            <div class="mb-1 text-xs text-muted-foreground">Total QSR</div>
+            <div class="mb-1 text-ledger text-muted-foreground">Total QSR</div>
             <Amount
               :value="totalQsrRewards"
               :decimals="2"
               compact
-              class="text-2xl font-bold"
+              class="text-2xl font-semibold tracking-tight"
               :title="totalQsrRewards"
             />
           </div>

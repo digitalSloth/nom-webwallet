@@ -102,41 +102,39 @@ function handleNavigateToSendReceive(path: string) {
 
     <!-- Main Wallet View -->
     <div v-else class="space-y-6">
-      <!-- Compact Balance and Actions -->
-      <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <!-- Balance Display -->
-        <div class="flex items-center gap-3 md:col-span-1">
-          <div class="flex-1 rounded-md border border-primary/20 bg-primary/20 p-3">
-            <div class="mb-1 text-xs text-muted-foreground">ZNN</div>
-            <Amount
-              :value="account.znnBalance.value"
-              :decimals="2"
-              :compact="true"
-              class="text-2xl font-bold"
-              :title="account.znnBalance.value"
-            />
-          </div>
-
-          <div class="flex-1 rounded-md border border-info/20 bg-info/20 p-3">
-            <div class="mb-1 text-xs text-muted-foreground">QSR</div>
-            <Amount
-              :value="account.qsrBalance.value"
-              :decimals="2"
-              :compact="true"
-              class="text-2xl font-bold"
-              :title="account.qsrBalance.value"
-            />
-          </div>
+      <!-- Balance hero -->
+      <div class="grid grid-cols-2 gap-3">
+        <div class="rounded-lg border border-zenon-green/30 bg-zenon-green/20 px-5 py-4">
+          <div class="text-ledger text-muted-foreground">ZNN</div>
+          <Amount
+            :value="account.znnBalance.value"
+            :decimals="2"
+            :compact="true"
+            class="mt-1 block text-3xl font-semibold tracking-tight"
+            :title="account.znnBalance.value"
+          />
         </div>
 
-        <!-- Action Buttons -->
-        <div class="grid grid-cols-2 gap-3 md:col-span-1">
+        <div class="rounded-lg border border-zenon-blue/30 bg-zenon-blue/20 px-5 py-4">
+          <div class="text-ledger text-muted-foreground">QSR</div>
+          <Amount
+            :value="account.qsrBalance.value"
+            :decimals="2"
+            :compact="true"
+            class="mt-1 block text-3xl font-semibold tracking-tight"
+            :title="account.qsrBalance.value"
+          />
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="grid grid-cols-2 gap-3">
           <Button
             @click="handleNavigateToSendReceive('/send')"
             variant="outline"
             class="flex min-h-20 flex-col items-center justify-center gap-1 rounded-md border border-border bg-muted/40 transition-colors hover:border-primary/40 hover:bg-primary/10"
           >
-            <ArrowUpCircleIcon class="h-7 w-7 text-primary" />
+            <ArrowUpCircleIcon class="h-7 w-7 text-muted-foreground" />
             <span class="text-sm font-medium">Send</span>
           </Button>
 
@@ -145,7 +143,7 @@ function handleNavigateToSendReceive(path: string) {
             variant="outline"
             class="relative flex min-h-20 flex-col items-center justify-center gap-1 rounded-md border border-border bg-muted/40 transition-colors hover:border-primary/40 hover:bg-primary/10"
           >
-            <ArrowDownCircleIcon class="h-7 w-7 text-primary" />
+            <ArrowDownCircleIcon class="h-7 w-7 text-success" />
             <span class="text-sm font-medium">Receive</span>
             <span
               v-if="account.unreceivedCount.value > 0"
@@ -155,13 +153,11 @@ function handleNavigateToSendReceive(path: string) {
             </span>
           </Button>
         </div>
-      </div>
 
       <!-- Wallet Stats -->
       <WalletStats
         :token-count="account.tokenCount.value"
         :account-height="account.accountHeight.value"
-        :plasma-level="account.plasmaLevel.value"
         :delegated-pillar="account.delegatedPillar.value"
         :total-znn-rewards="account.totalZnnRewards.value"
         :total-qsr-rewards="account.totalQsrRewards.value"

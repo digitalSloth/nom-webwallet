@@ -54,7 +54,7 @@ const rewardsWithAmounts = computed(() => {
 <template>
   <div class="space-y-3">
     <div v-if="rewardsWithAmounts.length === 0" class="py-8 text-center text-muted-foreground">
-      <p>No uncollected rewards available</p>
+      <p>No rewards to collect yet — they'll appear here once you've earned some from delegating, staking, or running a node.</p>
     </div>
 
     <div v-else class="space-y-3">
@@ -82,27 +82,25 @@ const rewardsWithAmounts = computed(() => {
             <div class="flex gap-2 sm:gap-4">
               <div
                 v-if="BigInt(reward.reward.znnAmount.toString()) > 0n"
-                class="min-w-0 flex-1 rounded-md border border-primary/20 bg-primary/10 p-3"
+                class="min-w-0 flex-1 rounded-md border border-zenon-green/30 bg-zenon-green/20 p-3"
               >
-                <div class="mb-1 text-xs text-muted-foreground">ZNN</div>
                 <Amount
                   :value="addNumberDecimals(reward.reward.znnAmount.toString(), 8)"
                   :decimals="8"
                   symbol="ZNN"
-                  class="font-mono text-base font-bold break-all sm:text-lg"
+                  class="font-mono text-lg font-bold break-all text-foreground"
                 />
               </div>
 
               <div
                 v-if="BigInt(reward.reward.qsrAmount.toString()) > 0n"
-                class="min-w-0 flex-1 rounded-md border border-info/20 bg-info/10 p-3"
+                class="min-w-0 flex-1 rounded-md border border-zenon-blue/30 bg-zenon-blue/20 p-3"
               >
-                <div class="mb-1 text-xs text-muted-foreground">QSR</div>
                 <Amount
                   :value="addNumberDecimals(reward.reward.qsrAmount.toString(), 8)"
                   :decimals="8"
                   symbol="QSR"
-                  class="font-mono text-base font-bold break-all sm:text-lg"
+                  class="font-mono text-lg font-bold break-all text-foreground"
                 />
               </div>
             </div>

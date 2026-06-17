@@ -93,13 +93,13 @@ const fusionsWithStatus = computed(() => {
             <div class="text-xs">
               {{ fusion.timeRemaining }}
             </div>
-            <div class="rounded-md border border-info/20 bg-info/10 p-3">
+            <div class="rounded-md border border-zenon-blue/30 bg-zenon-blue/20 p-3">
               <div class="mb-1 text-xs text-muted-foreground">Fused Amount</div>
               <Amount
                 :value="addNumberDecimals(fusion.qsrAmount.toString(), 8)"
                 :decimals="8"
                 symbol="QSR"
-                class="font-mono text-lg font-bold break-all"
+                class="font-mono text-lg font-bold break-all text-foreground"
               />
             </div>
           </ItemDescription>

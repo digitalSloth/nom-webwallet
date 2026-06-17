@@ -106,13 +106,13 @@ const stakesWithStatus = computed(() => {
             <div class="text-xs">
               {{ stake.timeRemaining }}
             </div>
-            <div class="rounded-md border border-primary/20 bg-primary/10 p-3">
+            <div class="rounded-md border border-zenon-green/30 bg-zenon-green/20 p-3">
               <div class="mb-1 text-xs text-muted-foreground">Staked Amount</div>
               <Amount
                 :value="addNumberDecimals(stake.amount.toString(), 8)"
                 :decimals="8"
                 symbol="ZNN"
-                class="font-mono text-lg font-bold"
+                class="font-mono text-lg font-bold break-all text-foreground"
               />
             </div>
           </ItemDescription>

@@ -1,15 +1,25 @@
 <script setup lang="ts">
-import {computed, inject, onMounted, onUnmounted, ref} from 'vue'
-import {useRouter} from 'vue-router'
-import {useAccount, useWallet} from '@/core'
-import {Amount, Button, Card, CardContent, Tabs, TabsContent, TabsList, TabsTrigger, useToast,} from 'nom-ui'
+import { computed, inject, onMounted, onUnmounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAccount, useWallet } from '@/core'
+import {
+  Amount,
+  Button,
+  Card,
+  CardContent,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  useToast,
+} from 'nom-ui'
 import TokensTab from '@/components/TokensTab.vue'
 import RewardsTab from '@/components/RewardsTab.vue'
 import PlasmaTab from '@/components/PlasmaTab.vue'
 import PillarTab from '@/components/PillarTab.vue'
 import StakeTab from '@/components/StakeTab.vue'
 import WalletStats from '@/components/WalletStats.vue'
-import {ArrowDownCircleIcon, ArrowUpCircleIcon, WalletIcon} from 'lucide-vue-next'
+import { ArrowDownCircleIcon, ArrowUpCircleIcon, WalletIcon } from 'lucide-vue-next'
 
 const router = useRouter()
 
@@ -124,18 +134,18 @@ function handleNavigateToSendReceive(path: string) {
           <Button
             @click="handleNavigateToSendReceive('/send')"
             variant="outline"
-            class="flex min-h-20 flex-col items-center justify-center gap-1 rounded-lg border border-primary/50 transition-colors hover:border-primary hover:bg-primary/10"
+            class="flex min-h-20 flex-col items-center justify-center gap-1 rounded-md border border-border bg-muted/40 transition-colors hover:border-primary/40 hover:bg-primary/10"
           >
-            <ArrowUpCircleIcon class="h-6 w-6 text-primary" />
+            <ArrowUpCircleIcon class="h-7 w-7 text-primary" />
             <span class="text-sm font-medium">Send</span>
           </Button>
 
           <Button
             @click="handleNavigateToSendReceive('/receive')"
             variant="outline"
-            class="relative flex min-h-20 flex-col items-center justify-center gap-1 rounded-lg border border-primary/50 transition-colors hover:border-primary hover:bg-primary/10"
+            class="relative flex min-h-20 flex-col items-center justify-center gap-1 rounded-md border border-border bg-muted/40 transition-colors hover:border-primary/40 hover:bg-primary/10"
           >
-            <ArrowDownCircleIcon class="h-6 w-6 text-primary" />
+            <ArrowDownCircleIcon class="h-7 w-7 text-primary" />
             <span class="text-sm font-medium">Receive</span>
             <span
               v-if="account.unreceivedCount.value > 0"

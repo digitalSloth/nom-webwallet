@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import {onMounted, provide, ref, watch} from 'vue'
-import {useRoute, useRouter} from 'vue-router'
-import {isGeneratingPow, useAccount, useNetwork, useWallet} from '@/core'
+import { onMounted, provide, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { isGeneratingPow, useAccount, useNetwork, useWallet } from '@/core'
 import {
   Address,
   Button,
@@ -26,7 +26,7 @@ import PlasmaIndicator from '@/components/PlasmaIndicator.vue'
 import SettingsDialog from '@/components/SettingsDialog.vue'
 import UnlockWalletDialog from '@/components/UnlockWalletDialog.vue'
 import AccountList from '@/components/AccountList.vue'
-import {ChevronDownIcon, LockIcon, LockOpenIcon, SettingsIcon} from 'lucide-vue-next'
+import { ChevronDownIcon, LockIcon, LockOpenIcon, SettingsIcon } from 'lucide-vue-next'
 
 const router = useRouter()
 const route = useRoute()
@@ -266,11 +266,16 @@ async function handleWalletAdded(address: string) {
 
 <template>
   <TooltipProvider disable-hoverable-content>
-    <div class="min-h-screen">
+    <div class="relative min-h-screen overflow-x-hidden">
       <Toaster />
+      <!-- Ambient brand glow -->
+      <div
+        class="pointer-events-none fixed -top-40 left-1/2 -z-10 h-72 w-[40rem] -translate-x-1/2 rounded-full bg-zenon-green/15 blur-[110px]"
+        aria-hidden="true"
+      />
       <!-- Only show header if not on setup page -->
       <template v-if="route.path !== '/setup'">
-        <header class="border-b p-4">
+        <header class="sticky top-0 z-20 border-b bg-card/60 p-4 shadow-sm backdrop-blur">
           <div class="container mx-auto flex items-center justify-between">
             <!-- Left: Wallet Name, Account Selector, and Address -->
             <div class="flex items-center gap-3">
@@ -314,6 +319,7 @@ async function handleWalletAdded(address: string) {
                   :address="wallet.activeAccountAddress.value"
                   :copy="true"
                   :hoverable="false"
+                  :start="4"
                   :end="6"
                   :tooltip="false"
                   class="text-sm text-muted-foreground"

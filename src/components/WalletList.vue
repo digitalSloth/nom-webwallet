@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import {ref, watch} from 'vue'
 import type {Wallet} from '@/types'
-import {truncateAddress} from '@/core'
 import AccountList from './AccountList.vue'
 import CreateWalletForm from './CreateWalletForm.vue'
 import ImportWalletForm from './ImportWalletForm.vue'
 import {
+  Address,
   Button,
   Dialog,
   DialogContent,
@@ -200,8 +200,8 @@ function handleAddWalletCancel() {
             </div>
 
             <!-- Wallet Address -->
-            <p class="font-mono text-sm text-muted-foreground">
-              {{ truncateAddress(wallet.baseAddress) }}
+            <p class="text-sm text-muted-foreground">
+              <Address :address="wallet.baseAddress" :copy="false" />
             </p>
           </div>
         </div>

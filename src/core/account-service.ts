@@ -39,10 +39,11 @@ export class AccountService {
     return await this.zenon.embedded.plasma.get(addr)
   }
 
-  // Calculate plasma level based on current plasma amount
-  getPlasmaLevel(currentPlasma: number): PlasmaLevel {
-    if (currentPlasma >= 120) return 'high'
-    if (currentPlasma >= 40) return 'medium'
+  // Calculate plasma level based on the fused QSR amount (base units, 8 decimals)
+  getPlasmaLevel(qsrAmount: bigint): PlasmaLevel {
+    const qsr = Number(qsrAmount) / 1e8
+    if (qsr >= 120) return 'high'
+    if (qsr >= 40) return 'medium'
     return 'low'
   }
 

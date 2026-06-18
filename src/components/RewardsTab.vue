@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import {computed, onMounted, watch} from 'vue'
 import type {RewardType} from '@/core'
-import {formatNumber, useRewards, useWallet} from '@/core'
+import {useRewards, useWallet} from '@/core'
 import {addNumberDecimals} from 'znn-typescript-sdk'
 import RewardsList from './RewardsList.vue'
-import {Button} from 'nom-ui'
+import {Amount, Button} from 'nom-ui'
 
 interface RewardsTabProps {
   activeAccountAddress: string | null
@@ -39,13 +39,6 @@ const totalQsrRewards = computed(() => {
   }, 0n)
   return addNumberDecimals(total.toString(), 8)
 })
-
-const formattedZnnRewards = computed(() =>
-  formatNumber(totalZnnRewards.value, { decimals: 2, compact: true })
-)
-const formattedQsrRewards = computed(() =>
-  formatNumber(totalQsrRewards.value, { decimals: 2, compact: true })
-)
 
 const hasAnyRewards = computed(() => {
   return (
@@ -180,27 +173,29 @@ async function collectAllRewards() {
         <div class="grid grid-cols-2 gap-3">
           <div
             v-if="parseFloat(totalZnnRewards) > 0"
-            class="rounded-md border border-green-500/20 bg-green-500/10 p-3"
+            class="rounded-md border border-zenon-green/30 bg-zenon-green/20 p-3"
           >
-            <div class="mb-1 text-xs text-muted-foreground">Total ZNN</div>
-            <div
-              class="font-mono text-2xl font-bold text-green-600 dark:text-green-400"
+            <div class="mb-1 text-ledger text-muted-foreground">Total ZNN</div>
+            <Amount
+              :value="totalZnnRewards"
+              :decimals="2"
+              compact
+              class="text-2xl font-semibold tracking-tight"
               :title="totalZnnRewards"
-            >
-              {{ formattedZnnRewards }}
-            </div>
+            />
           </div>
           <div
             v-if="parseFloat(totalQsrRewards) > 0"
-            class="rounded-md border border-blue-500/20 bg-blue-500/10 p-3"
+            class="rounded-md border border-zenon-blue/30 bg-zenon-blue/20 p-3"
           >
-            <div class="mb-1 text-xs text-muted-foreground">Total QSR</div>
-            <div
-              class="font-mono text-2xl font-bold text-blue-600 dark:text-blue-400"
+            <div class="mb-1 text-ledger text-muted-foreground">Total QSR</div>
+            <Amount
+              :value="totalQsrRewards"
+              :decimals="2"
+              compact
+              class="text-2xl font-semibold tracking-tight"
               :title="totalQsrRewards"
-            >
-              {{ formattedQsrRewards }}
-            </div>
+            />
           </div>
         </div>
       </div>

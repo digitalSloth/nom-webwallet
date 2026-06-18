@@ -2,8 +2,7 @@
 import {computed} from 'vue'
 import {addNumberDecimals} from 'znn-typescript-sdk'
 import type {RewardInfo, RewardType} from '@/core'
-import {formatTokenDisplay} from '@/core'
-import {Button, Item, ItemContent, ItemDescription, ItemTitle} from 'nom-ui'
+import {Amount, Button, Item, ItemContent, ItemDescription, ItemTitle} from 'nom-ui'
 
 export interface RewardsListProps {
   rewards: RewardInfo[]
@@ -38,11 +37,6 @@ const rewardTypeDescriptions: Record<string, string> = {
   liquidity: 'Rewards from providing liquidity',
 }
 
-// Helper to format token amounts for display (rounds + avoids misleading "0")
-function formatAmount(amount: string, decimals: number = 8): string {
-  return formatTokenDisplay(addNumberDecimals(amount, decimals))
-}
-
 // Helper to check if reward has any amounts
 function hasRewards(reward: RewardInfo): boolean {
   return (
@@ -60,7 +54,7 @@ const rewardsWithAmounts = computed(() => {
 <template>
   <div class="space-y-3">
     <div v-if="rewardsWithAmounts.length === 0" class="py-8 text-center text-muted-foreground">
-      <p>No uncollected rewards available</p>
+      <p>No rewards to collect yet — they'll appear here once you've earned some from delegating, staking, or running a node.</p>
     </div>
 
     <div v-else class="space-y-3">
@@ -88,26 +82,26 @@ const rewardsWithAmounts = computed(() => {
             <div class="flex gap-2 sm:gap-4">
               <div
                 v-if="BigInt(reward.reward.znnAmount.toString()) > 0n"
-                class="min-w-0 flex-1 rounded-md border border-green-500/20 bg-green-500/10 p-3"
+                class="min-w-0 flex-1 rounded-md border border-zenon-green/30 bg-zenon-green/20 p-3"
               >
-                <div class="mb-1 text-xs text-muted-foreground">ZNN</div>
-                <div
-                  class="font-mono text-base font-bold break-all text-green-600 sm:text-lg dark:text-green-400"
-                >
-                  {{ formatAmount(reward.reward.znnAmount.toString()) }}
-                </div>
+                <Amount
+                  :value="addNumberDecimals(reward.reward.znnAmount.toString(), 8)"
+                  :decimals="8"
+                  symbol="ZNN"
+                  class="font-mono text-lg font-bold break-all text-foreground"
+                />
               </div>
 
               <div
                 v-if="BigInt(reward.reward.qsrAmount.toString()) > 0n"
-                class="min-w-0 flex-1 rounded-md border border-blue-500/20 bg-blue-500/10 p-3"
+                class="min-w-0 flex-1 rounded-md border border-zenon-blue/30 bg-zenon-blue/20 p-3"
               >
-                <div class="mb-1 text-xs text-muted-foreground">QSR</div>
-                <div
-                  class="font-mono text-base font-bold break-all text-blue-600 sm:text-lg dark:text-blue-400"
-                >
-                  {{ formatAmount(reward.reward.qsrAmount.toString()) }}
-                </div>
+                <Amount
+                  :value="addNumberDecimals(reward.reward.qsrAmount.toString(), 8)"
+                  :decimals="8"
+                  symbol="QSR"
+                  class="font-mono text-lg font-bold break-all text-foreground"
+                />
               </div>
             </div>
           </ItemDescription>

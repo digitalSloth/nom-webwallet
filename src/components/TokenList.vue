@@ -2,7 +2,8 @@
 import {computed, ref} from 'vue'
 import {addNumberDecimals, QSR_ZTS, ZNN_ZTS} from 'znn-typescript-sdk'
 import type {BalanceInfo} from '@/types'
-import {Input, Item, ItemActions, ItemContent, ItemDescription, ItemTitle} from 'nom-ui'
+import {Amount, Badge, Input, Item, ItemActions, ItemContent, ItemDescription, ItemTitle} from 'nom-ui'
+import {CoinsIcon} from 'lucide-vue-next'
 
 export interface TokenListProps {
   tokens: BalanceInfo[]
@@ -79,6 +80,7 @@ function handleItemClick(token: BalanceInfo) {
 
     <!-- Token List -->
     <div v-if="sortedAndFilteredTokens.length === 0" class="py-8 text-center text-muted-foreground">
+      <CoinsIcon class="mx-auto mb-3 h-12 w-12 opacity-50" />
       <p v-if="searchQuery">No tokens found matching "{{ searchQuery }}"</p>
       <p v-else>No tokens available</p>
     </div>
@@ -94,24 +96,25 @@ function handleItemClick(token: BalanceInfo) {
         <ItemContent class="flex-1">
           <ItemTitle class="flex items-center gap-2">
             {{ token.symbol || 'Unknown' }}
-            <span
+            <Badge
               v-if="
                 token.tokenStandard === ZNN_ZTS.toString() ||
                 token.tokenStandard === QSR_ZTS.toString()
               "
-              class="rounded bg-primary/20 px-2 py-0.5 text-xs text-primary"
+              variant="secondary"
             >
               Core
-            </span>
+            </Badge>
           </ItemTitle>
           <ItemDescription>
             {{ token.name || token.tokenStandard }}
           </ItemDescription>
         </ItemContent>
         <ItemActions>
-          <span class="font-mono">
-            {{ addNumberDecimals(token.balance, token.decimals) }}
-          </span>
+          <Amount
+            :value="addNumberDecimals(token.balance, token.decimals)"
+            :decimals="token.decimals"
+          />
         </ItemActions>
       </Item>
     </div>

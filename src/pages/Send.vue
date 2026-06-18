@@ -6,6 +6,7 @@ import {
   Alert,
   AlertDescription,
   AlertTitle,
+  Amount,
   Button,
   Card,
   CardContent,
@@ -14,6 +15,7 @@ import {
   FieldDescription,
   FieldGroup,
   FieldLabel,
+  Heading,
   Input,
   InputGroup,
   InputGroupAddon,
@@ -23,12 +25,13 @@ import {
   ItemContent,
   ItemDescription,
   ItemTitle,
+  Spinner,
   useToast,
 } from 'nom-ui'
 import TokenList from '@/components/TokenList.vue'
 import type {BalanceInfo} from '@/types'
 import {addNumberDecimals, extractNumberDecimals} from 'znn-typescript-sdk'
-import {ArrowLeftIcon, SendHorizontalIcon, TriangleAlertIcon} from 'lucide-vue-next'
+import {ArrowLeftIcon, CoinsIcon, TriangleAlertIcon, WalletIcon,} from 'lucide-vue-next'
 
 const router = useRouter()
 const route = useRoute()
@@ -172,9 +175,9 @@ async function handleSend() {
         <Button @click="goBack" variant="outline" title="Go back">
           <ArrowLeftIcon />
         </Button>
-        <h1 class="text-2xl font-bold">
+        <Heading as="h1">
           Send {{ currentStep === 2 && selectedToken ? selectedToken.symbol : 'Tokens' }}
-        </h1>
+        </Heading>
       </div>
     </div>
 
@@ -183,68 +186,113 @@ async function handleSend() {
       <!-- No Account Warning -->
       <Card v-if="!wallet.activeAccountAddress.value">
         <CardContent class="py-12 text-center text-muted-foreground">
-          No active account. Please create or select a wallet first.
+          <WalletIcon class="mx-auto mb-3 h-12 w-12 opacity-50" />
+          <p>No active account. Please create or select a wallet first.</p>
         </CardContent>
       </Card>
 
-      <!-- Step 1: Token Selection -->
-      <Card v-else-if="currentStep === 1">
-        <CardHeader>
-          <h3 class="text-xl font-semibold">Select Token to Send</h3>
-          <p class="text-sm text-muted-foreground">Choose which token you want to send</p>
-        </CardHeader>
-        <CardContent>
-          <TokenList
-            v-if="account.balances.value.length > 0"
-            :tokens="account.balances.value"
-            :searchable="true"
-            :selectable="true"
-            @select="handleTokenSelect"
-          />
-
-          <div v-else class="py-12 text-center text-muted-foreground">
-            No tokens available to send
+      <!-- Send flow (token selection → details) -->
+      <template v-else>
+        <!-- Step indicator -->
+        <div class="mb-6 flex items-center gap-3">
+          <div class="flex items-center gap-2">
+            <span
+              class="flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium"
+              :class="
+                currentStep >= 1
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground'
+              "
+              >1</span
+            >
+            <span
+              class="text-sm font-medium"
+              :class="currentStep >= 1 ? 'text-foreground' : 'text-muted-foreground'"
+              >Select token</span
+            >
           </div>
-        </CardContent>
-      </Card>
+          <div class="h-px flex-1" :class="currentStep >= 2 ? 'bg-primary' : 'bg-border'" />
+          <div class="flex items-center gap-2">
+            <span
+              class="flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium"
+              :class="
+                currentStep >= 2
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground'
+              "
+              >2</span
+            >
+            <span
+              class="text-sm font-medium"
+              :class="currentStep >= 2 ? 'text-foreground' : 'text-muted-foreground'"
+              >Details</span
+            >
+          </div>
+        </div>
 
-      <!-- Step 2: Transaction Details -->
-      <div v-else-if="currentStep === 2 && selectedToken" class="space-y-6">
-        <!-- Token Info -->
-        <Item variant="muted" class="border-border">
-          <ItemContent>
-            <ItemTitle>{{ selectedToken.symbol || 'Unknown' }}</ItemTitle>
-            <ItemDescription>{{ selectedToken.name }}</ItemDescription>
-          </ItemContent>
-          <ItemContent class="text-right">
-            <ItemDescription>Available</ItemDescription>
-            <ItemTitle class="font-mono">
-              {{ addNumberDecimals(selectedToken.balance, selectedToken.decimals) }}
-            </ItemTitle>
-          </ItemContent>
-        </Item>
-
-        <!-- Transaction Form -->
-        <Card>
+        <!-- Step 1: Token Selection -->
+        <Card v-if="currentStep === 1">
           <CardHeader>
-            <h3 class="text-xl font-semibold">Transaction Details</h3>
+            <Heading as="h3" :level="4">Select Token to Send</Heading>
+            <p class="text-sm text-muted-foreground">Choose which token you want to send</p>
           </CardHeader>
           <CardContent>
-            <FieldGroup>
-              <!-- Recipient Address -->
-              <Field>
-                <FieldLabel for="recipient">Recipient Address</FieldLabel>
-                <Input
-                  id="recipient"
-                  v-model="recipient"
-                  placeholder="z1..."
-                  :disabled="transaction.isSending.value"
-                  class="font-mono"
-                  autocomplete="off"
-                  autocapitalize="off"
-                  spellcheck="false"
+            <TokenList
+              v-if="account.balances.value.length > 0"
+              :tokens="account.balances.value"
+              :searchable="true"
+              :selectable="true"
+              @select="handleTokenSelect"
+            />
+
+            <div v-else class="py-12 text-center text-muted-foreground">
+              <CoinsIcon class="mx-auto mb-3 h-12 w-12 opacity-50" />
+              <p>No tokens available to send</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <!-- Step 2: Transaction Details -->
+        <div v-else-if="currentStep === 2 && selectedToken" class="space-y-6">
+          <!-- Token Info -->
+          <Item variant="muted" class="border-border">
+            <ItemContent>
+              <ItemTitle>{{ selectedToken.symbol || 'Unknown' }}</ItemTitle>
+              <ItemDescription>{{ selectedToken.name }}</ItemDescription>
+            </ItemContent>
+            <ItemContent class="text-right">
+              <ItemDescription>Available</ItemDescription>
+              <ItemTitle>
+                <Amount
+                  :value="addNumberDecimals(selectedToken.balance, selectedToken.decimals)"
+                  :decimals="selectedToken.decimals"
+                  :symbol="selectedToken.symbol"
                 />
-              </Field>
+              </ItemTitle>
+            </ItemContent>
+          </Item>
+
+          <!-- Transaction Form -->
+          <Card>
+            <CardHeader>
+              <Heading as="h3" :level="4">Transaction Details</Heading>
+            </CardHeader>
+            <CardContent>
+              <FieldGroup>
+                <!-- Recipient Address -->
+                <Field>
+                  <FieldLabel for="recipient">Recipient Address</FieldLabel>
+                  <Input
+                    id="recipient"
+                    v-model="recipient"
+                    placeholder="z1..."
+                    :disabled="transaction.isSending.value"
+                    class="font-mono"
+                    autocomplete="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                  />
+                </Field>
 
               <!-- Amount -->
               <Field>
@@ -273,68 +321,53 @@ async function handleSend() {
                   </InputGroupAddon>
                 </InputGroup>
                 <FieldDescription>
-                  Available: {{ addNumberDecimals(selectedToken.balance, selectedToken.decimals) }}
-                  {{ selectedToken.symbol }}
+                  Available:
+                  <Amount
+                    :value="addNumberDecimals(selectedToken.balance, selectedToken.decimals)"
+                    :decimals="selectedToken.decimals"
+                    :symbol="selectedToken.symbol"
+                  />
                 </FieldDescription>
               </Field>
 
-              <!-- Plasma Warning -->
-              <Alert v-if="showPlasmaWarning" variant="info">
-                <TriangleAlertIcon class="h-4 w-4" />
-                <AlertTitle>Low Plasma Detected</AlertTitle>
-                <AlertDescription>
-                  Proof of Work will be generated for this transaction. This may take longer.
-                </AlertDescription>
-              </Alert>
+                <!-- Plasma Warning -->
+                <Alert v-if="showPlasmaWarning" variant="info">
+                  <TriangleAlertIcon class="h-4 w-4" />
+                  <AlertTitle>Low Plasma Detected</AlertTitle>
+                  <AlertDescription>
+                    Proof of Work will be generated for this transaction. This may take longer.
+                  </AlertDescription>
+                </Alert>
 
-              <!-- Error Message -->
-              <Alert v-if="sendError" variant="destructive">
-                <AlertDescription>{{ sendError }}</AlertDescription>
-              </Alert>
+                <!-- Error Message -->
+                <Alert v-if="sendError" variant="destructive">
+                  <AlertDescription>{{ sendError }}</AlertDescription>
+                </Alert>
 
-              <!-- Send Button -->
-              <Button
-                @click="handleSend"
-                class="w-full"
-                size="lg"
-                :disabled="transaction.isSending.value"
-              >
-                <span
-                  v-if="!transaction.isSending.value"
-                  class="flex items-center justify-center gap-2"
+                <!-- Send Button -->
+                <Button
+                  @click="handleSend"
+                  class="w-full"
+                  size="lg"
+                  :disabled="transaction.isSending.value"
                 >
-                  Send
-                  <SendHorizontalIcon class="inline" />
-                </span>
-                <span v-else class="flex items-center justify-center gap-2">
-                  <svg
-                    class="h-4 w-4 animate-spin"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
+                  <span
+                    v-if="!transaction.isSending.value"
+                    class="flex items-center justify-center gap-2"
                   >
-                    <circle
-                      class="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      stroke-width="4"
-                    ></circle>
-                    <path
-                      class="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  <span v-if="isGeneratingPow">Generating plasma...</span>
-                  <span v-else>Sending...</span>
-                </span>
-              </Button>
-            </FieldGroup>
-          </CardContent>
-        </Card>
-      </div>
+                    Send
+                  </span>
+                  <span v-else class="flex items-center justify-center gap-2">
+                    <Spinner />
+                    <span v-if="isGeneratingPow">Generating plasma...</span>
+                    <span v-else>Sending...</span>
+                  </span>
+                </Button>
+              </FieldGroup>
+            </CardContent>
+          </Card>
+        </div>
+      </template>
     </div>
   </div>
 </template>

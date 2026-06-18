@@ -15,8 +15,9 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  useTheme,
 } from 'nom-ui'
-import {MoonIcon, SettingsIcon, SunIcon} from 'lucide-vue-next'
+import {MonitorIcon, MoonIcon, SettingsIcon, SunIcon} from 'lucide-vue-next'
 
 export interface SettingsDialogProps {
   open: boolean
@@ -24,7 +25,6 @@ export interface SettingsDialogProps {
   activeAccountAddress: string | null
   unlockedWallets: string[]
   currentNode: string
-  theme: 'light' | 'dark'
 }
 
 const props = defineProps<SettingsDialogProps>()
@@ -42,9 +42,10 @@ const emit = defineEmits<{
   'toggle-account-hidden': [walletAddress: string, accountAddress: string, hidden: boolean]
   'select-network': [nodeUrl: string]
   'update-network-config': [chainId: number, networkId: number]
-  'toggle-theme': []
   'wallet-added': [address: string]
 }>()
+
+const { mode, setTheme } = useTheme()
 
 const isOpen = computed({
   get: () => props.open,
@@ -134,9 +135,10 @@ defineExpose({
       </DialogHeader>
 
       <Tabs default-value="wallet" class="w-full">
-        <TabsList class="mb-4 grid w-full grid-cols-2">
+        <TabsList class="mb-4 grid w-full grid-cols-3">
           <TabsTrigger value="wallet"> Wallet </TabsTrigger>
           <TabsTrigger value="network"> Network </TabsTrigger>
+          <TabsTrigger value="ui"> Appearance </TabsTrigger>
         </TabsList>
 
         <TabsContent value="wallet">
@@ -175,13 +177,34 @@ defineExpose({
         </TabsContent>
 
         <TabsContent value="ui">
-          <div class="space-y-2">
+          <div class="space-y-3">
             <label class="text-sm font-medium">Theme</label>
-            <Button @click="emit('toggle-theme')" variant="outline" class="w-full justify-start">
-              <SunIcon v-if="theme === 'dark'" class="mr-2 h-4 w-4" />
-              <MoonIcon v-else class="mr-2 h-4 w-4" />
-              {{ theme === 'dark' ? 'Light Mode' : 'Dark Mode' }}
-            </Button>
+            <div class="grid grid-cols-3 gap-2">
+              <Button
+                :variant="mode === 'light' ? 'default' : 'outline'"
+                @click="setTheme('light')"
+                class="flex items-center gap-2"
+              >
+                <SunIcon class="h-4 w-4" />
+                Light
+              </Button>
+              <Button
+                :variant="mode === 'dark' ? 'default' : 'outline'"
+                @click="setTheme('dark')"
+                class="flex items-center gap-2"
+              >
+                <MoonIcon class="h-4 w-4" />
+                Dark
+              </Button>
+              <Button
+                :variant="mode === 'system' ? 'default' : 'outline'"
+                @click="setTheme('system')"
+                class="flex items-center gap-2"
+              >
+                <MonitorIcon class="h-4 w-4" />
+                System
+              </Button>
+            </div>
           </div>
         </TabsContent>
       </Tabs>

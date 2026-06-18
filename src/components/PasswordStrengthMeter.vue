@@ -7,9 +7,9 @@ const props = defineProps<{ strength: PasswordStrength }>()
 const barClass = computed(() => {
   const s = props.strength.score
   if (s <= 1) return 'bg-destructive'
-  if (s === 2) return 'bg-amber-500'
-  if (s === 3) return 'bg-green-500'
-  return 'bg-green-600'
+  if (s === 2) return 'bg-warning'
+  if (s === 3) return 'bg-success'
+  return 'bg-success'
 })
 </script>
 

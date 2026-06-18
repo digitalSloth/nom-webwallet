@@ -3,22 +3,28 @@ import {onMounted, ref} from 'vue'
 import {useRouter} from 'vue-router'
 import {formatDate, useAccount, useTransaction, useWallet} from '@/core'
 import {
+  Address,
   Alert,
   AlertDescription,
+  Amount,
   Button,
   Card,
   CardContent,
   CardHeader,
+  CopyButton,
+  Heading,
   Item,
   ItemActions,
   ItemContent,
   ItemDescription,
   ItemTitle,
+  Skeleton,
+  Spinner,
   useToast,
 } from 'nom-ui'
 import type {AccountBlock} from 'znn-typescript-sdk'
 import {addNumberDecimals} from 'znn-typescript-sdk'
-import {ArrowDownCircleIcon, ArrowLeftIcon, CopyIcon} from 'lucide-vue-next'
+import {ArrowDownCircleIcon, ArrowLeftIcon, WalletIcon} from 'lucide-vue-next'
 
 const router = useRouter()
 
@@ -104,13 +110,6 @@ async function prevPage() {
   }
 }
 
-function copyAddress() {
-  if (wallet.activeAccountAddress.value) {
-    navigator.clipboard.writeText(wallet.activeAccountAddress.value)
-    toast.show('Address copied to clipboard!', 'success')
-  }
-}
-
 function goBack() {
   router.push('/')
 }
@@ -125,7 +124,7 @@ function goBack() {
         <Button @click="goBack" variant="outline" title="Go back">
           <ArrowLeftIcon />
         </Button>
-        <h1 class="text-2xl font-bold">Receive</h1>
+        <Heading as="h1">Receive</Heading>
       </div>
     </div>
 
@@ -134,7 +133,8 @@ function goBack() {
       <!-- No Account Warning -->
       <Card v-if="!wallet.activeAccountAddress.value">
         <CardContent class="py-12 text-center text-muted-foreground">
-          No active account. Please create or select a wallet first.
+          <WalletIcon class="mx-auto mb-3 h-12 w-12 opacity-50" />
+          <p>No active account. Please create or select a wallet first.</p>
         </CardContent>
       </Card>
 
@@ -143,16 +143,19 @@ function goBack() {
         <!-- Address Display -->
         <Card>
           <CardHeader>
-            <h3 class="text-xl font-semibold">Your Address</h3>
+            <Heading as="h3" :level="4">Your Address</Heading>
           </CardHeader>
           <CardContent class="space-y-4">
-            <div class="rounded-md bg-muted p-4 font-mono text-sm break-all">
-              {{ wallet.activeAccountAddress.value }}
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div class="min-w-0 flex-1 rounded-md bg-muted p-4 font-mono text-sm break-all">
+                {{ wallet.activeAccountAddress.value }}
+              </div>
+              <CopyButton
+                :value="wallet.activeAccountAddress.value ?? ''"
+                size="default"
+                class="w-full sm:w-auto"
+              />
             </div>
-            <Button @click="copyAddress" class="w-full">
-              <CopyIcon />
-              Copy Address
-            </Button>
             <p class="text-center text-sm text-muted-foreground">
               Share this address to receive tokens
             </p>
@@ -162,11 +165,13 @@ function goBack() {
         <!-- Unreceived Transactions -->
         <Card>
           <CardHeader>
-            <h3 class="text-xl font-semibold">Pending Transactions</h3>
+            <Heading as="h3" :level="4">Pending Transactions</Heading>
           </CardHeader>
           <CardContent>
-            <div v-if="isLoadingBlocks" class="py-8 text-center text-muted-foreground">
-              Loading transactions...
+            <div v-if="isLoadingBlocks" class="space-y-3 py-4">
+              <Skeleton class="h-20 w-full" />
+              <Skeleton class="h-20 w-full" />
+              <Skeleton class="h-20 w-full" />
             </div>
 
             <div
@@ -192,19 +197,18 @@ function goBack() {
               >
                 <ItemContent class="min-w-0 flex-1">
                   <ItemTitle>
-                    {{
-                      block.token
-                        ? addNumberDecimals(block.amount, block.token.decimals)
-                        : block.amount.toString()
-                    }}
-                    {{ block.token?.symbol || 'Unknown' }}
+                    <Amount
+                      :value="
+                        addNumberDecimals(block.amount.toString(), block.token?.decimals ?? 8)
+                      "
+                      :decimals="block.token?.decimals ?? 8"
+                      :symbol="block.token?.symbol ?? 'Unknown'"
+                    />
                   </ItemTitle>
                   <ItemDescription class="line-clamp-none space-y-2">
                     <div>
                       <div class="text-xs font-medium text-muted-foreground">From</div>
-                      <div class="font-mono break-all text-foreground">
-                        {{ block.address.toString() }}
-                      </div>
+                      <Address :address="block.address.toString()" class="text-foreground" />
                     </div>
                     <div>
                       <div class="text-xs font-medium text-muted-foreground">ZTS</div>
@@ -227,9 +231,12 @@ function goBack() {
                     size="sm"
                     class="w-full sm:w-auto"
                   >
-                    <span v-if="currentlyReceivingHash === block.hash.toString()"
-                      >Receiving...</span
+                    <span
+                      v-if="currentlyReceivingHash === block.hash.toString()"
+                      class="flex items-center gap-2"
                     >
+                      <Spinner class="size-4" />Receiving...
+                    </span>
                     <span v-else>Receive</span>
                   </Button>
                 </ItemActions>

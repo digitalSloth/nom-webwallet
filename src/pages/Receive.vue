@@ -147,8 +147,8 @@ function goBack() {
           </CardHeader>
           <CardContent class="space-y-4">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div class="min-w-0 flex-1 rounded-md bg-muted p-4 font-mono text-sm break-all">
-                {{ wallet.activeAccountAddress.value }}
+              <div class="min-w-0 flex-1 rounded-md bg-muted p-4">
+                <Address :address="wallet.activeAccountAddress.value ?? ''" wrap :copy="false" />
               </div>
               <CopyButton
                 :value="wallet.activeAccountAddress.value ?? ''"
@@ -198,23 +198,38 @@ function goBack() {
                 <ItemContent class="min-w-0 flex-1">
                   <ItemTitle>
                     <Amount
-                      :value="
-                        addNumberDecimals(block.amount.toString(), block.token?.decimals ?? 8)
-                      "
-                      :decimals="block.token?.decimals ?? 8"
-                      :symbol="block.token?.symbol ?? 'Unknown'"
+                      v-if="block.token"
+                      :value="addNumberDecimals(block.amount.toString(), block.token.decimals)"
+                      :decimals="block.token.decimals"
+                      :symbol="block.token.symbol"
+                      class="text-xl font-semibold tracking-tight"
+                    />
+                    <Amount
+                      v-else
+                      :value="block.amount.toString()"
+                      :decimals="0"
+                      symbol="Unknown"
+                      class="text-xl font-semibold tracking-tight"
                     />
                   </ItemTitle>
-                  <ItemDescription class="line-clamp-none space-y-2">
+                  <ItemDescription class="mt-3 line-clamp-none space-y-2">
                     <div>
                       <div class="text-xs font-medium text-muted-foreground">From</div>
-                      <Address :address="block.address.toString()" class="text-foreground" />
+                      <Address
+                        :address="block.address.toString()"
+                        truncate-below="sm"
+                        :copy="false"
+                        class="text-foreground"
+                      />
                     </div>
                     <div>
                       <div class="text-xs font-medium text-muted-foreground">ZTS</div>
-                      <div class="font-mono break-all text-foreground">
-                        {{ block.tokenStandard.toString() }}
-                      </div>
+                      <Address
+                        :address="block.tokenStandard.toString()"
+                        truncate-below="sm"
+                        :copy="false"
+                        class="text-foreground"
+                      />
                     </div>
                     <div>
                       <div class="text-xs font-medium text-muted-foreground">Time</div>

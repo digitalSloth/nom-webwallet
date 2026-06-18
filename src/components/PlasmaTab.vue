@@ -205,7 +205,7 @@ async function handleCancel(fusionId: string) {
       <!-- plazma.bot prompt: only when the account can neither transact nor self-fuse -->
       <div
         v-if="showBotPrompt"
-        class="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 p-4"
+        class="flex flex-col gap-3 rounded-lg border border-border bg-muted/40 p-4 sm:flex-row sm:items-center sm:justify-between"
       >
         <div class="text-sm">
           <div class="font-medium">No QSR for plasma?</div>
@@ -220,7 +220,9 @@ async function handleCancel(fusionId: string) {
             >
           </div>
         </div>
-        <Button type="button" @click="botDialogOpen = true">Get free plasma</Button>
+        <Button type="button" class="w-full sm:w-auto" @click="botDialogOpen = true"
+          >Get free plasma</Button
+        >
       </div>
 
       <!-- Fuse from your own wallet -->

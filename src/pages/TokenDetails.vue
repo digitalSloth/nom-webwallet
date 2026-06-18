@@ -123,12 +123,12 @@ function handleNavigateToSendReceive(path: string) {
         <!-- Balance Display -->
         <Card>
           <CardContent class="py-8 text-center">
-            <div class="mb-2 text-sm text-muted-foreground">Your Balance</div>
+            <div class="mb-2 text-ledger text-muted-foreground">Your Balance</div>
             <Amount
               :value="formattedBalance"
               :decimals="2"
               compact
-              class="mb-6 text-5xl font-bold"
+              class="mb-6 block text-5xl font-semibold tracking-tight"
               :title="formattedBalance"
             />
             <div class="mb-6 text-xl text-muted-foreground">
@@ -142,7 +142,7 @@ function handleNavigateToSendReceive(path: string) {
                 variant="outline"
                 class="flex flex-1 items-center justify-center gap-2 border-primary/50 hover:border-primary hover:bg-primary/10"
               >
-                <ArrowUpCircleIcon class="text-primary" />
+                <ArrowUpCircleIcon class="text-muted-foreground" />
                 <span class="font-medium">Send</span>
               </Button>
 
@@ -151,7 +151,7 @@ function handleNavigateToSendReceive(path: string) {
                 variant="outline"
                 class="flex flex-1 items-center justify-center gap-2 border-primary/50 hover:border-primary hover:bg-primary/10"
               >
-                <ArrowDownCircleIcon class="text-primary" />
+                <ArrowDownCircleIcon class="text-success" />
                 <span class="font-medium">Receive</span>
               </Button>
             </div>
@@ -192,7 +192,7 @@ function handleNavigateToSendReceive(path: string) {
                   class="flex-col items-start gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2"
                 >
                   <span class="shrink-0 text-muted-foreground">Token Standard</span>
-                  <Address :address="tokenStandard" :truncate="false" />
+                  <Address :address="tokenStandard" truncate-below="sm" />
                 </ItemContent>
               </Item>
               <ItemSeparator />

@@ -28,6 +28,15 @@ const network = useNetwork()
 const account = useAccount(() => props.activeAccountAddress)
 const wallet = useWallet()
 
+// In the narrow extension popup, stack the plazma.bot prompt vertically (text on
+// top, full-width button below) instead of the side-by-side web layout.
+// Referenced here (not directly in the template) so Vite's define replaces the
+// bare identifier before the Vue compiler prefixes it.
+const isExtension = __IS_EXTENSION__
+const botPromptClass = isExtension
+  ? 'flex flex-col gap-3 rounded-lg border border-border bg-muted/40 p-4'
+  : 'flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 p-4'
+
 // Form state
 const beneficiaryAddress = ref('')
 const fuseAmount = ref('')
@@ -43,7 +52,14 @@ const qsrBalance = computed(() => {
 
 const minFuseAmount = MIN_FUSE_AMOUNT_QSR
 
-const showBotPrompt = computed(() => parseFloat(qsrBalance.value) < minFuseAmount)
+// Show the plazma.bot prompt only when the account can neither transact nor
+// self-fuse: it has no plasma (so it can't send a transaction — e.g. a fresh
+// account that hasn't been fused by the bot yet) AND it lacks the minimum QSR
+// to fuse its own plasma. Once the account has plasma (e.g. from a prior bot
+// fusion) or enough QSR to self-fuse, the prompt is hidden.
+const showBotPrompt = computed(
+  () => account.currentPlasma.value <= 0 && parseFloat(qsrBalance.value) < minFuseAmount
+)
 
 // Load on mount if active and account exists
 onMounted(async () => {
@@ -203,10 +219,7 @@ async function handleCancel(fusionId: string) {
     </div>
     <div v-else class="space-y-6">
       <!-- plazma.bot prompt: only when the account can neither transact nor self-fuse -->
-      <div
-        v-if="showBotPrompt"
-        class="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 p-4"
-      >
+      <div v-if="showBotPrompt" :class="botPromptClass">
         <div class="text-sm">
           <div class="font-medium">No QSR for plasma?</div>
           <div class="text-muted-foreground">
@@ -220,7 +233,12 @@ async function handleCancel(fusionId: string) {
             >
           </div>
         </div>
-        <Button type="button" @click="botDialogOpen = true">Get free plasma</Button>
+        <Button
+          type="button"
+          :class="isExtension ? 'w-full' : undefined"
+          @click="botDialogOpen = true"
+          >Get free plasma</Button
+        >
       </div>
 
       <!-- Fuse from your own wallet -->

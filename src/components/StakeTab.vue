@@ -14,6 +14,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Spinner,
 } from 'nom-ui'
 
 interface StakeTabProps {
@@ -184,7 +185,7 @@ async function handleCancel(stakeId: string) {
       v-if="stake.isLoading.value && stake.stakeEntries.value.length === 0"
       class="py-8 text-center text-muted-foreground"
     >
-      Loading stake data...
+      <Spinner class="mx-auto" />
     </div>
     <div v-else class="space-y-6">
       <!-- Stake ZNN Form -->

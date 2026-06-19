@@ -28,15 +28,6 @@ const network = useNetwork()
 const account = useAccount(() => props.activeAccountAddress)
 const wallet = useWallet()
 
-// In the narrow extension popup, stack the plazma.bot prompt vertically (text on
-// top, full-width button below) instead of the side-by-side web layout.
-// Referenced here (not directly in the template) so Vite's define replaces the
-// bare identifier before the Vue compiler prefixes it.
-const isExtension = __IS_EXTENSION__
-const botPromptClass = isExtension
-  ? 'flex flex-col gap-3 rounded-lg border border-border bg-muted/40 p-4'
-  : 'flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 p-4'
-
 // Form state
 const beneficiaryAddress = ref('')
 const fuseAmount = ref('')
@@ -219,7 +210,10 @@ async function handleCancel(fusionId: string) {
     </div>
     <div v-else class="space-y-6">
       <!-- plazma.bot prompt: only when the account can neither transact nor self-fuse -->
-      <div v-if="showBotPrompt" :class="botPromptClass">
+      <div
+        v-if="showBotPrompt"
+        class="flex flex-col gap-3 rounded-lg border border-border bg-muted/40 p-4 sm:flex-row sm:items-center sm:justify-between"
+      >
         <div class="text-sm">
           <div class="font-medium">No QSR for plasma?</div>
           <div class="text-muted-foreground">
@@ -233,10 +227,7 @@ async function handleCancel(fusionId: string) {
             >
           </div>
         </div>
-        <Button
-          type="button"
-          :class="isExtension ? 'w-full' : undefined"
-          @click="botDialogOpen = true"
+        <Button type="button" class="w-full sm:w-auto" @click="botDialogOpen = true"
           >Get free plasma</Button
         >
       </div>

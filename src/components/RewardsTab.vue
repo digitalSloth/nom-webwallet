@@ -4,7 +4,7 @@ import type {RewardType} from '@/core'
 import {useRewards, useWallet} from '@/core'
 import {addNumberDecimals} from 'znn-typescript-sdk'
 import RewardsList from './RewardsList.vue'
-import {Amount, Button} from 'nom-ui'
+import {Amount, Button, Spinner} from 'nom-ui'
 
 interface RewardsTabProps {
   activeAccountAddress: string | null
@@ -155,7 +155,7 @@ async function collectAllRewards() {
 <template>
   <div>
     <div v-if="rewards.isLoading.value" class="py-8 text-center text-muted-foreground">
-      Loading rewards...
+      <Spinner class="mx-auto" />
     </div>
     <div v-else class="space-y-6">
       <!-- Total Rewards Summary -->
@@ -170,10 +170,10 @@ async function collectAllRewards() {
             {{ rewards.isCollecting.value ? 'Collecting...' : 'Collect All' }}
           </Button>
         </div>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="flex gap-3">
           <div
             v-if="parseFloat(totalZnnRewards) > 0"
-            class="rounded-md border border-zenon-green/30 bg-zenon-green/20 p-3"
+            class="min-w-0 flex-1 rounded-md border border-zenon-green/30 bg-zenon-green/20 p-3"
           >
             <div class="mb-1 text-ledger text-muted-foreground">Total ZNN</div>
             <Amount
@@ -186,7 +186,7 @@ async function collectAllRewards() {
           </div>
           <div
             v-if="parseFloat(totalQsrRewards) > 0"
-            class="rounded-md border border-zenon-blue/30 bg-zenon-blue/20 p-3"
+            class="min-w-0 flex-1 rounded-md border border-zenon-blue/30 bg-zenon-blue/20 p-3"
           >
             <div class="mb-1 text-ledger text-muted-foreground">Total QSR</div>
             <Amount

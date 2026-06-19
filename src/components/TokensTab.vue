@@ -2,6 +2,7 @@
 import {onMounted, watch} from 'vue'
 import {useRouter} from 'vue-router'
 import {useAccount} from '@/core'
+import {Skeleton} from 'nom-ui'
 import TokenList from './TokenList.vue'
 import type {BalanceInfo} from '@/types'
 
@@ -57,8 +58,8 @@ defineExpose({
 
 <template>
   <div>
-    <div v-if="account.isLoading.value" class="py-8 text-center text-muted-foreground">
-      Loading balances...
+    <div v-if="account.isLoading.value" class="space-y-2">
+      <Skeleton v-for="n in 4" :key="n" class="h-14 w-full rounded-md" />
     </div>
     <div
       v-else-if="account.balances.value.length === 0"

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {computed, onMounted, ref, watch} from 'vue'
 import {useAccount, usePillar, useWallet} from '@/core'
-import {Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useToast,} from 'nom-ui'
+import {Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Skeleton, useToast,} from 'nom-ui'
 import PillarList from './PillarList.vue'
 
 export interface PillarTabProps {
@@ -122,8 +122,8 @@ async function handleDelegate(pillarName: string) {
     </div>
 
     <!-- Loading State -->
-    <div v-if="pillar.isLoading.value" class="py-8 text-center text-muted-foreground">
-      Loading pillars and calculating APRs...
+    <div v-if="pillar.isLoading.value" class="space-y-3">
+      <Skeleton v-for="n in 5" :key="n" class="h-20 w-full rounded-md" />
     </div>
 
     <!-- Pillar List -->

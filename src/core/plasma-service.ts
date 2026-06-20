@@ -1,26 +1,15 @@
 import type {FusionEntryList} from 'znn-typescript-sdk'
-import {AccountBlockTemplate, Address, Hash, Zenon} from 'znn-typescript-sdk'
-import {ZenonService} from './zenon-service'
+import {AccountBlockTemplate, Address, Hash} from 'znn-typescript-sdk'
+import {ChainService} from './chain-service'
 
-export class PlasmaService {
-  private zenon: Zenon
-  private zenonService: ZenonService
+export class PlasmaService extends ChainService {
   private static instance: PlasmaService | null = null
-
-  private constructor() {
-    this.zenonService = ZenonService.getInstance()
-    this.zenon = this.zenonService.getZenon()
-  }
 
   static getInstance(): PlasmaService {
     if (!PlasmaService.instance) {
       PlasmaService.instance = new PlasmaService()
     }
     return PlasmaService.instance
-  }
-
-  async ensureInitialized(): Promise<void> {
-    await this.zenonService.ensureInitialized()
   }
 
   // Get fusion entries for an address

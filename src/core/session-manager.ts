@@ -1,5 +1,6 @@
 import { KeyStore } from 'znn-typescript-sdk'
 
+// Tier B (see ChainService header): public defaulted-DI ctor; the module-const below is the prod wrapper.
 // In-memory session storage for unlocked wallets
 export class SessionManager {
   private sessions: Map<string, { keyStore: KeyStore; unlockedAt: number }> = new Map()

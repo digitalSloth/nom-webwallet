@@ -1,25 +1,14 @@
-import {AccountBlockTemplate, Address, Hash, KeyPair, TokenStandard, Zenon,} from 'znn-typescript-sdk'
-import {ZenonService} from './zenon-service'
+import {AccountBlockTemplate, Address, Hash, KeyPair, TokenStandard,} from 'znn-typescript-sdk'
+import {ChainService} from './chain-service'
 
-export class TransactionService {
-  private zenon: Zenon
-  private zenonService: ZenonService
+export class TransactionService extends ChainService {
   private static instance: TransactionService | null = null
-
-  private constructor() {
-    this.zenonService = ZenonService.getInstance()
-    this.zenon = this.zenonService.getZenon()
-  }
 
   static getInstance(): TransactionService {
     if (!TransactionService.instance) {
       TransactionService.instance = new TransactionService()
     }
     return TransactionService.instance
-  }
-
-  async ensureInitialized(): Promise<void> {
-    await this.zenonService.ensureInitialized()
   }
 
   // Send a transaction

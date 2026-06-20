@@ -1,28 +1,17 @@
 import type {AccountBlockList, AccountInfo, PlasmaInfo} from 'znn-typescript-sdk'
-import {Address, DelegationInfo, Zenon} from 'znn-typescript-sdk'
-import {ZenonService} from './zenon-service'
+import {Address, DelegationInfo} from 'znn-typescript-sdk'
+import {ChainService} from './chain-service'
 
 export type PlasmaLevel = 'low' | 'medium' | 'high'
 
-export class AccountService {
-  private zenon: Zenon
-  private zenonService: ZenonService
+export class AccountService extends ChainService {
   private static instance: AccountService | null = null
-
-  private constructor() {
-    this.zenonService = ZenonService.getInstance()
-    this.zenon = this.zenonService.getZenon()
-  }
 
   static getInstance(): AccountService {
     if (!AccountService.instance) {
       AccountService.instance = new AccountService()
     }
     return AccountService.instance
-  }
-
-  async ensureInitialized(): Promise<void> {
-    await this.zenonService.ensureInitialized()
   }
 
   // Get account balance information

@@ -1,26 +1,15 @@
 import type {AccountBlockTemplate, PillarInfoList} from 'znn-typescript-sdk'
-import {PILLAR_ADDRESS, Zenon, ZNN_ZTS} from 'znn-typescript-sdk'
-import {ZenonService} from './zenon-service'
+import {PILLAR_ADDRESS, ZNN_ZTS} from 'znn-typescript-sdk'
+import {ChainService} from './chain-service'
 
-export class PillarService {
-  private zenon: Zenon
-  private zenonService: ZenonService
+export class PillarService extends ChainService {
   private static instance: PillarService | null = null
-
-  private constructor() {
-    this.zenonService = ZenonService.getInstance()
-    this.zenon = this.zenonService.getZenon()
-  }
 
   static getInstance(): PillarService {
     if (!PillarService.instance) {
       PillarService.instance = new PillarService()
     }
     return PillarService.instance
-  }
-
-  async ensureInitialized(): Promise<void> {
-    await this.zenonService.ensureInitialized()
   }
 
   // Get all pillars

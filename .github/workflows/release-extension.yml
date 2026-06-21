@@ -27,16 +27,6 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Use HTTPS for GitHub git deps
-        # nom-ui and znn-typescript-sdk are pinned in the lockfile to git
-        # URLs; the runner has no SSH key, so rewrite both the scp-style
-        # (git@github.com:) and git+ssh:// forms to HTTPS before npm ci so
-        # the public repos can be cloned without authentication.
-        run: |
-          git config --global url."https://github.com/".insteadOf "git@github.com:"
-          git config --global url."https://github.com/".insteadOf "git+ssh://git@github.com/"
-          git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
-
       - name: Install dependencies
         # npm ci installs the exact, committed lockfile and fails if
         # package.json and package-lock.json have drifted out of sync,

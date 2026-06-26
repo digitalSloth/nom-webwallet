@@ -134,7 +134,7 @@ function handleNavigateToSendReceive(path: string) {
             variant="outline"
             class="flex min-h-20 flex-col items-center justify-center gap-1 rounded-md border border-border bg-muted/40 transition-colors hover:border-primary/40 hover:bg-primary/10"
           >
-            <ArrowUpCircleIcon class="h-7 w-7 text-muted-foreground" />
+            <ArrowUpCircleIcon class="h-7 w-7 text-success" />
             <span class="text-sm font-medium">Send</span>
           </Button>
 

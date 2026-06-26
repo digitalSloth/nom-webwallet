@@ -28,11 +28,15 @@ export class AccountService extends ChainService {
     return await this.zenon.embedded.plasma.get(addr)
   }
 
-  // Calculate plasma level based on the fused QSR amount (base units, 8 decimals)
-  getPlasmaLevel(qsrAmount: bigint): PlasmaLevel {
-    const qsr = Number(qsrAmount) / 1e8
-    if (qsr >= 120) return 'high'
-    if (qsr >= 40) return 'medium'
+  // Calculate plasma level from the account's current (available) plasma.
+  // This is what the node uses to decide whether a transaction needs PoW —
+  // not the fused QSR amount, which can be high while plasma is depleted.
+  // Bands are anchored on the protocol base plasma per transaction (21,000):
+  // below it a basic send cannot avoid PoW.
+  getPlasmaLevel(currentPlasma: number): PlasmaLevel {
+    const BASE_PLASMA = 21_000
+    if (currentPlasma >= 4 * BASE_PLASMA) return 'high'
+    if (currentPlasma >= BASE_PLASMA) return 'medium'
     return 'low'
   }
 

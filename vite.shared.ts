@@ -36,11 +36,13 @@ export function copyPowFiles(): Plugin {
 }
 
 // Node polyfills required by znn-typescript-sdk. Identical for both build targets.
+//
+// No plugin-level `globals`: that injects globalThis.Buffer/global/process into
+// every entry chunk, including the MAIN-world content script that runs on every
+// http(s) page the user visits — which would leak polyfill globals onto sites
+// that feature-detect `process` and ship the bytes there. The page entries
+// (main.ts, approve-main.ts) set the three globals explicitly instead; the
+// content-script entries then receive nothing.
 export const nodePolyfillsConfig: NonNullable<Parameters<typeof nodePolyfills>[0]> = {
   include: ['crypto', 'buffer', 'stream', 'util'],
-  globals: {
-    Buffer: true,
-    global: true,
-    process: true,
-  },
 }

@@ -86,3 +86,50 @@ export const KDF_CONFIG = {
   hashLength: 32,
   parallelism: 4,
 } as const
+
+// --- dApp surfaces ---
+
+/** phase 1 — wallet-service.ts. Moved here so the service worker (phase 3a/3b)
+ *  can read `activeAccountAddress` without importing wallet-service.ts and its
+ *  SDK dependency. */
+export const STORAGE_KEY_WALLETS = 'nom-wallet-storage'
+
+/** phase 1 — dapp-approvals.ts. Cap on a single document's pending-approval
+ *  queue; enforced per document, not shared across surfaces. */
+export const MAX_PENDING_DAPP_REQUESTS = 5
+
+/** phase 2 — WalletConnect surface. */
+export const WALLETCONNECT_PROJECT_ID: string = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID ?? ''
+/** phase 2 — WalletConnect surface. */
+export const WALLETCONNECT_ENABLED = WALLETCONNECT_PROJECT_ID.length >= 32
+/** phase 2 — WalletConnect surface. The wallet's own peer identity, rendered
+ *  as text and an image inside every dApp that pairs with it. */
+export const WALLETCONNECT_METADATA = {
+  name: 'NoM Wallet',
+  description: 'A secure cryptocurrency wallet for the Zenon Network of Momentum.',
+  url: 'https://github.com/digitalSloth/nom-webwallet',
+  icons: ['https://raw.githubusercontent.com/digitalSloth/nom-webwallet/main/icons/icon-128.png'],
+}
+/** phase 2 — WalletConnect surface. */
+export const WC_STORAGE_PREFIX = 'nom-wallet-wc:'
+
+/** phase 3a — site-permissions.ts. */
+export const STORAGE_KEY_SITE_PERMISSIONS = 'nom-wallet-site-permissions'
+
+/** phase 3b — approval-inbox.ts. */
+export const SESSION_KEY_PENDING_REQUESTS = 'nom-wallet.pendingRequests'
+/** phase 3b — approval-inbox.ts. */
+export const SESSION_KEY_APPROVAL_WINDOW_ID = 'nom-wallet.approvalWindowId'
+/** phase 3b — approval-inbox.ts. */
+export const SESSION_KEY_OUTCOMES = 'nom-wallet.outcomes'
+/** phase 3b — approval-inbox.ts. */
+export const APPROVAL_WINDOW_IDLE_MS = 5 * 60 * 1000
+/**
+ * phase 3b — approval-inbox.ts. Retention for outcomes that have already been
+ * delivered, for duplicate suppression only. Undelivered outcomes are never
+ * expired.
+ */
+export const DELIVERED_OUTCOME_TTL_MS = 60 * 1000
+
+/** App.vue — the extension's WalletConnect popup window, reused across opens. */
+export const SESSION_KEY_WALLETCONNECT_WINDOW_ID = 'nom-wallet.walletConnectWindowId'

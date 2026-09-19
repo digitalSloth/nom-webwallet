@@ -1,11 +1,9 @@
 import {KeyFile, KeyStore} from 'znn-typescript-sdk'
 import type {StorageAdapter, Wallet, WalletAccount, WalletStorage} from '@/types'
-import {KDF_CONFIG} from '@/config'
+import {KDF_CONFIG, STORAGE_KEY_WALLETS as STORAGE_KEY} from '@/config'
 import {sessionManager} from './session-manager'
 import {storageService} from './storage/storage-service'
 import {Buffer} from 'buffer'
-
-const STORAGE_KEY = 'nom-wallet-storage'
 
 const MAX_UNLOCK_ATTEMPTS = 5
 const BASE_LOCKOUT_MS = 5_000 // 5 seconds after 5th failed attempt

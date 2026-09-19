@@ -38,6 +38,8 @@ npm run dev               # Web dev server (localhost:5173)
 npm run dev:extension     # Extension watch build
 npm run build             # Web production build → dist/
 npm run build:extension   # Extension production build → dist-extension/
+npm test                  # Run Vitest unit suite
+npm run typecheck         # Type-check with vue-tsc
 npm run lint              # ESLint (TypeScript + Vue)
 npm run format            # Prettier
 ```
@@ -71,4 +73,5 @@ npm run format            # Prettier
 
 ## Testing
 
-No automated test suite. TypeScript strict mode is the primary correctness check.
+Vitest provides focused unit coverage for `SessionManager`. Validate changes with `npm test`,
+`npm run typecheck`, and `npm run lint`.

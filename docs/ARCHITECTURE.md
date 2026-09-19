@@ -155,6 +155,7 @@ Shared constants live in `src/config.ts` — the default node URL (`wss://node.z
 ## Conventions
 
 - **No semicolons, single quotes, 100-char width** (`.prettierrc.json`).
-- **Strict TypeScript** is the primary correctness check; there is no automated test suite (`npm run typecheck` + `npm run lint`).
+- **Validation** uses Vitest for focused `SessionManager` unit coverage (`npm test`), strict
+  TypeScript (`npm run typecheck`), and ESLint (`npm run lint`).
 - **PascalCase** for components, **camelCase** for services and functions.
 - **No Pinia/Vuex** — shared state is the module-level reactive state inside composables.

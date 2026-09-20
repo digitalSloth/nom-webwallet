@@ -119,6 +119,100 @@ watch(
   }
 )
 
+// A deep-linked node/chainId/networkId must never apply silently — the URL is
+// an untrusted source, so surface exactly what's being requested and only
+// apply it once the user explicitly approves (see confirmDeepLink/cancelDeepLink).
+interface PendingDeepLink {
+  node: string | null
+  chainId: number | null
+  networkId: number | null
+}
+const pendingDeepLink = ref<PendingDeepLink | null>(null)
+const showDeepLinkConfirm = ref(false)
+const isConnectingDeepLink = ref(false)
+const deepLinkError = ref<string | null>(null)
+
+watch(
+  () => route.query,
+  (query) => {
+    const { node: dlNode, chainId: dlChainId, networkId: dlNetworkId } = query
+    const node = typeof dlNode === 'string' && /^wss?:\/\/.+/.test(dlNode) ? dlNode : null
+    const chainId = typeof dlChainId === 'string' ? parseInt(dlChainId, 10) : NaN
+    const networkId = typeof dlNetworkId === 'string' ? parseInt(dlNetworkId, 10) : NaN
+
+    if (
+      node ||
+      (Number.isInteger(chainId) && chainId > 0) ||
+      (Number.isInteger(networkId) && networkId > 0)
+    ) {
+      pendingDeepLink.value = {
+        node,
+        chainId: Number.isInteger(chainId) && chainId > 0 ? chainId : null,
+        networkId: Number.isInteger(networkId) && networkId > 0 ? networkId : null,
+      }
+      deepLinkError.value = null
+      showDeepLinkConfirm.value = true
+
+      const cleanQuery = { ...query }
+      delete cleanQuery.node
+      delete cleanQuery.chainId
+      delete cleanQuery.networkId
+      router.replace({ path: route.path, query: cleanQuery })
+    }
+  },
+  { immediate: true }
+)
+
+async function confirmDeepLink() {
+  const request = pendingDeepLink.value
+  if (!request || isConnectingDeepLink.value) return
+
+  isConnectingDeepLink.value = true
+  deepLinkError.value = null
+  const previousChainId = network.chainId.value
+  const previousNetworkId = network.networkId.value
+  try {
+    if (request.chainId !== null || request.networkId !== null) {
+      await network.updateNetworkConfig(
+        request.chainId ?? network.chainId.value,
+        request.networkId ?? network.networkId.value
+      )
+    }
+    if (request.node) {
+      await network.changeNode(request.node)
+    }
+    // Only close and clear the request once the node/chain is verified reachable
+    // and actually applied — closing beforehand would show success and then
+    // silently revert moments later if the check fails.
+    showDeepLinkConfirm.value = false
+    pendingDeepLink.value = null
+    toast.show('Network updated.', 'success')
+  } catch (error) {
+    // changeNode reverts to the previous node itself on failure, but
+    // updateNetworkConfig has no reachability check and already persisted —
+    // roll the chain/network id back too, so a failed node switch never leaves
+    // the wallet on its old (working) node paired with a new, mismatched chain id.
+    if (request.chainId !== null || request.networkId !== null) {
+      try {
+        await network.updateNetworkConfig(previousChainId, previousNetworkId)
+      } catch {
+        // best-effort — the original error below is what the user needs to see
+      }
+    }
+    deepLinkError.value =
+      error instanceof Error ? error.message : 'Failed to apply the requested network.'
+  } finally {
+    isConnectingDeepLink.value = false
+  }
+}
+
+function cancelDeepLink() {
+  if (isConnectingDeepLink.value) return
+  showDeepLinkConfirm.value = false
+  pendingDeepLink.value = null
+  deepLinkError.value = null
+}
+
 // The router guard redirects a locked user off a protected route to "/" with
 // ?unlock=<target>. Open the unlock dialog for that target, then clear the query.
 watch(
@@ -439,6 +533,43 @@ async function handleWalletAdded(address: string) {
           <DialogFooter>
             <Button variant="outline" @click="showDeleteConfirm = false">Cancel</Button>
             <Button variant="destructive" @click="confirmDeleteWallet">Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <!-- Deep-link network change confirmation -->
+      <Dialog :open="showDeepLinkConfirm" @update:open="(open) => !open && cancelDeepLink()">
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Connect to a different network?</DialogTitle>
+            <DialogDescription>
+              A link is asking this wallet to connect to the following network. Only continue if you
+              trust where this link came from.
+            </DialogDescription>
+          </DialogHeader>
+          <div class="space-y-2 rounded-lg border bg-muted/40 p-3 font-mono text-sm">
+            <div v-if="pendingDeepLink?.node">
+              <span class="text-muted-foreground">Node:</span> {{ pendingDeepLink.node }}
+            </div>
+            <div v-if="pendingDeepLink?.chainId !== null">
+              <span class="text-muted-foreground">Chain ID:</span>
+              {{ pendingDeepLink?.chainId ?? network.chainId.value }}
+            </div>
+            <div v-if="pendingDeepLink?.networkId !== null">
+              <span class="text-muted-foreground">Network ID:</span>
+              {{ pendingDeepLink?.networkId ?? network.networkId.value }}
+            </div>
+          </div>
+          <p v-if="deepLinkError" class="text-sm text-destructive">
+            {{ deepLinkError }}
+          </p>
+          <DialogFooter>
+            <Button variant="outline" :disabled="isConnectingDeepLink" @click="cancelDeepLink">
+              Cancel
+            </Button>
+            <Button :disabled="isConnectingDeepLink" @click="confirmDeepLink">
+              {{ isConnectingDeepLink ? 'Connecting...' : deepLinkError ? 'Retry' : 'Connect' }}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

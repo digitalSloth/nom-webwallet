@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
-import { useDappApprovals, useWallet } from '@/core'
-import { ZenonService } from '@/core/zenon-service'
+import { useDappApprovals, useNetwork, useWallet } from '@/core'
 import { startInboxBridge } from '@/core/inpage-approval-bridge'
 import { APPROVAL_WINDOW_IDLE_MS } from '@/config'
 import { Button, Heading, Toaster, TooltipProvider, useTheme, useToast } from 'nom-ui'
@@ -98,7 +97,7 @@ watch(showUnlockDialog, noteActivity)
 onMounted(async () => {
   await initTheme()
   await wallet.ensureLoaded()
-  await ZenonService.getInstance().ensureInitialized()
+  await useNetwork().initialize()
   startInboxBridge()
   isReady.value = true
 

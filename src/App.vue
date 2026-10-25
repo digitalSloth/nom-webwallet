@@ -27,6 +27,7 @@ import PlasmaIndicator from '@/components/PlasmaIndicator.vue'
 import SettingsDialog from '@/components/SettingsDialog.vue'
 import UnlockWalletDialog from '@/components/UnlockWalletDialog.vue'
 import DappApprovalDialog from '@/components/DappApprovalDialog.vue'
+import { openOrFocusWindow } from '@/core/extension-window'
 import AccountList from '@/components/AccountList.vue'
 import { ChevronDownIcon, LinkIcon, LockIcon, LockOpenIcon, SettingsIcon } from 'lucide-vue-next'
 
@@ -102,29 +103,11 @@ async function openWalletConnect() {
   // A popup window, not a tab: like the approval window, it survives focus
   // moving to the dApp's own tab, which pairing/session management needs to
   // stay alive through. Reused across opens rather than piling up windows.
-  // Known limitation: doesn't attach reliably while the browser is in
-  // native macOS fullscreen — see the README's WalletConnect section.
-  const stored = await chrome.storage.session.get(SESSION_KEY_WALLETCONNECT_WINDOW_ID)
-  const existingId = stored[SESSION_KEY_WALLETCONNECT_WINDOW_ID] as number | undefined
-
-  if (existingId !== undefined) {
-    try {
-      await chrome.windows.update(existingId, { focused: true })
-      return
-    } catch {
-      // The stored window no longer exists; fall through and create one.
-    }
-  }
-
-  const created = await chrome.windows.create({
-    url: chrome.runtime.getURL('index.html#/walletconnect'),
-    type: 'popup',
-    width: 420,
-    height: 640,
-  })
-  if (created.id !== undefined) {
-    await chrome.storage.session.set({ [SESSION_KEY_WALLETCONNECT_WINDOW_ID]: created.id })
-  }
+  await openOrFocusWindow(
+    SESSION_KEY_WALLETCONNECT_WINDOW_ID,
+    chrome.runtime.getURL('index.html#/walletconnect'),
+    { width: 420, height: 640 }
+  )
 }
 
 // Watch for route changes to reload wallet data (in case user just finished setup)

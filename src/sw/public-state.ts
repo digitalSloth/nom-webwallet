@@ -28,7 +28,9 @@ export async function hasAnyWallet(): Promise<boolean> {
 export async function getChainId(): Promise<number> {
   const stored = await chrome.storage.local.get(STORAGE_KEY_CHAIN_ID)
   const value = stored[STORAGE_KEY_CHAIN_ID]
-  return typeof value === 'number' ? value : 1
+  // Same coercion as zenon-service.ts's sanitizeId, so the chain id a request
+  // is bound to here matches what the approval window re-reads.
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : 1
 }
 
 export async function getNodeUrl(): Promise<string> {

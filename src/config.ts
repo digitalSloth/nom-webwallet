@@ -115,6 +115,8 @@ export const WC_STORAGE_PREFIX = 'nom-wallet-wc:'
 
 /** phase 3a — site-permissions.ts. */
 export const STORAGE_KEY_SITE_PERMISSIONS = 'nom-wallet-site-permissions'
+/** site-permissions.ts. Minimum gap between two lastUsedAt writes for one origin. */
+export const SITE_PERMISSION_TOUCH_INTERVAL_MS = 60 * 1000
 
 /** phase 3b — approval-inbox.ts. */
 export const SESSION_KEY_PENDING_REQUESTS = 'nom-wallet.pendingRequests'

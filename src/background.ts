@@ -6,15 +6,9 @@
 import './sw/router'
 import './sw/public-state'
 import {ERR_USER_REJECTED} from '@/core/inpage-protocol'
-import {SESSION_KEY_WALLETCONNECT_WINDOW_ID} from '@/config'
-import {clearApprovalWindow, rejectEntriesForWindow} from './sw/approval-inbox'
-
-async function clearWalletConnectWindow(windowId: number): Promise<void> {
-  const stored = await chrome.storage.session.get(SESSION_KEY_WALLETCONNECT_WINDOW_ID)
-  if (stored[SESSION_KEY_WALLETCONNECT_WINDOW_ID] === windowId) {
-    await chrome.storage.session.remove(SESSION_KEY_WALLETCONNECT_WINDOW_ID)
-  }
-}
+import {SESSION_KEY_APPROVAL_WINDOW_ID, SESSION_KEY_WALLETCONNECT_WINDOW_ID} from '@/config'
+import {clearStoredWindow} from '@/core/extension-window'
+import {rejectEntriesForWindow} from './sw/approval-inbox'
 
 chrome.windows.onRemoved.addListener((windowId) => {
   // The approval window closing without a decision rejects only that
@@ -24,11 +18,11 @@ chrome.windows.onRemoved.addListener((windowId) => {
     code: ERR_USER_REJECTED,
     message: 'The approval window was closed.',
   })
-  void clearApprovalWindow(windowId)
+  void clearStoredWindow(SESSION_KEY_APPROVAL_WINDOW_ID, windowId)
   // The WalletConnect popup window (App.vue's openWalletConnect) is reused
   // by stored id the same way; forget it once closed so the next open
   // creates a fresh window instead of trying to focus a dead one.
-  void clearWalletConnectWindow(windowId)
+  void clearStoredWindow(SESSION_KEY_WALLETCONNECT_WINDOW_ID, windowId)
 })
 
 // Restrict chrome.storage.local to trusted extension contexts — the content

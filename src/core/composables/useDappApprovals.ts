@@ -11,6 +11,7 @@ import { sessionManager } from '../session-manager'
 import { signMessage } from '../message-signing'
 import { InvalidParamsError } from '../message-guard'
 import { TransactionService } from '../transaction-service'
+import { readPersistedChainId } from '../zenon-service'
 import { useWallet } from './useWallet'
 import { runActivity } from './useActivity'
 
@@ -68,14 +69,24 @@ export function useDappApprovals(): {
         return
       }
 
+      // Re-read storage rather than trusting this window's copy: another
+      // window may have switched the active account or chain since this one
+      // loaded, and the dApp has already been told about that switch.
       const wallet = useWallet()
+      const [, chainId] = await Promise.all([wallet.loadWalletData(), readPersistedChainId()])
       const activeWallet = wallet.activeWallet.value
-      const account = activeWallet?.accounts.find(
-        (acc) => acc.address === wallet.activeAccountAddress.value
-      )
+      const activeAddress = wallet.activeAccountAddress.value
+      const account = activeWallet?.accounts.find((acc) => acc.address === activeAddress)
 
-      if (!activeWallet || !wallet.activeAccountAddress.value || !account) {
+      if (!activeWallet || !activeAddress || !account) {
         await settle(approval.id, () => handlers.reject({ reason: 'walletLocked' }))
+        return
+      }
+
+      // Guard: binding. The approval signs only with the account and chain
+      // it was shown with.
+      if (account.address !== approval.account || chainId !== approval.chainId) {
+        await settle(approval.id, () => handlers.reject({ reason: 'accountChanged' }))
         return
       }
 
@@ -87,14 +98,11 @@ export function useDappApprovals(): {
       }
 
       // Guard: locked wallet, for signMessage and sendBlock only. A dialog can
-      // sit on screen for the whole idle period, so this refreshes wallet
-      // state — re-rendering the dialog in its locked state — rather than
-      // rejecting a request the user is about to approve.
+      // sit on screen for the whole idle period; the refresh above has
+      // already re-rendered it in its locked state, so this returns rather
+      // than rejecting a request the user is about to approve.
       const keyStore = sessionManager.getKeyStore(activeWallet.baseAddress)
-      if (!keyStore) {
-        await wallet.loadWalletData()
-        return
-      }
+      if (!keyStore) return
       const keyPair = keyStore.getKeyPair(account.index)
       const action = approval.action
 

@@ -1,6 +1,5 @@
 import { SESSION_KEY_PENDING_REQUESTS } from '@/config'
 import { listInbox } from '@/sw/approval-inbox'
-import { ZenonService } from './zenon-service'
 import { InvalidParamsError, parseAccountBlockJson, parseSendTransactionParams } from './account-block-params'
 import {
   enqueueApproval,
@@ -12,7 +11,12 @@ import {
 } from './dapp-approvals'
 import {
   ERR_INVALID_PARAMS,
+  ERR_NOT_CONNECTED,
   ERR_TOO_MANY_REQUESTS,
+  ERR_TRANSPORT_OR_SEND_FAILED,
+  ERR_UNKNOWN_METHOD,
+  ERR_USER_REJECTED,
+  ERR_WALLET_UNAVAILABLE,
   INTERNAL_MESSAGE_CHANNEL,
   ZNN_CONNECT,
   ZNN_SEND_TRANSACTION,
@@ -49,19 +53,24 @@ function postSettle(id: string, payload: { result?: unknown; error?: ProviderErr
 function toOutgoingError(rejection: WalletRejection): ProviderError {
   switch (rejection.reason) {
     case 'userRejected':
-      return { code: 4001, message: 'User rejected the request.' }
+      return { code: ERR_USER_REJECTED, message: 'User rejected the request.' }
     case 'walletLocked':
-      return { code: 4900, message: 'Wallet is locked.' }
+      return { code: ERR_WALLET_UNAVAILABLE, message: 'Wallet is locked.' }
     case 'invalidParams':
       return { code: ERR_INVALID_PARAMS, message: rejection.detail }
     case 'notConnected':
-      return { code: 4100, message: 'Origin is not connected.' }
+      return { code: ERR_NOT_CONNECTED, message: 'Origin is not connected.' }
     case 'unsupportedMethod':
-      return { code: 4200, message: 'Unsupported method.' }
+      return { code: ERR_UNKNOWN_METHOD, message: 'Unsupported method.' }
     case 'sendFailed':
-      return { code: -32603, message: rejection.detail }
+      return { code: ERR_TRANSPORT_OR_SEND_FAILED, message: rejection.detail }
     case 'tooManyRequests':
       return { code: ERR_TOO_MANY_REQUESTS, message: 'Too many pending requests.' }
+    case 'accountChanged':
+      return {
+        code: ERR_TRANSPORT_OR_SEND_FAILED,
+        message: 'The active account or chain changed after this request was made.',
+      }
   }
 }
 
@@ -89,9 +98,9 @@ function buildAction(entry: InboxEntry): ApprovalAction {
     case ZNN_SIGN:
       return { kind: 'signMessage', message: entry.params as string }
     case ZNN_SEND_TRANSACTION:
-      return { kind: 'sendBlock', block: parseSendTransactionParams(entry.params) }
+      return { kind: 'sendBlock', block: parseSendTransactionParams(entry.params, entry.chainId) }
     case ZNN_SIGN_AND_SEND_BLOCK:
-      return { kind: 'sendBlock', block: parseAccountBlockJson(entry.params) }
+      return { kind: 'sendBlock', block: parseAccountBlockJson(entry.params, entry.chainId) }
   }
 }
 
@@ -122,6 +131,8 @@ function claim(entry: InboxEntry): void {
       icons: entry.favicon ? [entry.favicon] : [],
     },
     createdAt: entry.createdAt,
+    account: entry.account,
+    chainId: entry.chainId,
     action,
   }
 
@@ -143,8 +154,9 @@ function claim(entry: InboxEntry): void {
   }
 }
 
+// No node connection here: connect and signMessage never need one, and a
+// send connects when the user approves it (TransactionService).
 async function claimAll(): Promise<void> {
-  await ZenonService.getInstance().ensureInitialized()
   const current = (await chrome.windows.getCurrent()).id
   const inbox = await listInbox()
   for (const entry of inbox) {
@@ -154,11 +166,12 @@ async function claimAll(): Promise<void> {
 
 /** Starts draining the inbox into the shared approval queue. Idempotent — safe to call once. */
 export function startInboxBridge(): void {
-  void claimAll()
+  const run = (): void => {
+    claimAll().catch((err: unknown) => console.error('Failed to read the approval inbox', err))
+  }
+  run()
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName === 'session' && SESSION_KEY_PENDING_REQUESTS in changes) {
-      void claimAll()
-    }
+    if (areaName === 'session' && SESSION_KEY_PENDING_REQUESTS in changes) run()
   })
 }

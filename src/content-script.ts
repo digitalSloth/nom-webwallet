@@ -213,9 +213,20 @@ window.addEventListener('message', (event: MessageEvent) => {
   sendPrompting(id, method, params)
 })
 
-// Stop reconnecting once the tab is actually going away.
+// Stop reconnecting once the tab is going away, or into the back/forward
+// cache, where Chrome would close the port anyway.
 window.addEventListener('pagehide', () => {
   closedByUs = true
   port?.disconnect()
   port = null
+})
+
+// Restored from the back/forward cache: reopen the port if the origin is
+// granted or a prompt is still outstanding. openPort() resyncs the
+// outstanding ids, so a request answered while the page was cached settles.
+window.addEventListener('pageshow', (event: PageTransitionEvent) => {
+  if (!event.persisted) return
+  closedByUs = false
+  if (outstanding.size > 0) openPort()
+  else void reconcileFromGrantState()
 })

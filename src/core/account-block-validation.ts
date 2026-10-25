@@ -16,6 +16,13 @@ const ADDRESS_CORE_SIZE = 20
 const TOKEN_STANDARD_PREFIX = 'zts'
 const TOKEN_STANDARD_CORE_SIZE = 10
 
+// Protocol limits enforced by go-zenon: vm/constants/plasma.go MaxDataLength,
+// and verifier/account_block.go rejects an amount wider than 255 bits.
+export const MAX_DATA_BYTES = 16 * 1024
+const MAX_DATA_BASE64_LENGTH = Math.ceil(MAX_DATA_BYTES / 3) * 4
+const MAX_AMOUNT = 2n ** 255n - 1n
+const MAX_AMOUNT_DIGITS = MAX_AMOUNT.toString().length
+
 const BASE64_PATTERN = /^[A-Za-z0-9+/]*={0,2}$/
 const HEX_64_PATTERN = /^[0-9a-fA-F]{64}$/
 // A leading '0x'/'0X' is not part of the base64 alphabet's meaning here — it is
@@ -61,23 +68,27 @@ function amountProblem(amount: unknown): string | null {
   if (typeof amount !== 'string' && typeof amount !== 'number') {
     return "Amount must be a non-negative integer in the token's smallest unit."
   }
+  if (typeof amount === 'number' && !Number.isInteger(amount)) {
+    return "Amount must be a non-negative integer in the token's smallest unit."
+  }
   if (typeof amount === 'number' && !Number.isSafeInteger(amount)) {
     return 'Amount is too large to be sent as a JSON number; pass it as a string.'
   }
   const asString = String(amount)
+  // Length first, so an oversized string never reaches the regex or BigInt.
+  if (asString.length > MAX_AMOUNT_DIGITS) return 'Amount is too large.'
   if (!/^\d+$/.test(asString)) {
     return "Amount must be a non-negative integer in the token's smallest unit."
   }
-  try {
-    BigInt(asString)
-  } catch {
-    return "Amount must be a non-negative integer in the token's smallest unit."
-  }
+  if (BigInt(asString) > MAX_AMOUNT) return 'Amount is too large.'
   return null
 }
 
 function dataProblem(data: unknown): string | null {
   if (data === undefined || data === null || data === '') return null
+  if (typeof data === 'string' && data.length > MAX_DATA_BASE64_LENGTH) {
+    return `Block data is too large (maximum ${MAX_DATA_BYTES} bytes).`
+  }
   if (
     typeof data !== 'string' ||
     /^0x/i.test(data) ||
@@ -85,6 +96,10 @@ function dataProblem(data: unknown): string | null {
     data.length % 4 !== 0
   ) {
     return 'Block data must be base64.'
+  }
+  const padding = data.endsWith('==') ? 2 : data.endsWith('=') ? 1 : 0
+  if ((data.length / 4) * 3 - padding > MAX_DATA_BYTES) {
+    return `Block data is too large (maximum ${MAX_DATA_BYTES} bytes).`
   }
   return null
 }

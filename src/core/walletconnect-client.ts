@@ -12,6 +12,7 @@ export type ProtocolRejection =
   | 'USER_REJECTED'
   | 'UNSUPPORTED_CHAINS'
   | 'UNSUPPORTED_METHODS'
+  | 'UNSUPPORTED_EVENTS'
   | 'UNSUPPORTED_NAMESPACE_KEY'
   | 'UNSUPPORTED_METHOD'
 
@@ -23,6 +24,8 @@ export interface WalletConnectClientHandlers {
   onProposal(p: SignClientTypes.EventArguments['session_proposal']): void
   onRequest(r: SignClientTypes.EventArguments['session_request']): void
   onSessionsChanged(s: SessionTypes.Struct[]): void
+  /** A session was deleted by the peer or expired. */
+  onSessionEnded(topic: string): void
 }
 
 export interface IWalletConnectClient {
@@ -36,7 +39,8 @@ export interface IWalletConnectClient {
   respond(topic: string, rpcId: number, result: unknown): Promise<void>
   respondError(topic: string, rpcId: number, error: OutgoingError): Promise<void>
   updateSessionAccounts(topic: string, accounts: string[]): Promise<void>
-  emit(topic: string, event: { name: string; data: unknown }): Promise<void>
+  /** `chainId` must be one of the session's namespace chains, e.g. `zenon:1`. */
+  emit(topic: string, event: { name: string; data: unknown }, chainId: string): Promise<void>
   disconnect(topic: string): Promise<void>
   destroy(): Promise<void>
 }

@@ -21,6 +21,7 @@ const PROTOCOL_REJECTION_TO_SDK_KEY: Record<ProtocolRejection, SdkErrorKey> = {
   USER_REJECTED: 'USER_REJECTED',
   UNSUPPORTED_CHAINS: 'UNSUPPORTED_CHAINS',
   UNSUPPORTED_METHODS: 'UNSUPPORTED_METHODS',
+  UNSUPPORTED_EVENTS: 'UNSUPPORTED_EVENTS',
   UNSUPPORTED_NAMESPACE_KEY: 'UNSUPPORTED_NAMESPACE_KEY',
   UNSUPPORTED_METHOD: 'WC_METHOD_UNSUPPORTED',
 }
@@ -32,11 +33,6 @@ function toSdkError(error: OutgoingError): { code: number; message: string } {
   return { code: error.code, message: error.message }
 }
 
-// zenon:1 is the only chain this wallet ever proposes or accepts (§2.1), so it
-// is the one value every emit() needs and no caller of IWalletConnectClient
-// should have to repeat.
-const ZENON_CHAIN_ID = 'zenon:1'
-
 export class SignClientAdapter implements IWalletConnectClient {
   private client: SignClient | null = null
   private initPromise: Promise<void> | null = null
@@ -44,7 +40,7 @@ export class SignClientAdapter implements IWalletConnectClient {
   init(handlers: WalletConnectClientHandlers): Promise<void> {
     if (this.initPromise) return this.initPromise
 
-    this.initPromise = (async () => {
+    const attempt = (async () => {
       const client = await SignClient.init({
         projectId: WALLETCONNECT_PROJECT_ID,
         metadata: WALLETCONNECT_METADATA,
@@ -53,7 +49,12 @@ export class SignClientAdapter implements IWalletConnectClient {
 
       client.on('session_proposal', (proposal) => handlers.onProposal(proposal))
       client.on('session_request', (request) => handlers.onRequest(request))
-      client.on('session_delete', () => handlers.onSessionsChanged(client.session.getAll()))
+      const ended = ({ topic }: { topic: string }): void => {
+        handlers.onSessionEnded(topic)
+        handlers.onSessionsChanged(client.session.getAll())
+      }
+      client.on('session_delete', ended)
+      client.on('session_expire', ended)
       client.on('session_update', () => handlers.onSessionsChanged(client.session.getAll()))
       // Fires when a session finishes settling after approve() — session_update
       // is only for namespace changes on an *existing* session, so without this
@@ -65,6 +66,12 @@ export class SignClientAdapter implements IWalletConnectClient {
       handlers.onSessionsChanged(client.session.getAll())
     })()
 
+    // A failed init (e.g. the relay was unreachable) is not cached, so the
+    // next call retries.
+    this.initPromise = attempt.catch((err: unknown) => {
+      this.initPromise = null
+      throw err
+    })
     return this.initPromise
   }
 
@@ -117,8 +124,8 @@ export class SignClientAdapter implements IWalletConnectClient {
     await acknowledged()
   }
 
-  async emit(topic: string, event: { name: string; data: unknown }): Promise<void> {
-    await this.requireClient().emit({ topic, event, chainId: ZENON_CHAIN_ID })
+  async emit(topic: string, event: { name: string; data: unknown }, chainId: string): Promise<void> {
+    await this.requireClient().emit({ topic, event, chainId })
   }
 
   async disconnect(topic: string): Promise<void> {

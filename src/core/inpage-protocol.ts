@@ -152,6 +152,8 @@ export interface InboxEntry {
   favicon?: string
   method: PromptingMethod
   params: unknown // already validated
+  account: string // active account when the request arrived (PendingApproval.account)
+  chainId: number // chain id when the request arrived (PendingApproval.chainId)
   createdAt: number
   windowId?: number // stamped when a window is shown the entry
 }
@@ -171,14 +173,14 @@ export interface ApprovalsSettleMessage {
 
 /**
  * useConnectedSites.ts → SW: a revoke initiated from the settings dialog,
- * not the dApp's own tab. Storage is already updated by the caller (any
- * extension context can write chrome.storage.local); this asks the worker
- * to also disconnect the live port(s), which only it can see (§6.4, §6.7).
- * Omit `origin` to disconnect every open port (revoke all).
+ * not the dApp's own tab. The worker performs the revoke itself, so every
+ * write to the permissions map runs through its one serialised queue, then
+ * disconnects the live port(s), which only it can see (§6.4, §6.7). Omit
+ * `origin` to revoke every site.
  */
-export interface PortsDisconnectMessage {
+export interface SitesRevokeMessage {
   channel: typeof INTERNAL_MESSAGE_CHANNEL
-  kind: 'ports.disconnect'
+  kind: 'sites.revoke'
   origin?: string
 }
 

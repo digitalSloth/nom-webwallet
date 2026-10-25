@@ -1,7 +1,12 @@
 import { ref, watch } from 'vue'
 import type { ComputedRef, Ref } from 'vue'
 import type { SessionTypes } from '@walletconnect/types'
-import { WALLETCONNECT_ENABLED } from '@/config'
+import {
+  STORAGE_KEY_CHAIN_ID,
+  STORAGE_KEY_NETWORK_ID,
+  STORAGE_KEY_WALLETS,
+  WALLETCONNECT_ENABLED,
+} from '@/config'
 import { WalletConnectService, walletConnectSessions } from '../walletconnect-service'
 import { useWallet } from './useWallet'
 import { useNetwork } from './useNetwork'
@@ -41,6 +46,20 @@ export function useWalletConnect(): {
       if (address) void service.setActiveAccount(address)
     })
     watch(network.chainId, (chainId) => void service.emitChainIdChange(chainId))
+
+    // The extension's WalletConnect window keeps its own copy of wallet and
+    // network state, and hears about a switch made in another window (the
+    // main popup) only through storage. Re-reading it here moves the refs
+    // above, so their watchers send the session events.
+    if (__IS_EXTENSION__) {
+      chrome.storage.onChanged.addListener((changes, areaName) => {
+        if (areaName !== 'local') return
+        if (STORAGE_KEY_WALLETS in changes) void wallet.loadWalletData()
+        if (STORAGE_KEY_CHAIN_ID in changes || STORAGE_KEY_NETWORK_ID in changes) {
+          void network.syncNetworkConfig()
+        }
+      })
+    }
   }
 
   async function initialize(): Promise<void> {

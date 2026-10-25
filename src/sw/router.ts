@@ -3,6 +3,7 @@ import {
   ERR_INVALID_PARAMS,
   ERR_NOT_CONNECTED,
   ERR_TOO_MANY_REQUESTS,
+  ERR_TRANSPORT_OR_SEND_FAILED,
   ERR_UNKNOWN_METHOD,
   ERR_WALLET_UNAVAILABLE,
   INTERNAL_MESSAGE_CHANNEL,
@@ -23,22 +24,22 @@ import {
   type PortMessageToWorker,
   type PortRequestMessage,
   type PortResyncMessage,
-  type PortsDisconnectMessage,
   type PromptingMethod,
   type ReadOnlyRequest,
   type ReadOnlyResponse,
+  type SitesRevokeMessage,
 } from '@/core/inpage-protocol'
 import { messageProblem } from '@/core/message-guard'
-import { grant, isGranted, revoke, touch } from '@/core/site-permissions'
+import { grant, isGranted, revoke, revokeAll, touch } from '@/core/site-permissions'
 import { getActiveAccountAddress, getChainId, getNodeUrl, hasAnyWallet } from './public-state'
 import { disconnectAllPorts, disconnectPortsForOrigin, registerPort } from './ports'
 import {
   addToInbox,
-  findInboxEntry,
   isTracked,
   openOrFocusApprovalWindow,
   redeliverTo,
   settle,
+  trackedIds,
 } from './approval-inbox'
 
 /**
@@ -178,6 +179,12 @@ async function handlePortRequest(port: chrome.runtime.Port, message: PortRequest
     return
   }
 
+  const account = await getActiveAccountAddress()
+  if (!account) {
+    port.postMessage({ kind: 'outcome', id, error: { code: ERR_WALLET_UNAVAILABLE, message: 'No active account.' } })
+    return
+  }
+
   const tab = sender.tab
   const entry: InboxEntry = {
     id,
@@ -189,11 +196,17 @@ async function handlePortRequest(port: chrome.runtime.Port, message: PortRequest
     favicon: tab?.favIconUrl,
     method,
     params,
+    account,
+    chainId: await getChainId(),
     createdAt: Date.now(),
   }
 
   const added = await addToInbox(entry)
-  if (!added) {
+  if (added === 'tracked') {
+    port.postMessage({ kind: 'accepted', id })
+    return
+  }
+  if (added === 'full') {
     port.postMessage({ kind: 'outcome', id, error: { code: ERR_TOO_MANY_REQUESTS, message: 'Too many pending requests.' } })
     return
   }
@@ -203,8 +216,24 @@ async function handlePortRequest(port: chrome.runtime.Port, message: PortRequest
   // unknown while it is about to become a live dialog (§6.4). Getting this
   // order wrong is the worst failure in the design — the page could give up
   // on an id the user then approves, publishing against an abandoned request.
-  port.postMessage({ kind: 'accepted', id })
-  await openOrFocusApprovalWindow()
+  try {
+    port.postMessage({ kind: 'accepted', id })
+  } catch {
+    // The port dropped; the page reconnects and its resync finds the id tracked.
+  }
+
+  // The entry is in the inbox now, so a window failure must settle it: an
+  // entry no window was ever stamped with is never rejected by
+  // windows.onRemoved, and would hold its inbox slot until the browser
+  // restarts. The outcome reaches the page now, or on its next resync.
+  try {
+    await openOrFocusApprovalWindow()
+  } catch (err) {
+    console.error('Could not open the approval window.', err)
+    await settle(id, {
+      error: { code: ERR_TRANSPORT_OR_SEND_FAILED, message: 'Could not open the approval window.' },
+    })
+  }
 }
 
 async function handlePortResync(port: chrome.runtime.Port, message: PortResyncMessage): Promise<void> {
@@ -213,17 +242,14 @@ async function handlePortResync(port: chrome.runtime.Port, message: PortResyncMe
   const frameId = sender?.frameId
   if (tabId === undefined || frameId === undefined) return
 
-  const unknown: string[] = []
-  const trackedIds: string[] = []
-  for (const id of message.ids) {
-    if (await isTracked(id)) trackedIds.push(id)
-    else unknown.push(id)
-  }
+  const tracked = await trackedIds()
+  const known = message.ids.filter((id) => tracked.has(id))
+  const unknown = message.ids.filter((id) => !tracked.has(id))
 
   // Ids still pending in the inbox are tracked but have no outcome yet —
   // redeliverTo() is a no-op for those, which is correct: the user is still
   // deciding, and nothing more is required (§6.4).
-  if (trackedIds.length > 0) await redeliverTo(tabId, frameId, trackedIds)
+  if (known.length > 0) await redeliverTo(tabId, frameId, known)
   port.postMessage({ kind: 'resyncResult', unknown })
 }
 
@@ -247,23 +273,51 @@ function isFromOwnExtensionPage(sender: chrome.runtime.MessageSender): boolean {
 }
 
 async function handleApprovalsSettle(message: ApprovalsSettleMessage): Promise<void> {
-  const entry = await findInboxEntry(message.id)
-  if (!entry) return // already settled (e.g. a window-close race) — no-op
-
-  if (entry.method === ZNN_CONNECT && !message.error) {
-    // Grant before delivering the outcome, so the port stays open under its
-    // granted-origin condition once the request completes (§6.5).
-    await grant(entry.origin, { title: entry.title, favicon: entry.favicon })
-  }
-
-  await settle(entry.id, entry.tabId, entry.frameId, { result: message.result, error: message.error })
+  // settle() is a no-op for an entry that is already settled (e.g. a
+  // window-close race), and then grants nothing either.
+  await settle(message.id, { result: message.result, error: message.error }, async (entry) => {
+    if (entry.method === ZNN_CONNECT && !message.error) {
+      // Grant before delivering the outcome, so the port stays open under its
+      // granted-origin condition once the request completes (§6.5).
+      await grant(entry.origin, { title: entry.title, favicon: entry.favicon })
+    }
+  })
 }
 
-// --- useConnectedSites.ts's internal port-teardown request (§6.7) ---
+// --- useConnectedSites.ts's internal revoke request (§6.7) ---
 
-function isPortsDisconnectMessage(message: unknown): message is PortsDisconnectMessage {
-  const m = message as Partial<PortsDisconnectMessage> | undefined
-  return !!m && m.channel === INTERNAL_MESSAGE_CHANNEL && m.kind === 'ports.disconnect'
+function isSitesRevokeMessage(message: unknown): message is SitesRevokeMessage {
+  const m = message as Partial<SitesRevokeMessage> | undefined
+  return !!m && m.channel === INTERNAL_MESSAGE_CHANNEL && m.kind === 'sites.revoke'
+}
+
+async function handleSitesRevoke(message: SitesRevokeMessage): Promise<void> {
+  if (message.origin) {
+    await revoke(message.origin)
+    disconnectPortsForOrigin(message.origin)
+  } else {
+    await revokeAll()
+    disconnectAllPorts()
+  }
+}
+
+/**
+ * Answers a request whose handler threw before its entry reached the inbox
+ * (handlePortRequest settles its own failures after that point). Never
+ * settles an inbox entry: the id may belong to a re-sent request whose
+ * original is still pending.
+ */
+function failRequest(port: chrome.runtime.Port, id: string, err: unknown): void {
+  console.error('dApp request handling failed', err)
+  try {
+    port.postMessage({
+      kind: 'outcome',
+      id,
+      error: { code: ERR_TRANSPORT_OR_SEND_FAILED, message: 'The wallet could not handle this request.' },
+    })
+  } catch {
+    // The port is gone; the page's resync reports the id unknown and re-sends it.
+  }
 }
 
 // --- Listener registration ---
@@ -281,10 +335,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true
   }
 
-  if (isPortsDisconnectMessage(message)) {
-    if (message.origin) disconnectPortsForOrigin(message.origin)
-    else disconnectAllPorts()
-    sendResponse({ ok: true })
+  if (isSitesRevokeMessage(message)) {
+    handleSitesRevoke(message).then(
+      () => sendResponse({ ok: true }),
+      (err: unknown) => {
+        console.error('Revoking site permissions failed', err)
+        sendResponse({ ok: false })
+      }
+    )
     return true
   }
 
@@ -296,7 +354,10 @@ chrome.runtime.onConnect.addListener((port) => {
   registerPort(port)
 
   port.onMessage.addListener((message: PortMessageToWorker) => {
-    if (message.kind === 'request') void handlePortRequest(port, message)
-    else if (message.kind === 'resync') void handlePortResync(port, message)
+    if (message.kind === 'request') {
+      handlePortRequest(port, message).catch((err: unknown) => failRequest(port, message.id, err))
+    } else if (message.kind === 'resync') {
+      handlePortResync(port, message).catch((err: unknown) => console.error('Resync failed', err))
+    }
   })
 })

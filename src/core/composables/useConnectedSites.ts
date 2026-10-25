@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import type { Ref } from 'vue'
-import { INTERNAL_MESSAGE_CHANNEL, type PortsDisconnectMessage } from '../inpage-protocol'
-import { list, revoke, revokeAll, type SitePermission } from '../site-permissions'
+import { INTERNAL_MESSAGE_CHANNEL, type SitesRevokeMessage } from '../inpage-protocol'
+import { list, type SitePermission } from '../site-permissions'
 
 /**
  * Reactive wrapper around site-permissions.ts for the settings dialog's
@@ -13,10 +13,15 @@ import { list, revoke, revokeAll, type SitePermission } from '../site-permission
 const sites = ref<SitePermission[]>([])
 const isLoading = ref(false)
 
-function requestPortsDisconnect(origin?: string): void {
+/**
+ * The worker performs the revoke, not this page: a write from here could
+ * interleave with the worker's own read-modify-writes of the same map and
+ * be overwritten by a stale copy (§6.7).
+ */
+async function requestRevoke(origin?: string): Promise<void> {
   if (!__IS_EXTENSION__) return
-  const message: PortsDisconnectMessage = { channel: INTERNAL_MESSAGE_CHANNEL, kind: 'ports.disconnect', origin }
-  void chrome.runtime.sendMessage(message)
+  const message: SitesRevokeMessage = { channel: INTERNAL_MESSAGE_CHANNEL, kind: 'sites.revoke', origin }
+  await chrome.runtime.sendMessage(message)
 }
 
 export function useConnectedSites(): {
@@ -36,17 +41,12 @@ export function useConnectedSites(): {
   }
 
   async function revokeOrigin(origin: string): Promise<void> {
-    await revoke(origin)
-    // Storage is already updated above (any extension context can write
-    // chrome.storage.local); this additionally asks the worker to drop the
-    // live port, which only it can see (§6.4, §6.7).
-    requestPortsDisconnect(origin)
+    await requestRevoke(origin)
     await refresh()
   }
 
   async function revokeAllSites(): Promise<void> {
-    await revokeAll()
-    requestPortsDisconnect()
+    await requestRevoke()
     await refresh()
   }
 

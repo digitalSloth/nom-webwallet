@@ -20,6 +20,10 @@ import { LockIcon } from 'lucide-vue-next'
 const EMPTY_LOCKED_CLOSE_GRACE_MS = 1200
 // How often the idle timer checks elapsed time against APPROVAL_WINDOW_IDLE_MS.
 const IDLE_CHECK_INTERVAL_MS = 5000
+// Input that counts as the user still being here, e.g. reading and scrolling
+// through a long contract call. Captured at the window, since scroll does
+// not bubble out of the dialog's scroll box.
+const ACTIVITY_EVENTS = ['pointerdown', 'pointermove', 'keydown', 'wheel', 'scroll'] as const
 
 const wallet = useWallet()
 const { currentApproval, isBusy } = useDappApprovals()
@@ -95,9 +99,15 @@ watch([currentApproval, () => wallet.isActiveWalletUnlocked.value], ([approval, 
 watch(showUnlockDialog, noteActivity)
 
 onMounted(async () => {
+  for (const name of ACTIVITY_EVENTS) {
+    window.addEventListener(name, noteActivity, { capture: true, passive: true })
+  }
+
   await initTheme()
   await wallet.ensureLoaded()
-  await useNetwork().initialize()
+  // The saved chain and node, for display only — no node connection, so an
+  // unreachable node never holds up a connect or sign request.
+  await useNetwork().loadConfig()
   startInboxBridge()
   isReady.value = true
 
@@ -109,6 +119,9 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  for (const name of ACTIVITY_EVENTS) {
+    window.removeEventListener(name, noteActivity, { capture: true })
+  }
   if (idleTimer) clearInterval(idleTimer)
   if (emptyLockedTimer) clearTimeout(emptyLockedTimer)
 })

@@ -1,13 +1,19 @@
 import { computed, shallowRef, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import type { AccountBlockTemplate } from 'znn-typescript-sdk'
-import type { SessionTypes, SignClientTypes } from '@walletconnect/types'
+import type { SessionTypes, SignClientTypes, Verify } from '@walletconnect/types'
 import { WalletService } from './wallet-service'
-import { ZenonService } from './zenon-service'
+import { readPersistedChainId, ZenonService } from './zenon-service'
 import { messageProblem } from './message-guard'
 import { accountBlockProblem } from './account-block-validation'
 import { InvalidParamsError, parseAccountBlockJson } from './account-block-params'
-import { approvalQueue, enqueueApproval, type WalletRejection } from './dapp-approvals'
+import {
+  approvalQueue,
+  dropApprovals,
+  enqueueApproval,
+  type PeerVerification,
+  type WalletRejection,
+} from './dapp-approvals'
 import type { IWalletConnectClient, OutgoingError } from './walletconnect-client'
 
 /**
@@ -19,7 +25,6 @@ import type { IWalletConnectClient, OutgoingError } from './walletconnect-client
  */
 
 const ZENON_NAMESPACE = 'zenon'
-const ZENON_CHAIN = 'zenon:1'
 const SUPPORTED_METHODS = ['znn_info', 'znn_sign', 'znn_send']
 const SUPPORTED_EVENTS = ['chainIdChange', 'addressChange']
 
@@ -51,6 +56,8 @@ function toOutgoingError(rejection: WalletRejection): OutgoingError {
       return tooManyRequestsError()
     case 'sendFailed':
       return sendFailedError(rejection.detail)
+    case 'accountChanged':
+      return sendFailedError('The active account or chain changed after this request was made.')
     case 'notConnected':
       // Not reachable on this surface — a session is the connection (§4).
       return invalidParamsError('No active session.')
@@ -84,9 +91,44 @@ function parseSendParams(params: unknown): { accountBlock: unknown; fromAddress:
   return null
 }
 
+/** CAIP-2 chain id for a Zenon chain id, e.g. 3 → `zenon:3`. */
+function zenonChain(chainId: number): string {
+  return `${ZENON_NAMESPACE}:${chainId}`
+}
+
+/** The chain a session was approved on. Every session approves exactly one. */
+function sessionChain(session: SessionTypes.Struct): string {
+  return session.namespaces[ZENON_NAMESPACE]?.chains?.[0] ?? zenonChain(1)
+}
+
+/** WalletConnect's expiryTimestamp is in seconds. */
+function expiresAtMs(expiryTimestamp: number | undefined): number | undefined {
+  return expiryTimestamp === undefined ? undefined : expiryTimestamp * 1000
+}
+
+function verificationOf(context: Verify.Context | undefined): PeerVerification | 'scam' {
+  const verified = context?.verified
+  if (verified?.isScam) return 'scam'
+  if (verified?.validation === 'VALID') return 'valid'
+  if (verified?.validation === 'INVALID') return 'invalid'
+  return 'unknown'
+}
+
+function toastScam(name: string, url: string): void {
+  toast.error(`Rejected a request from ${name}: WalletConnect flags ${url} as a known scam.`)
+}
+
 const sessions = shallowRef<SessionTypes.Struct[]>([])
 /** Read-only reactive view for useWalletConnect. */
 export const walletConnectSessions = computed(() => sessions.value)
+
+interface RequestContext {
+  topic: string
+  rpcId: number
+  chainId: number
+  verification: PeerVerification
+  expiresAt?: number
+}
 
 export class WalletConnectService {
   private static instance: WalletConnectService | null = null
@@ -109,7 +151,7 @@ export class WalletConnectService {
   initialize(client?: IWalletConnectClient): Promise<void> {
     if (this.initPromise) return this.initPromise
 
-    this.initPromise = (async () => {
+    const attempt = (async () => {
       const impl =
         client ?? new (await import('./walletconnect-sign-client-adapter')).SignClientAdapter()
       this.client = impl
@@ -120,11 +162,22 @@ export class WalletConnectService {
         onSessionsChanged: (list) => {
           sessions.value = list
         },
+        onSessionEnded: (topic) => {
+          // The peer can no longer receive a response, so these are dropped
+          // rather than settled.
+          dropApprovals((a) => a.id.startsWith(`wc:${topic}:`))
+        },
       })
 
       this.startBadgeWatcher()
     })()
 
+    // A failed init is not cached, so the next call retries.
+    this.initPromise = attempt.catch((err: unknown) => {
+      this.initPromise = null
+      this.client = null
+      throw err
+    })
     return this.initPromise
   }
 
@@ -146,16 +199,26 @@ export class WalletConnectService {
   async setActiveAccount(address: string): Promise<void> {
     if (!this.client) return
     for (const session of this.client.listSessions()) {
-      await this.client.updateSessionAccounts(session.topic, [`${ZENON_CHAIN}:${address}`])
-      await this.client.emit(session.topic, { name: 'addressChange', data: address })
+      const chain = sessionChain(session)
+      await this.client.updateSessionAccounts(session.topic, [`${chain}:${address}`])
+      await this.client.emit(session.topic, { name: 'addressChange', data: address }, chain)
     }
   }
 
-  /** §2.3 item 4 — chain-change broadcast, driven by useWalletConnect's watcher. */
+  /**
+   * §2.3 item 4 — chain-change broadcast, driven by useWalletConnect's watcher.
+   * Emitted on each session's own chain, the only one the SDK accepts for it.
+   * The session stays on that chain, so its requests are refused until the
+   * dApp reconnects on the new one (see handleRequest).
+   */
   async emitChainIdChange(chainId: number): Promise<void> {
     if (!this.client) return
     for (const session of this.client.listSessions()) {
-      await this.client.emit(session.topic, { name: 'chainIdChange', data: chainId })
+      await this.client.emit(
+        session.topic,
+        { name: 'chainIdChange', data: chainId },
+        sessionChain(session)
+      )
     }
   }
 
@@ -176,6 +239,19 @@ export class WalletConnectService {
   ): Promise<void> {
     const client = this.requireClient()
     const required = p.params.requiredNamespaces
+    const proposer = p.params.proposer.metadata
+
+    const verification = verificationOf(p.verifyContext)
+    if (verification === 'scam') {
+      await client.rejectProposal(p.id, { kind: 'protocol', rejection: 'USER_REJECTED' })
+      toastScam(proposer.name, proposer.url)
+      return
+    }
+
+    // Read from storage: in the extension this window's network state can
+    // be stale if the chain was switched in another window.
+    const chainId = await readPersistedChainId()
+    const chain = zenonChain(chainId)
 
     for (const key of Object.keys(required)) {
       if (key !== ZENON_NAMESPACE) {
@@ -187,12 +263,16 @@ export class WalletConnectService {
     const zenonNamespace = required[ZENON_NAMESPACE]
     if (zenonNamespace) {
       const chains = zenonNamespace.chains ?? []
-      if (chains.some((chain) => chain !== ZENON_CHAIN)) {
+      if (chains.some((c) => c !== chain)) {
         await client.rejectProposal(p.id, { kind: 'protocol', rejection: 'UNSUPPORTED_CHAINS' })
         return
       }
       if (zenonNamespace.methods.some((method) => !SUPPORTED_METHODS.includes(method))) {
         await client.rejectProposal(p.id, { kind: 'protocol', rejection: 'UNSUPPORTED_METHODS' })
+        return
+      }
+      if (zenonNamespace.events.some((event) => !SUPPORTED_EVENTS.includes(event))) {
+        await client.rejectProposal(p.id, { kind: 'protocol', rejection: 'UNSUPPORTED_EVENTS' })
         return
       }
     }
@@ -204,7 +284,6 @@ export class WalletConnectService {
       return
     }
 
-    const proposer = p.params.proposer.metadata
     const enqueued = enqueueApproval(
       {
         id: `wc:proposal:${p.id}`,
@@ -212,6 +291,10 @@ export class WalletConnectService {
         origin: proposer.url,
         peer: { name: proposer.name, url: proposer.url, icons: proposer.icons },
         createdAt: Date.now(),
+        expiresAt: expiresAtMs(p.params.expiryTimestamp),
+        account: activeAddress,
+        chainId,
+        verification,
         action: { kind: 'connect' },
       },
       {
@@ -219,10 +302,10 @@ export class WalletConnectService {
           if (result.kind !== 'connect') return
           await client.approveProposal(p.id, {
             [ZENON_NAMESPACE]: {
-              chains: [ZENON_CHAIN],
+              chains: [chain],
               methods: SUPPORTED_METHODS,
               events: SUPPORTED_EVENTS,
-              accounts: [`${ZENON_CHAIN}:${result.address}`],
+              accounts: [`${chain}:${result.address}`],
             },
           })
           // Don't wait on the SDK's session_connect event for this — it's
@@ -252,24 +335,46 @@ export class WalletConnectService {
   ): Promise<void> {
     const client = this.requireClient()
     const { topic, id: rpcId } = r
-    const { method, params } = r.params.request
+    const { method, params, expiryTimestamp } = r.params.request
 
     if (method === 'znn_info') {
       await this.respondInfo(client, topic, rpcId)
       return
     }
 
+    if (method !== 'znn_sign' && method !== 'znn_send') {
+      await client.respondError(topic, rpcId, { kind: 'protocol', rejection: 'UNSUPPORTED_METHOD' })
+      return
+    }
+
+    const verification = verificationOf(r.verifyContext)
+    if (verification === 'scam') {
+      const peer = this.getPeer(topic)
+      await client.respondError(topic, rpcId, { kind: 'protocol', rejection: 'USER_REJECTED' })
+      toastScam(peer.name, peer.url)
+      return
+    }
+
+    // Blocks are signed with the wallet's chain id, so a request made for
+    // any other chain is refused before a dialog is shown.
+    const chainId = await readPersistedChainId()
+    if (r.params.chainId !== zenonChain(chainId)) {
+      await client.respondError(topic, rpcId, { kind: 'protocol', rejection: 'UNSUPPORTED_CHAINS' })
+      return
+    }
+
+    const context: RequestContext = {
+      topic,
+      rpcId,
+      chainId,
+      verification,
+      expiresAt: expiresAtMs(expiryTimestamp),
+    }
     if (method === 'znn_sign') {
-      await this.handleSign(client, topic, rpcId, params)
-      return
+      await this.handleSign(client, context, params)
+    } else {
+      await this.handleSend(client, context, params)
     }
-
-    if (method === 'znn_send') {
-      await this.handleSend(client, topic, rpcId, params)
-      return
-    }
-
-    await client.respondError(topic, rpcId, { kind: 'protocol', rejection: 'UNSUPPORTED_METHOD' })
   }
 
   private async respondInfo(client: IWalletConnectClient, topic: string, rpcId: number): Promise<void> {
@@ -279,18 +384,16 @@ export class WalletConnectService {
       return
     }
 
-    const zenonService = ZenonService.getInstance()
     await client.respond(topic, rpcId, {
       address,
-      nodeUrl: zenonService.getNodeUrl(),
-      chainId: zenonService.getChainId(),
+      nodeUrl: ZenonService.getInstance().getNodeUrl(),
+      chainId: await readPersistedChainId(),
     })
   }
 
   private async handleSign(
     client: IWalletConnectClient,
-    topic: string,
-    rpcId: number,
+    { topic, rpcId, chainId, verification, expiresAt }: RequestContext,
     rawParams: unknown
   ): Promise<void> {
     const message = parseSignParams(rawParams)
@@ -305,6 +408,12 @@ export class WalletConnectService {
       return
     }
 
+    const activeAddress = await WalletService.getInstance().getActiveAccount()
+    if (!activeAddress) {
+      await client.respondError(topic, rpcId, WALLET_LOCKED_ERROR)
+      return
+    }
+
     const peer = this.getPeer(topic)
     const enqueued = enqueueApproval(
       {
@@ -313,6 +422,10 @@ export class WalletConnectService {
         origin: peer.url,
         peer,
         createdAt: Date.now(),
+        expiresAt,
+        account: activeAddress,
+        chainId,
+        verification,
         action: { kind: 'signMessage', message },
       },
       {
@@ -338,8 +451,7 @@ export class WalletConnectService {
 
   private async handleSend(
     client: IWalletConnectClient,
-    topic: string,
-    rpcId: number,
+    { topic, rpcId, chainId, verification, expiresAt }: RequestContext,
     rawParams: unknown
   ): Promise<void> {
     const parsed = parseSendParams(rawParams)
@@ -368,8 +480,7 @@ export class WalletConnectService {
 
     let block: AccountBlockTemplate
     try {
-      await ZenonService.getInstance().ensureInitialized()
-      block = parseAccountBlockJson(parsed.accountBlock)
+      block = parseAccountBlockJson(parsed.accountBlock, chainId)
     } catch (err) {
       const message = err instanceof InvalidParamsError ? err.message : 'Invalid account block.'
       await client.respondError(topic, rpcId, invalidParamsError(message))
@@ -384,6 +495,10 @@ export class WalletConnectService {
         origin: peer.url,
         peer,
         createdAt: Date.now(),
+        expiresAt,
+        account: activeAddress,
+        chainId,
+        verification,
         action: { kind: 'sendBlock', block },
       },
       {

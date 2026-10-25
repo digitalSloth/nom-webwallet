@@ -17,6 +17,9 @@ export type ApprovalAction =
   | { kind: 'signMessage'; message: string }
   | { kind: 'sendBlock'; block: AccountBlockTemplate }
 
+/** WalletConnect Verify API result for the peer's claimed domain. */
+export type PeerVerification = 'valid' | 'invalid' | 'unknown'
+
 export interface PendingApproval {
   id: string // `wc:${topic}:${rpcId}` or `ip:${uuid}`
   surface: ApprovalSurface
@@ -25,6 +28,12 @@ export interface PendingApproval {
   peer: { name: string; url: string; icons: string[] }
   createdAt: number
   expiresAt?: number
+  // The active account and chain when the request arrived. Approving re-reads
+  // both from storage and refuses if either has changed since, so the dialog,
+  // the dApp's view and the signing key always agree.
+  account: string
+  chainId: number
+  verification?: PeerVerification // WalletConnect only
   action: ApprovalAction
 }
 
@@ -47,6 +56,7 @@ export type WalletRejection =
   | { reason: 'unsupportedMethod' }
   | { reason: 'sendFailed'; detail: string }
   | { reason: 'tooManyRequests' }
+  | { reason: 'accountChanged' }
 
 // shallowRef, not ref: a sendBlock action carries an AccountBlockTemplate, and
 // a deep ref would proxy it, causing re-render churn during PoW and handing a
@@ -81,6 +91,14 @@ export function enqueueApproval(a: PendingApproval, h: ApprovalHandlers): boolea
 export function dequeueApproval(id: string): void {
   queue.value = queue.value.filter((a) => a.id !== id)
   handlers.delete(id)
+}
+
+/** Drops every matching approval without settling it, e.g. when its WalletConnect session ends. */
+export function dropApprovals(match: (a: PendingApproval) => boolean): void {
+  for (const approval of queue.value) {
+    if (match(approval)) handlers.delete(approval.id)
+  }
+  queue.value = queue.value.filter((a) => !match(a))
 }
 
 export function listApprovals(): PendingApproval[] {

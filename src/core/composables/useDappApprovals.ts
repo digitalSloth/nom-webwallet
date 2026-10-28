@@ -132,10 +132,10 @@ export function useDappApprovals(): {
       // Re-read storage rather than trusting this window's copy: another
       // window may have switched the active account or chain since this one
       // loaded, and the dApp has already been told about that switch.
-      const [, chainId] = await Promise.all([wallet.loadWalletData(), readPersistedChainId()])
+      const [loaded, chainId] = await Promise.all([wallet.loadWalletData(), readPersistedChainId()])
       // A failed read leaves this window's previous copy in place, which is
       // not the re-read the guard below relies on.
-      if (wallet.error.value) {
+      if (!loaded) {
         await settle(approval.id, () => handlers.reject({ reason: 'walletLocked' }))
         return
       }

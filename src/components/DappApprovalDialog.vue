@@ -14,6 +14,7 @@ import {
   useToast,
 } from 'nom-ui'
 import { useDappApprovals, useNetwork } from '@/core'
+import { useStickyToast } from '@/core/composables/useStickyToast'
 import { encodeMessage, messageSegments } from '@/core/message-guard'
 
 const props = defineProps<{ unlockDialogOpen: boolean }>()
@@ -22,6 +23,7 @@ const requestUnlock = inject<(path?: string) => void>('requestUnlock', () => {})
 
 const network = useNetwork()
 const toast = useToast()
+const refusalToast = useStickyToast(toast.toast)
 const {
   currentApproval,
   pendingCount,
@@ -76,6 +78,7 @@ onBeforeUnmount(() => {
 })
 
 async function handlePrimary() {
+  refusalToast.dismiss()
   if (needsUnlockPrompt.value) {
     requestUnlock()
     return
@@ -85,9 +88,8 @@ async function handlePrimary() {
   if (notice.value === 'accountChanged') {
     // Stays on screen until dismissed: the window has nothing else that
     // explains the refusal.
-    toast.toast.error(
-      'The active account or network changed after this request was made, so it was rejected. Ask the site to send it again.',
-      { duration: Infinity }
+    refusalToast.showError(
+      'The active account or network changed after this request was made, so it was rejected. Ask the site to send it again.'
     )
   } else if (notice.value === 'needsUnlock') {
     toast.show('Unlock the wallet to approve this request.', 'warning')
@@ -96,6 +98,7 @@ async function handlePrimary() {
 }
 
 function handleReject() {
+  refusalToast.dismiss()
   if (renderedApprovalId.value) reject(renderedApprovalId.value)
 }
 

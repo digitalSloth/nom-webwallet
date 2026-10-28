@@ -20,7 +20,7 @@ describe('useUnlockTarget', () => {
     expect(unlockTarget.value).toEqual(WALLET_A)
   })
 
-  it('keeps the pinned wallet and closes the prompt when the active wallet changes', async () => {
+  it('clears the pinned wallet and closes the prompt when the active wallet changes', async () => {
     walletState.activeWallet.value = WALLET_A
     const onTargetChanged = vi.fn()
     const { unlockTarget, pinActiveWallet } = useUnlockTarget(onTargetChanged)

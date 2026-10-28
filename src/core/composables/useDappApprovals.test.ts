@@ -28,11 +28,11 @@ const walletState = {
   activeWallet: ref<MockWallet>(WALLET_A),
   activeAccountAddress: ref<string | null>(ACCOUNT_A),
   isActiveWalletUnlocked: ref(true),
-  error: ref<string | null>(null),
   lockAllWallets: vi.fn(),
   loadWalletData: vi.fn(async () => {
     walletState.activeWallet.value = stored.activeWallet
     walletState.activeAccountAddress.value = stored.activeAccountAddress
+    return true
   }),
 }
 
@@ -110,7 +110,6 @@ beforeEach(() => {
   walletState.activeWallet.value = WALLET_A
   walletState.activeAccountAddress.value = ACCOUNT_A
   walletState.isActiveWalletUnlocked.value = true
-  walletState.error.value = null
   session.keyStore = DEFAULT_KEY_STORE
 })
 
@@ -213,9 +212,7 @@ describe('useDappApprovals failed storage read', () => {
   it('rejects with walletLocked and does not sign when the re-read fails', async () => {
     const h = handlers()
     enqueueApproval(approval(SIGN), h)
-    walletState.loadWalletData.mockImplementationOnce(async () => {
-      walletState.error.value = 'Failed to load wallet data'
-    })
+    walletState.loadWalletData.mockImplementationOnce(async () => false)
 
     await useDappApprovals().approve('ip:1')
 

@@ -108,4 +108,25 @@ describe('WalletService.unlockWallet key file upgrade', () => {
 
     expect(set).not.toHaveBeenCalled()
   })
+
+  it('keeps a key file that another window replaced during the encrypt', async () => {
+    const first: WalletStorage = {
+      wallets: [wallet('z1a', 'old-a')],
+      activeWalletAddress: 'z1a',
+      activeAccountAddress: 'z1a-acc',
+    }
+    const reimported: WalletStorage = {
+      ...first,
+      wallets: [wallet('z1a', 'reimported-a')],
+    }
+    const { set, adapter: storage } = adapter(() => first)
+    const read = storage.get as ReturnType<typeof vi.fn>
+    read
+      .mockImplementationOnce(async () => structuredClone(first))
+      .mockImplementationOnce(async () => structuredClone(reimported))
+
+    await new WalletService(storage).unlockWallet('z1a', 'pw')
+
+    expect(set).not.toHaveBeenCalled()
+  })
 })

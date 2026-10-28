@@ -139,9 +139,15 @@ export class WalletService {
           const upgraded = await keyFile.encrypt(keyStore, KDF_CONFIG)
           // Re-read after the slow encrypt and patch only this wallet's
           // keyfile, so a change another window saved meanwhile survives.
+          // A key file that differs from the decrypted one was replaced (a
+          // delete and re-import), and stays.
           const latest = await this.storage.get<WalletStorage>(STORAGE_KEY)
           const target = latest?.wallets.find((w) => w.baseAddress === address)
-          if (latest && target) {
+          if (
+            latest &&
+            target &&
+            JSON.stringify(target.encryptedKeyFile) === JSON.stringify(wallet.encryptedKeyFile)
+          ) {
             target.encryptedKeyFile = upgraded
             await this.storage.set(STORAGE_KEY, latest)
           }

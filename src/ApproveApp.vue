@@ -138,7 +138,7 @@ onBeforeUnmount(() => {
 <template>
   <TooltipProvider disable-hoverable-content>
     <div class="flex min-h-screen flex-col bg-background p-4">
-      <Toaster />
+      <Toaster class="pointer-events-auto" />
 
       <template v-if="isReady">
         <!-- Idle state: no pending approval, wallet unlocked — stay open (§6.6). -->

@@ -299,7 +299,7 @@ async function handleWalletAdded(address: string) {
 <template>
   <TooltipProvider disable-hoverable-content>
     <div class="relative min-h-screen overflow-x-hidden">
-      <Toaster />
+      <Toaster class="pointer-events-auto" />
       <!-- Ambient brand glow -->
       <div
         class="pointer-events-none fixed -top-40 left-1/2 -z-10 h-72 w-[40rem] -translate-x-1/2 rounded-full bg-zenon-green/15 blur-[110px]"

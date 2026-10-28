@@ -66,6 +66,8 @@ export function useDappApprovals(): {
   isBusy: Ref<boolean>
   notice: Ref<ApproveNotice>
   accountMismatch: ComputedRef<boolean>
+  needsUnlockPrompt: ComputedRef<boolean>
+  settleEmptyLocked(close: () => void): void
   approve(id: string): Promise<void>
   reject(id: string): Promise<void>
 } {
@@ -76,6 +78,30 @@ export function useDappApprovals(): {
     const active = wallet.activeAccountAddress.value
     return approval !== null && active !== null && active !== approval.account
   })
+
+  // Unlocking the active wallet only helps when it is the wallet that will
+  // sign. After a switch to another account the request is refused, so the
+  // prompt would ask for a password that cannot help.
+  const needsUnlockPrompt = computed(
+    () =>
+      wallet.activeWallet.value !== null &&
+      !wallet.isActiveWalletUnlocked.value &&
+      !accountMismatch.value
+  )
+
+  // Runs when the grace period after an empty, locked queue ends. A pending
+  // notice means the window stayed open so the user could read it: locking
+  // every wallet here drops keys that an earlier active wallet may still hold,
+  // and the window then waits for the idle timer or "Lock and close".
+  function settleEmptyLocked(close: () => void): void {
+    if (currentApproval.value || isBusy.value) return
+    if (notice.value) {
+      wallet.lockAllWallets()
+      notice.value = null
+      return
+    }
+    close()
+  }
 
   // `id` is the approval the caller saw rendered when the click happened. If
   // the queue head has since moved on — the previous head settled between the
@@ -107,6 +133,12 @@ export function useDappApprovals(): {
       // window may have switched the active account or chain since this one
       // loaded, and the dApp has already been told about that switch.
       const [, chainId] = await Promise.all([wallet.loadWalletData(), readPersistedChainId()])
+      // A failed read leaves this window's previous copy in place, which is
+      // not the re-read the guard below relies on.
+      if (wallet.error.value) {
+        await settle(approval.id, () => handlers.reject({ reason: 'walletLocked' }))
+        return
+      }
       const activeWallet = wallet.activeWallet.value
       const activeAddress = wallet.activeAccountAddress.value
       const account = activeWallet?.accounts.find((acc) => acc.address === activeAddress)
@@ -211,6 +243,8 @@ export function useDappApprovals(): {
     isBusy,
     notice,
     accountMismatch,
+    needsUnlockPrompt,
+    settleEmptyLocked,
     approve,
     reject,
   }

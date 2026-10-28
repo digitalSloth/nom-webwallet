@@ -30,15 +30,11 @@ export function useWallet() {
     error.value = null
 
     try {
-      const [allWallets, active, activeAccount] = await Promise.all([
-        walletService.getWallets(),
-        walletService.getActiveWallet(),
-        walletService.getActiveAccount(),
-      ])
+      const snapshot = await walletService.getSnapshot()
 
-      wallets.value = allWallets
-      activeWallet.value = active
-      activeAccountAddress.value = activeAccount
+      wallets.value = snapshot.wallets
+      activeWallet.value = snapshot.activeWallet
+      activeAccountAddress.value = snapshot.activeAccount
       unlockedWallets.value = walletService.getUnlockedWallets()
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to load wallet data'

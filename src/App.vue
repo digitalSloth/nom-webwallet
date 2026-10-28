@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, provide, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { isGeneratingPow, useAccount, useNetwork, useWallet, useWalletConnect } from '@/core'
+import { isGeneratingPow, useAccount, useNetwork, useUnlockTarget, useWallet, useWalletConnect } from '@/core'
 import { SESSION_KEY_WALLETCONNECT_WINDOW_ID, WALLETCONNECT_ENABLED } from '@/config'
 import {
   Address,
@@ -46,12 +46,14 @@ const walletConnect = useWalletConnect()
 const showUnlockDialog = ref(false)
 const unlockError = ref<string | null>(null)
 const pendingNavigation = ref<string | null>(null)
+const { unlockTarget, pinActiveWallet } = useUnlockTarget(handleCancelUnlock)
 
 /**
  * Request unlock with optional navigation
  */
 function requestUnlock(path?: string) {
   unlockError.value = null
+  pinActiveWallet()
   pendingNavigation.value = path || null
   showUnlockDialog.value = true
 }
@@ -179,11 +181,11 @@ async function handleUnlock(address: string, password: string) {
 }
 
 async function handleQuickUnlock(password: string) {
-  if (!wallet.activeWallet.value) return
+  if (!unlockTarget.value) return
 
   try {
     unlockError.value = null
-    await wallet.unlockWallet(wallet.activeWallet.value.baseAddress, password)
+    await wallet.unlockWallet(unlockTarget.value.baseAddress, password)
 
     toast.show('Wallet unlocked!', 'success')
 
@@ -438,10 +440,10 @@ async function handleWalletAdded(address: string) {
 
       <!-- Unlock Dialog -->
       <UnlockWalletDialog
-        v-if="wallet.activeWallet.value"
+        v-if="unlockTarget"
         v-model:open="showUnlockDialog"
-        :wallet-address="wallet.activeWallet.value.baseAddress"
-        :wallet-name="wallet.activeWallet.value.name"
+        :wallet-address="unlockTarget.baseAddress"
+        :wallet-name="unlockTarget.name"
         :unlock-error="unlockError"
         @unlock="handleQuickUnlock"
         @cancel="handleCancelUnlock"

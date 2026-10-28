@@ -13,27 +13,29 @@ import {
   Separator,
   useToast,
 } from 'nom-ui'
-import { useDappApprovals, useNetwork, useWallet } from '@/core'
+import { useDappApprovals, useNetwork } from '@/core'
 import { encodeMessage, messageSegments } from '@/core/message-guard'
 
 const props = defineProps<{ unlockDialogOpen: boolean }>()
 
 const requestUnlock = inject<(path?: string) => void>('requestUnlock', () => {})
 
-const wallet = useWallet()
 const network = useNetwork()
 const toast = useToast()
-const { currentApproval, pendingCount, isBusy, notice, accountMismatch, approve, reject } =
-  useDappApprovals()
+const {
+  currentApproval,
+  pendingCount,
+  isBusy,
+  notice,
+  accountMismatch,
+  needsUnlockPrompt,
+  approve,
+  reject,
+} = useDappApprovals()
 
 const isOpen = computed(() => currentApproval.value !== null && !props.unlockDialogOpen)
 
-const hasActiveWallet = computed(() => wallet.activeWallet.value !== null)
-const isLocked = computed(() => !wallet.isActiveWalletUnlocked.value)
-
-const primaryLabel = computed(() =>
-  isLocked.value && hasActiveWallet.value ? 'Unlock to continue' : 'Approve'
-)
+const primaryLabel = computed(() => (needsUnlockPrompt.value ? 'Unlock to continue' : 'Approve'))
 
 // Updated only after the DOM has repainted for a new currentApproval, so it
 // always matches what the user can actually see, even during the moment
@@ -74,22 +76,21 @@ onBeforeUnmount(() => {
 })
 
 async function handlePrimary() {
-  if (isLocked.value && hasActiveWallet.value) {
+  if (needsUnlockPrompt.value) {
     requestUnlock()
     return
   }
   if (!renderedApprovalId.value) return
   await approve(renderedApprovalId.value)
   if (notice.value === 'accountChanged') {
-    toast.show(
+    // Stays on screen until dismissed: the window has nothing else that
+    // explains the refusal.
+    toast.toast.error(
       'The active account or network changed after this request was made, so it was rejected. Ask the site to send it again.',
-      'error'
+      { duration: Infinity }
     )
   } else if (notice.value === 'needsUnlock') {
-    toast.show(
-      `Unlock ${wallet.activeWallet.value?.name ?? 'the active wallet'} to approve this request.`,
-      'warning'
-    )
+    toast.show('Unlock the wallet to approve this request.', 'warning')
     requestUnlock()
   }
 }
@@ -176,8 +177,8 @@ function dataHex(data: Uint8Array): string {
             v-if="currentApproval.verification === 'invalid'"
             class="text-sm font-medium text-destructive"
           >
-            WalletConnect could not match this dApp to {{ currentApproval.origin }}. The request may
-            come from a different site. Only approve it if you trust where it came from.
+            WalletConnect could not match this dApp to {{ currentApproval.origin }}. The request
+            may come from a different site. Only approve it if you trust where it came from.
           </p>
           <p
             v-else-if="currentApproval.verification === 'valid'"
@@ -250,9 +251,10 @@ function dataHex(data: Uint8Array): string {
               contract call.
             </p>
             <p class="font-medium text-destructive">
-              This wallet cannot decode what this call does. Only approve it if you trust this site.
+              This wallet cannot decode what this call does. Only approve it if you trust this
+              site.
             </p>
-            <p class="max-h-40 overflow-y-auto rounded-md bg-muted p-3 font-mono text-xs break-all">
+            <p class="max-h-40 overflow-y-auto rounded-md bg-muted p-3 font-mono break-all text-xs">
               {{ dataHex(currentApproval.action.block.data) }}
             </p>
           </template>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
-import { useDappApprovals, useNetwork, useWallet } from '@/core'
+import { useDappApprovals, useNetwork, useUnlockTarget, useWallet } from '@/core'
 import { watchWalletStorage } from '@/core/composables/useDappApprovals'
 import { startInboxBridge } from '@/core/inpage-approval-bridge'
 import { APPROVAL_WINDOW_IDLE_MS } from '@/config'
@@ -27,7 +27,7 @@ const IDLE_CHECK_INTERVAL_MS = 5000
 const ACTIVITY_EVENTS = ['pointerdown', 'pointermove', 'keydown', 'wheel', 'scroll'] as const
 
 const wallet = useWallet()
-const { currentApproval, isBusy, notice } = useDappApprovals()
+const { currentApproval, isBusy, settleEmptyLocked } = useDappApprovals()
 const { initTheme } = useTheme()
 const toast = useToast()
 
@@ -41,25 +41,25 @@ watch(currentApproval, (approval) => {
 // --- Unlock dialog, matching App.vue's requestUnlock contract ---
 const showUnlockDialog = ref(false)
 const unlockError = ref<string | null>(null)
+const { unlockTarget, pinActiveWallet } = useUnlockTarget(handleCancelUnlock)
 
 function requestUnlock(): void {
   unlockError.value = null
+  pinActiveWallet()
   showUnlockDialog.value = true
 }
 provide('requestUnlock', requestUnlock)
 
 async function handleQuickUnlock(password: string) {
-  if (!wallet.activeWallet.value) return
+  if (!unlockTarget.value) return
   try {
     unlockError.value = null
-    await wallet.unlockWallet(wallet.activeWallet.value.baseAddress, password)
+    await wallet.unlockWallet(unlockTarget.value.baseAddress, password)
     toast.show('Wallet unlocked!', 'success')
     showUnlockDialog.value = false
   } catch (error) {
     unlockError.value =
-      error instanceof Error
-        ? error.message
-        : 'Failed to unlock wallet. Please check your password.'
+      error instanceof Error ? error.message : 'Failed to unlock wallet. Please check your password.'
   }
 }
 
@@ -97,7 +97,7 @@ watch([currentApproval, () => wallet.isActiveWalletUnlocked.value], ([approval, 
   // the idle timer or "Lock and close" closes it.
   if (!approval && !unlocked) {
     emptyLockedTimer = setTimeout(() => {
-      if (!currentApproval.value && !isBusy.value && !notice.value) window.close()
+      settleEmptyLocked(() => window.close())
     }, EMPTY_LOCKED_CLOSE_GRACE_MS)
   }
 })
@@ -159,10 +159,10 @@ onBeforeUnmount(() => {
         <DappApprovalDialog :unlock-dialog-open="showUnlockDialog" />
 
         <UnlockWalletDialog
-          v-if="wallet.activeWallet.value"
+          v-if="unlockTarget"
           v-model:open="showUnlockDialog"
-          :wallet-address="wallet.activeWallet.value.baseAddress"
-          :wallet-name="wallet.activeWallet.value.name"
+          :wallet-address="unlockTarget.baseAddress"
+          :wallet-name="unlockTarget.name"
           :unlock-error="unlockError"
           @unlock="handleQuickUnlock"
           @cancel="handleCancelUnlock"

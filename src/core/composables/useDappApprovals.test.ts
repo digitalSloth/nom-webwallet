@@ -5,9 +5,6 @@ import type { ApprovalAction, ApprovalHandlers, PendingApproval } from '@/core/d
 
 const ACCOUNT_A = 'z1account-a'
 const ACCOUNT_B = 'z1account-b'
-
-// What chrome.storage holds right now. Another window can change it while
-// this window's useWallet() state still shows the old values.
 const ACCOUNT_C = 'z1account-c'
 
 type MockWallet = { baseAddress: string; accounts: { address: string; index: number }[] }
@@ -23,11 +20,16 @@ const WALLET_B: MockWallet = {
   accounts: [{ address: ACCOUNT_C, index: 0 }],
 }
 
+// What chrome.storage holds right now. Another window can change it while
+// this window's useWallet() state still shows the old values.
 const stored = { activeWallet: WALLET_A, activeAccountAddress: ACCOUNT_A, chainId: 1 }
 
 const walletState = {
   activeWallet: ref<MockWallet>(WALLET_A),
   activeAccountAddress: ref<string | null>(ACCOUNT_A),
+  isActiveWalletUnlocked: ref(true),
+  error: ref<string | null>(null),
+  lockAllWallets: vi.fn(),
   loadWalletData: vi.fn(async () => {
     walletState.activeWallet.value = stored.activeWallet
     walletState.activeAccountAddress.value = stored.activeAccountAddress
@@ -107,6 +109,8 @@ beforeEach(() => {
   stored.chainId = 1
   walletState.activeWallet.value = WALLET_A
   walletState.activeAccountAddress.value = ACCOUNT_A
+  walletState.isActiveWalletUnlocked.value = true
+  walletState.error.value = null
   session.keyStore = DEFAULT_KEY_STORE
 })
 
@@ -202,6 +206,23 @@ describe('useDappApprovals account binding', () => {
 
     expect(h.resolve).not.toHaveBeenCalled()
     expect(h.reject).toHaveBeenCalledWith({ reason: 'accountChanged' })
+  })
+})
+
+describe('useDappApprovals failed storage read', () => {
+  it('rejects with walletLocked and does not sign when the re-read fails', async () => {
+    const h = handlers()
+    enqueueApproval(approval(SIGN), h)
+    walletState.loadWalletData.mockImplementationOnce(async () => {
+      walletState.error.value = 'Failed to load wallet data'
+    })
+
+    await useDappApprovals().approve('ip:1')
+
+    expect(signMessage).not.toHaveBeenCalled()
+    expect(h.resolve).not.toHaveBeenCalled()
+    expect(h.reject).toHaveBeenCalledWith({ reason: 'walletLocked' })
+    expect(listApprovals()).toEqual([])
   })
 })
 
@@ -327,10 +348,75 @@ describe('useDappApprovals notices and mismatch', () => {
     expect(removeListener).toHaveBeenCalledWith(storageListener)
   })
 
+  it('shows no mismatch without an active account', () => {
+    enqueueApproval(approval(SIGN), handlers())
+    walletState.activeAccountAddress.value = null
+
+    expect(useDappApprovals().accountMismatch.value).toBe(false)
+  })
+
   it('shows no mismatch without a current approval', () => {
     stored.activeAccountAddress = ACCOUNT_B
     walletState.activeAccountAddress.value = ACCOUNT_B
 
     expect(useDappApprovals().accountMismatch.value).toBe(false)
+  })
+})
+
+describe('useDappApprovals needsUnlockPrompt', () => {
+  it('prompts when the active wallet is locked and the account matches', () => {
+    enqueueApproval(approval(SIGN), handlers())
+    walletState.isActiveWalletUnlocked.value = false
+
+    expect(useDappApprovals().needsUnlockPrompt.value).toBe(true)
+  })
+
+  it('does not prompt when the active wallet is unlocked', () => {
+    enqueueApproval(approval(SIGN), handlers())
+
+    expect(useDappApprovals().needsUnlockPrompt.value).toBe(false)
+  })
+
+  it('does not prompt when the request is bound to another account', () => {
+    enqueueApproval(approval(SIGN), handlers())
+    walletState.isActiveWalletUnlocked.value = false
+    walletState.activeAccountAddress.value = ACCOUNT_C
+
+    expect(useDappApprovals().needsUnlockPrompt.value).toBe(false)
+  })
+})
+
+describe('useDappApprovals settleEmptyLocked', () => {
+  it('closes the window when no notice is pending', () => {
+    const close = vi.fn()
+
+    useDappApprovals().settleEmptyLocked(close)
+
+    expect(close).toHaveBeenCalledTimes(1)
+    expect(walletState.lockAllWallets).not.toHaveBeenCalled()
+  })
+
+  it('locks every wallet and keeps the window open when a notice is pending', async () => {
+    enqueueApproval(approval(SIGN), handlers())
+    stored.activeAccountAddress = ACCOUNT_B
+    const { approve, notice, settleEmptyLocked } = useDappApprovals()
+    await approve('ip:1')
+    const close = vi.fn()
+
+    settleEmptyLocked(close)
+
+    expect(walletState.lockAllWallets).toHaveBeenCalledTimes(1)
+    expect(notice.value).toBeNull()
+    expect(close).not.toHaveBeenCalled()
+  })
+
+  it('does nothing while an approval is pending', () => {
+    enqueueApproval(approval(SIGN), handlers())
+    const close = vi.fn()
+
+    useDappApprovals().settleEmptyLocked(close)
+
+    expect(close).not.toHaveBeenCalled()
+    expect(walletState.lockAllWallets).not.toHaveBeenCalled()
   })
 })

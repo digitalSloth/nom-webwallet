@@ -28,24 +28,25 @@ export class WalletService {
     return WalletService.instance
   }
 
-  // Get all wallets
-  async getWallets(): Promise<Wallet[]> {
-    const data = await this.storage.get<WalletStorage>(STORAGE_KEY)
-    return data?.wallets ?? []
-  }
-
-  // Get active wallet
-  async getActiveWallet(): Promise<Wallet | null> {
-    const data = await this.storage.get<WalletStorage>(STORAGE_KEY)
-    if (!data?.activeWalletAddress) return null
-
-    return data.wallets.find((w) => w.baseAddress === data.activeWalletAddress) ?? null
-  }
-
   // Get active account address
   async getActiveAccount(): Promise<string | null> {
     const data = await this.storage.get<WalletStorage>(STORAGE_KEY)
     return data?.activeAccountAddress ?? null
+  }
+
+  // Read the wallet list, active wallet and active account from one storage
+  // read, so the three values always describe the same state.
+  async getSnapshot(): Promise<{
+    wallets: Wallet[]
+    activeWallet: Wallet | null
+    activeAccount: string | null
+  }> {
+    const data = await this.storage.get<WalletStorage>(STORAGE_KEY)
+    return {
+      wallets: data?.wallets ?? [],
+      activeWallet: data?.wallets.find((w) => w.baseAddress === data.activeWalletAddress) ?? null,
+      activeAccount: data?.activeAccountAddress ?? null,
+    }
   }
 
   // Create new wallet
@@ -135,8 +136,15 @@ export class WalletService {
       // the unlock.
       if (KeyFile.needsUpgrade(wallet.encryptedKeyFile, KDF_CONFIG)) {
         try {
-          wallet.encryptedKeyFile = await keyFile.encrypt(keyStore, KDF_CONFIG)
-          await this.storage.set(STORAGE_KEY, data!)
+          const upgraded = await keyFile.encrypt(keyStore, KDF_CONFIG)
+          // Re-read after the slow encrypt and patch only this wallet's
+          // keyfile, so a change another window saved meanwhile survives.
+          const latest = await this.storage.get<WalletStorage>(STORAGE_KEY)
+          const target = latest?.wallets.find((w) => w.baseAddress === address)
+          if (latest && target) {
+            target.encryptedKeyFile = upgraded
+            await this.storage.set(STORAGE_KEY, latest)
+          }
         } catch (err) {
           console.error('Failed to upgrade wallet KDF on unlock:', err)
         }

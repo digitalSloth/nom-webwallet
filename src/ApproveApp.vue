@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { useDappApprovals, useNetwork, useWallet } from '@/core'
+import { watchWalletStorage } from '@/core/composables/useDappApprovals'
 import { startInboxBridge } from '@/core/inpage-approval-bridge'
 import { APPROVAL_WINDOW_IDLE_MS } from '@/config'
 import { Button, Heading, Toaster, TooltipProvider, useTheme, useToast } from 'nom-ui'
@@ -26,7 +27,7 @@ const IDLE_CHECK_INTERVAL_MS = 5000
 const ACTIVITY_EVENTS = ['pointerdown', 'pointermove', 'keydown', 'wheel', 'scroll'] as const
 
 const wallet = useWallet()
-const { currentApproval, isBusy } = useDappApprovals()
+const { currentApproval, isBusy, notice } = useDappApprovals()
 const { initTheme } = useTheme()
 const toast = useToast()
 
@@ -56,7 +57,9 @@ async function handleQuickUnlock(password: string) {
     showUnlockDialog.value = false
   } catch (error) {
     unlockError.value =
-      error instanceof Error ? error.message : 'Failed to unlock wallet. Please check your password.'
+      error instanceof Error
+        ? error.message
+        : 'Failed to unlock wallet. Please check your password.'
   }
 }
 
@@ -69,6 +72,7 @@ function handleCancelUnlock(): void {
 let lastActivityAt = Date.now()
 let idleTimer: ReturnType<typeof setInterval> | undefined
 let emptyLockedTimer: ReturnType<typeof setTimeout> | undefined
+let stopWalletStorage: (() => void) | undefined
 
 function noteActivity(): void {
   lastActivityAt = Date.now()
@@ -88,10 +92,12 @@ watch([currentApproval, () => wallet.isActiveWalletUnlocked.value], ([approval, 
     emptyLockedTimer = undefined
   }
   // Queue empty and locked → close after a short grace period. Queue empty
-  // and unlocked → stay open in the idle state below.
+  // and unlocked → stay open in the idle state below. After a refused
+  // approve the window stays open so the explanation stays readable, and
+  // the idle timer or "Lock and close" closes it.
   if (!approval && !unlocked) {
     emptyLockedTimer = setTimeout(() => {
-      if (!currentApproval.value && !isBusy.value) window.close()
+      if (!currentApproval.value && !isBusy.value && !notice.value) window.close()
     }, EMPTY_LOCKED_CLOSE_GRACE_MS)
   }
 })
@@ -102,6 +108,7 @@ onMounted(async () => {
   for (const name of ACTIVITY_EVENTS) {
     window.addEventListener(name, noteActivity, { capture: true, passive: true })
   }
+  stopWalletStorage = watchWalletStorage()
 
   await initTheme()
   await wallet.ensureLoaded()
@@ -124,6 +131,7 @@ onBeforeUnmount(() => {
   }
   if (idleTimer) clearInterval(idleTimer)
   if (emptyLockedTimer) clearTimeout(emptyLockedTimer)
+  stopWalletStorage?.()
 })
 </script>
 

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 
 import type { ApprovalAction, ApprovalHandlers, PendingApproval } from '@/core/dapp-approvals'
@@ -8,21 +8,50 @@ const ACCOUNT_B = 'z1account-b'
 
 // What chrome.storage holds right now. Another window can change it while
 // this window's useWallet() state still shows the old values.
-const stored = { activeAccountAddress: ACCOUNT_A, chainId: 1 }
+const ACCOUNT_C = 'z1account-c'
+
+type MockWallet = { baseAddress: string; accounts: { address: string; index: number }[] }
+const WALLET_A: MockWallet = {
+  baseAddress: 'z1base',
+  accounts: [
+    { address: ACCOUNT_A, index: 0 },
+    { address: ACCOUNT_B, index: 1 },
+  ],
+}
+const WALLET_B: MockWallet = {
+  baseAddress: 'z1base-b',
+  accounts: [{ address: ACCOUNT_C, index: 0 }],
+}
+
+const stored = { activeWallet: WALLET_A, activeAccountAddress: ACCOUNT_A, chainId: 1 }
 
 const walletState = {
-  activeWallet: ref({
-    baseAddress: 'z1base',
-    accounts: [
-      { address: ACCOUNT_A, index: 0 },
-      { address: ACCOUNT_B, index: 1 },
-    ],
-  }),
+  activeWallet: ref<MockWallet>(WALLET_A),
   activeAccountAddress: ref<string | null>(ACCOUNT_A),
   loadWalletData: vi.fn(async () => {
+    walletState.activeWallet.value = stored.activeWallet
     walletState.activeAccountAddress.value = stored.activeAccountAddress
   }),
 }
+
+// The key store of the active wallet; null models a wallet with no session.
+const session: {
+  keyStore: { getKeyPair(index: number): { index: number } } | null
+} = { keyStore: null }
+const DEFAULT_KEY_STORE = { getKeyPair: (index: number) => ({ index }) }
+
+type StorageListener = (changes: Record<string, unknown>, areaName: string) => void
+let storageListener: StorageListener = () => {}
+const removeListener = vi.fn()
+
+vi.stubGlobal('chrome', {
+  storage: {
+    onChanged: {
+      addListener: (listener: StorageListener) => (storageListener = listener),
+      removeListener,
+    },
+  },
+})
 
 const signMessage = vi.fn(() => ({ signature: 'sig', publicKey: 'pub' }))
 const sendEmbeddedContractBlock = vi.fn(async (block: unknown) => block)
@@ -32,7 +61,7 @@ vi.mock('@/core/composables/useActivity', () => ({
   runActivity: (_label: string, run: () => Promise<unknown>) => run(),
 }))
 vi.mock('@/core/session-manager', () => ({
-  sessionManager: { getKeyStore: () => ({ getKeyPair: (index: number) => ({ index }) }) },
+  sessionManager: { getKeyStore: () => session.keyStore },
 }))
 vi.mock('@/core/message-signing', () => ({ signMessage }))
 vi.mock('@/core/transaction-service', () => ({
@@ -43,7 +72,7 @@ vi.mock('@/core/zenon-service', () => ({
 }))
 
 const { dequeueApproval, enqueueApproval, listApprovals } = await import('@/core/dapp-approvals')
-const { useDappApprovals } = await import('@/core/composables/useDappApprovals')
+const { useDappApprovals, watchWalletStorage } = await import('@/core/composables/useDappApprovals')
 
 function handlers(): ApprovalHandlers & {
   resolve: ReturnType<typeof vi.fn>
@@ -73,9 +102,16 @@ const SIGN: ApprovalAction = { kind: 'signMessage', message: 'hello' }
 const SEND = { kind: 'sendBlock', block: { blockType: 2 } } as unknown as ApprovalAction
 
 beforeEach(() => {
+  stored.activeWallet = WALLET_A
   stored.activeAccountAddress = ACCOUNT_A
   stored.chainId = 1
+  walletState.activeWallet.value = WALLET_A
   walletState.activeAccountAddress.value = ACCOUNT_A
+  session.keyStore = DEFAULT_KEY_STORE
+})
+
+afterAll(() => {
+  vi.unstubAllGlobals()
 })
 
 afterEach(() => {
@@ -131,6 +167,32 @@ describe('useDappApprovals account binding', () => {
     expect(h.reject).toHaveBeenCalledWith({ reason: 'accountChanged' })
   })
 
+  it('sends with the account the request was bound to when this window loaded an older account', async () => {
+    // This window loaded ACCOUNT_A, then another window switched to ACCOUNT_B
+    // before the dApp sent, so the worker bound the request to ACCOUNT_B.
+    stored.activeAccountAddress = ACCOUNT_B
+    const h = handlers()
+    enqueueApproval(approval(SEND, { account: ACCOUNT_B }), h)
+
+    await useDappApprovals().approve('ip:1')
+
+    expect(sendEmbeddedContractBlock).toHaveBeenCalledWith(expect.anything(), { index: 1 })
+    expect(h.reject).not.toHaveBeenCalled()
+  })
+
+  it('signs with the account the request was bound to when this window loaded an older account', async () => {
+    stored.activeAccountAddress = ACCOUNT_B
+    const h = handlers()
+    enqueueApproval(approval(SIGN, { account: ACCOUNT_B }), h)
+
+    await useDappApprovals().approve('ip:1')
+
+    expect(signMessage).toHaveBeenCalledWith('hello', { index: 1 })
+    expect(h.resolve).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'signMessage', address: ACCOUNT_B })
+    )
+  })
+
   it('refuses a connect bound to a different account', async () => {
     const h = handlers()
     enqueueApproval(approval({ kind: 'connect' }), h)
@@ -157,5 +219,118 @@ describe('useDappApprovals expiry', () => {
     expect(h.resolve).not.toHaveBeenCalled()
     expect(h.reject).not.toHaveBeenCalled()
     expect(listApprovals()).toEqual([])
+  })
+})
+
+describe('useDappApprovals notices and mismatch', () => {
+  async function flush(): Promise<void> {
+    for (let i = 0; i < 5; i++) await Promise.resolve()
+  }
+
+  async function refuseSwitchedAccount(): Promise<void> {
+    enqueueApproval(approval(SIGN), handlers())
+    stored.activeAccountAddress = ACCOUNT_B
+    await useDappApprovals().approve('ip:1')
+  }
+
+  it('refuses with accountChanged after another window switched to a different wallet', async () => {
+    const h = handlers()
+    enqueueApproval(approval(SIGN), h)
+    stored.activeWallet = WALLET_B
+    stored.activeAccountAddress = ACCOUNT_C
+
+    const { approve, notice } = useDappApprovals()
+    await approve('ip:1')
+
+    expect(signMessage).not.toHaveBeenCalled()
+    expect(h.reject).toHaveBeenCalledWith({ reason: 'accountChanged' })
+    expect(notice.value).toBe('accountChanged')
+  })
+
+  it('reports accountChanged when it refuses a switched account', async () => {
+    await refuseSwitchedAccount()
+
+    expect(useDappApprovals().notice.value).toBe('accountChanged')
+  })
+
+  it.each([
+    ['SIGN', SIGN],
+    ['SEND', SEND],
+  ])(
+    'keeps the request and reports needsUnlock when the active wallet has no session (%s)',
+    async (_name, action) => {
+      const h = handlers()
+      enqueueApproval(approval(action), h)
+      session.keyStore = null
+
+      const { approve, notice } = useDappApprovals()
+      await approve('ip:1')
+
+      expect(signMessage).not.toHaveBeenCalled()
+      expect(sendEmbeddedContractBlock).not.toHaveBeenCalled()
+      expect(h.resolve).not.toHaveBeenCalled()
+      expect(h.reject).not.toHaveBeenCalled()
+      expect(listApprovals()).toHaveLength(1)
+      expect(notice.value).toBe('needsUnlock')
+    }
+  )
+
+  it('clears the notice on the next reject', async () => {
+    await refuseSwitchedAccount()
+    enqueueApproval(approval(SIGN), handlers())
+
+    const { reject, notice } = useDappApprovals()
+    await reject('ip:1')
+
+    expect(notice.value).toBeNull()
+  })
+
+  it('clears the notice on the next approve', async () => {
+    await refuseSwitchedAccount()
+    const h = handlers()
+    enqueueApproval(approval(SIGN, { id: 'ip:2', account: ACCOUNT_B }), h)
+
+    const { approve, notice } = useDappApprovals()
+    await approve('ip:2')
+
+    expect(notice.value).toBeNull()
+    expect(h.resolve).toHaveBeenCalled()
+  })
+
+  it('flags a request bound to an account that is no longer active', async () => {
+    enqueueApproval(approval(SIGN), handlers())
+    const { accountMismatch } = useDappApprovals()
+    expect(accountMismatch.value).toBe(false)
+
+    stored.activeAccountAddress = ACCOUNT_B
+    watchWalletStorage()
+    storageListener({ 'nom-wallet-storage': {} }, 'local')
+    await flush()
+
+    expect(walletState.loadWalletData).toHaveBeenCalledTimes(1)
+    expect(accountMismatch.value).toBe(true)
+  })
+
+  it('ignores session-area and unrelated storage changes', async () => {
+    watchWalletStorage()
+    storageListener({ 'nom-wallet-storage': {} }, 'session')
+    storageListener({ 'nom-wallet-chain-id': {} }, 'local')
+    await flush()
+
+    expect(walletState.loadWalletData).not.toHaveBeenCalled()
+  })
+
+  it('removes its storage listener', () => {
+    const stop = watchWalletStorage()
+    stop()
+
+    expect(removeListener).toHaveBeenCalledWith(storageListener)
+  })
+
+  it('shows no mismatch without a current approval', () => {
+    stored.activeAccountAddress = ACCOUNT_B
+    walletState.activeAccountAddress.value = ACCOUNT_B
+
+    expect(useDappApprovals().accountMismatch.value).toBe(false)
   })
 })

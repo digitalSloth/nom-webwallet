@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
   Separator,
+  useToast,
 } from 'nom-ui'
 import { useDappApprovals, useNetwork, useWallet } from '@/core'
 import { encodeMessage, messageSegments } from '@/core/message-guard'
@@ -21,7 +22,9 @@ const requestUnlock = inject<(path?: string) => void>('requestUnlock', () => {})
 
 const wallet = useWallet()
 const network = useNetwork()
-const { currentApproval, pendingCount, isBusy, approve, reject } = useDappApprovals()
+const toast = useToast()
+const { currentApproval, pendingCount, isBusy, notice, accountMismatch, approve, reject } =
+  useDappApprovals()
 
 const isOpen = computed(() => currentApproval.value !== null && !props.unlockDialogOpen)
 
@@ -70,11 +73,24 @@ onBeforeUnmount(() => {
   if (cooldownTimer) clearTimeout(cooldownTimer)
 })
 
-function handlePrimary() {
+async function handlePrimary() {
   if (isLocked.value && hasActiveWallet.value) {
     requestUnlock()
-  } else if (renderedApprovalId.value) {
-    approve(renderedApprovalId.value)
+    return
+  }
+  if (!renderedApprovalId.value) return
+  await approve(renderedApprovalId.value)
+  if (notice.value === 'accountChanged') {
+    toast.show(
+      'The active account or network changed after this request was made, so it was rejected. Ask the site to send it again.',
+      'error'
+    )
+  } else if (notice.value === 'needsUnlock') {
+    toast.show(
+      `Unlock ${wallet.activeWallet.value?.name ?? 'the active wallet'} to approve this request.`,
+      'warning'
+    )
+    requestUnlock()
   }
 }
 
@@ -160,8 +176,8 @@ function dataHex(data: Uint8Array): string {
             v-if="currentApproval.verification === 'invalid'"
             class="text-sm font-medium text-destructive"
           >
-            WalletConnect could not match this dApp to {{ currentApproval.origin }}. The request
-            may come from a different site. Only approve it if you trust where it came from.
+            WalletConnect could not match this dApp to {{ currentApproval.origin }}. The request may
+            come from a different site. Only approve it if you trust where it came from.
           </p>
           <p
             v-else-if="currentApproval.verification === 'valid'"
@@ -234,10 +250,9 @@ function dataHex(data: Uint8Array): string {
               contract call.
             </p>
             <p class="font-medium text-destructive">
-              This wallet cannot decode what this call does. Only approve it if you trust this
-              site.
+              This wallet cannot decode what this call does. Only approve it if you trust this site.
             </p>
-            <p class="max-h-40 overflow-y-auto rounded-md bg-muted p-3 font-mono break-all text-xs">
+            <p class="max-h-40 overflow-y-auto rounded-md bg-muted p-3 font-mono text-xs break-all">
               {{ dataHex(currentApproval.action.block.data) }}
             </p>
           </template>
@@ -251,6 +266,11 @@ function dataHex(data: Uint8Array): string {
           </p>
           <Address :address="currentApproval.account" :copy="false" />
         </div>
+
+        <p v-if="accountMismatch" class="text-sm font-medium text-destructive">
+          This request is for the account shown above, which is not the active account in this
+          window. Switch to it before you approve.
+        </p>
       </template>
 
       <DialogFooter>

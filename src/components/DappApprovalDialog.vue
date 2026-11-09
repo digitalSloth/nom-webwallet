@@ -10,11 +10,15 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Field,
+  FieldLabel,
+  Input,
   Separator,
   useToast,
 } from 'nom-ui'
-import { useDappApprovals, useNetwork } from '@/core'
+import { useDappApprovals, useNetwork, useUnlockTarget, useWallet } from '@/core'
 import { useStickyToast } from '@/core/composables/useStickyToast'
+import { decodeContractCall } from '@/core/contract-call'
 import { encodeMessage, messageSegments } from '@/core/message-guard'
 
 const props = defineProps<{ unlockDialogOpen: boolean }>()
@@ -22,6 +26,7 @@ const props = defineProps<{ unlockDialogOpen: boolean }>()
 const requestUnlock = inject<(path?: string) => void>('requestUnlock', () => {})
 
 const network = useNetwork()
+const wallet = useWallet()
 const toast = useToast()
 const refusalToast = useStickyToast(toast.toast)
 const {
@@ -37,7 +42,40 @@ const {
 
 const isOpen = computed(() => currentApproval.value !== null && !props.unlockDialogOpen)
 
-const primaryLabel = computed(() => (needsUnlockPrompt.value ? 'Unlock to continue' : 'Approve'))
+// --- Inline unlock: the password goes in this dialog, so approving a request
+// on a locked wallet is one step rather than a detour through the unlock
+// prompt. The target wallet is pinned while the field is shown, so a password
+// typed for one wallet is never submitted against another.
+const password = ref('')
+const unlockError = ref<string | null>(null)
+const isUnlocking = ref(false)
+const { unlockTarget, pinActiveWallet } = useUnlockTarget(() => {
+  password.value = ''
+  unlockError.value = null
+  if (needsUnlockPrompt.value) pinActiveWallet()
+})
+
+watch(
+  needsUnlockPrompt,
+  (needed) => {
+    if (needed) {
+      pinActiveWallet()
+    } else {
+      password.value = ''
+      unlockError.value = null
+    }
+  },
+  { immediate: true }
+)
+
+watch(password, () => {
+  unlockError.value = null
+})
+
+const primaryLabel = computed(() => {
+  if (!needsUnlockPrompt.value) return 'Approve'
+  return isUnlocking.value ? 'Unlocking...' : 'Unlock and approve'
+})
 
 // Updated only after the DOM has repainted for a new currentApproval, so it
 // always matches what the user can actually see, even during the moment
@@ -77,14 +115,47 @@ onBeforeUnmount(() => {
   if (cooldownTimer) clearTimeout(cooldownTimer)
 })
 
+const actionsDisabled = computed(() => isBusy.value || justChanged.value || isUnlocking.value)
+
 async function handlePrimary() {
+  if (actionsDisabled.value) return
   refusalToast.dismiss()
+  // Captured at the click, so the unlock and the approve both act on the
+  // request that was on screen.
+  const id = renderedApprovalId.value
+  if (!id) return
   if (needsUnlockPrompt.value) {
-    requestUnlock()
-    return
+    const unlocked = await unlockWithPassword()
+    if (!unlocked) return
   }
-  if (!renderedApprovalId.value) return
-  await approve(renderedApprovalId.value)
+  await approveRendered(id)
+}
+
+async function unlockWithPassword(): Promise<boolean> {
+  const target = unlockTarget.value
+  if (!target) return false
+  if (!password.value) {
+    unlockError.value = 'Password is required'
+    return false
+  }
+  isUnlocking.value = true
+  try {
+    await wallet.unlockWallet(target.baseAddress, password.value)
+    password.value = ''
+    return true
+  } catch (error) {
+    unlockError.value =
+      error instanceof Error
+        ? error.message
+        : 'Failed to unlock wallet. Please check your password.'
+    return false
+  } finally {
+    isUnlocking.value = false
+  }
+}
+
+async function approveRendered(id: string) {
+  await approve(id)
   if (notice.value === 'accountChanged') {
     // Stays on screen until dismissed: the window has nothing else that
     // explains the refusal.
@@ -98,6 +169,7 @@ async function handlePrimary() {
 }
 
 function handleReject() {
+  if (actionsDisabled.value) return
   refusalToast.dismiss()
   if (renderedApprovalId.value) reject(renderedApprovalId.value)
 }
@@ -136,12 +208,25 @@ function formatAmount(amount: bigint | string | number, tokenStandard: string): 
   return `${amount} raw units (${tokenStandard})`
 }
 
-// Not a decode of the call's semantics, but every byte that will be signed
-// and published, so nothing is hidden at approval time. See the
-// contract-call notice this accompanies.
+// Every byte that will be signed and published, shown alongside any decoded
+// view so nothing is hidden at approval time.
 function dataHex(data: Uint8Array): string {
   return Buffer.from(data).toString('hex')
 }
+
+// Argument values come from the dApp, so they are split into segments the
+// same way as a signed message: invisible and reordering code points show as
+// U+XXXX labels.
+const decodedCall = computed(() => {
+  const action = currentApproval.value?.action
+  if (action?.kind !== 'sendBlock') return null
+  const call = decodeContractCall(action.block.toAddress.toString(), action.block.data)
+  if (!call) return null
+  return {
+    ...call,
+    args: call.args.map((arg) => ({ name: arg.name, parts: messageSegments(arg.value) })),
+  }
+})
 </script>
 
 <template>
@@ -249,13 +334,45 @@ function dataHex(data: Uint8Array): string {
             }}
           </p>
           <template v-if="currentApproval.action.block.data.length > 0">
+            <template v-if="decodedCall">
+              <p class="font-medium">
+                Contract call: {{ decodedCall.contract }} · {{ decodedCall.method }}
+              </p>
+              <dl class="space-y-2 rounded-md bg-muted p-3 text-xs">
+                <div v-for="arg in decodedCall.args" :key="arg.name">
+                  <dt class="text-muted-foreground">{{ arg.name }}</dt>
+                  <dd class="font-mono break-all whitespace-pre-wrap">
+                    <template v-for="(part, index) in arg.parts" :key="index">
+                      <span
+                        v-if="part.hidden"
+                        class="rounded-sm bg-destructive/15 px-0.5 text-destructive"
+                      >
+                        {{ part.text }}
+                      </span>
+                      <template v-else>{{ part.text }}</template>
+                    </template>
+                  </dd>
+                </div>
+                <p v-if="decodedCall.args.length === 0" class="text-muted-foreground">
+                  No arguments
+                </p>
+              </dl>
+              <p class="text-muted-foreground">
+                Decoded from the raw data below. Only approve calls you expect from this site.
+              </p>
+            </template>
+            <template v-else>
+              <p class="text-muted-foreground">
+                Includes {{ currentApproval.action.block.data.length }} bytes of data — this is a
+                contract call.
+              </p>
+              <p class="font-medium text-destructive">
+                This wallet cannot decode what this call does. Only approve it if you trust this
+                site.
+              </p>
+            </template>
             <p class="text-muted-foreground">
-              Includes {{ currentApproval.action.block.data.length }} bytes of data — this is a
-              contract call.
-            </p>
-            <p class="font-medium text-destructive">
-              This wallet cannot decode what this call does. Only approve it if you trust this
-              site.
+              Raw data ({{ currentApproval.action.block.data.length }} bytes)
             </p>
             <p class="max-h-40 overflow-y-auto rounded-md bg-muted p-3 font-mono break-all text-xs">
               {{ dataHex(currentApproval.action.block.data) }}
@@ -276,13 +393,35 @@ function dataHex(data: Uint8Array): string {
           This request is for the account shown above, which is not the active account in this
           window. Switch to it before you approve.
         </p>
+
+        <form
+          v-if="needsUnlockPrompt && unlockTarget"
+          class="space-y-2"
+          @submit.prevent="handlePrimary"
+        >
+          <Field>
+            <FieldLabel for="approval-password">Password for {{ unlockTarget.name }}</FieldLabel>
+            <Input
+              id="approval-password"
+              v-model="password"
+              type="password"
+              name="password"
+              autocomplete="current-password"
+              autocapitalize="off"
+              spellcheck="false"
+              placeholder="Enter password"
+              :disabled="isUnlocking"
+            />
+            <p v-if="unlockError" class="text-sm text-destructive">{{ unlockError }}</p>
+          </Field>
+        </form>
       </template>
 
       <DialogFooter>
-        <Button variant="outline" :disabled="isBusy || justChanged" @click="handleReject">
+        <Button variant="outline" :disabled="actionsDisabled" @click="handleReject">
           Reject
         </Button>
-        <Button :disabled="isBusy || justChanged" @click="handlePrimary">
+        <Button :disabled="actionsDisabled" @click="handlePrimary">
           {{ primaryLabel }}
         </Button>
       </DialogFooter>

@@ -89,7 +89,6 @@ async function handleDelegate(pillarName: string) {
       pillarName,
       shouldUndelegate
     )
-    toast.show('Successfully delegated to pillar', 'success')
     emit('delegationSuccess')
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Failed to delegate to pillar'

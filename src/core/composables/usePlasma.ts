@@ -3,6 +3,7 @@ import {PlasmaService} from '../plasma-service'
 import {TransactionService} from '../transaction-service'
 import {sessionManager} from '../session-manager'
 import {runActivity} from './useActivity'
+import {trackTransaction} from './useTxTracker'
 import type {FusionEntry} from 'znn-typescript-sdk'
 import type {Wallet} from '@/types'
 
@@ -71,7 +72,8 @@ export function usePlasma() {
         const block = plasmaService.createFuseBlock(beneficiaryAddress, amount)
 
         // Send transaction
-        await transactionService.sendEmbeddedContractBlock(block, keyPair)
+        const sent = await transactionService.sendEmbeddedContractBlock(block, keyPair)
+        trackTransaction('Fuse QSR', sent)
       })
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to fuse QSR'
@@ -112,7 +114,8 @@ export function usePlasma() {
         const block = plasmaService.createCancelBlock(fusionId)
 
         // Send transaction
-        await transactionService.sendEmbeddedContractBlock(block, keyPair)
+        const sent = await transactionService.sendEmbeddedContractBlock(block, keyPair)
+        trackTransaction('Cancel fusion', sent)
       })
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to cancel fusion'

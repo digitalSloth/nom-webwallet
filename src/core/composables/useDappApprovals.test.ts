@@ -59,6 +59,7 @@ const signMessage = vi.fn(() => ({ signature: 'sig', publicKey: 'pub' }))
 const sendEmbeddedContractBlock = vi.fn(async (block: unknown) => block)
 
 vi.mock('@/core/composables/useWallet', () => ({ useWallet: () => walletState }))
+vi.mock('@/core/composables/useTxTracker', () => ({ trackTransaction: vi.fn() }))
 vi.mock('@/core/composables/useActivity', () => ({
   runActivity: (_label: string, run: () => Promise<unknown>) => run(),
 }))

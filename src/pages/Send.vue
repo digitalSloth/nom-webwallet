@@ -152,9 +152,6 @@ async function handleSend() {
       amountInSmallestUnit
     )
 
-    // Show success toast
-    toast.show('Transaction sent successfully!', 'success')
-
     // Close overlay after short delay
     setTimeout(() => {
       router.push('/')

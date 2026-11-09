@@ -15,6 +15,7 @@ import { readPersistedChainId } from '../zenon-service'
 import { STORAGE_KEY_WALLETS } from '@/config'
 import { useWallet } from './useWallet'
 import { runActivity } from './useActivity'
+import { trackTransaction } from './useTxTracker'
 
 // Module-level reactive state — shared across every useDappApprovals() caller
 const isBusy = ref(false)
@@ -215,6 +216,7 @@ export function useDappApprovals(): {
               }
             )
           )
+          trackTransaction('dApp transaction', sent)
           await settle(approval.id, () => handlers.resolve({ kind: 'sendBlock', block: sent }))
         }
       } catch (err) {

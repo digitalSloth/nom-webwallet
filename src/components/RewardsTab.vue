@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {computed, onMounted, watch} from 'vue'
 import type {RewardType} from '@/core'
-import {useRewards, useWallet} from '@/core'
+import {runActivity, useRewards, useWallet} from '@/core'
 import {addNumberDecimals} from 'znn-typescript-sdk'
 import RewardsList from './RewardsList.vue'
 import {Amount, Button, Spinner} from 'nom-ui'
@@ -92,7 +92,6 @@ async function collectReward(type: RewardType) {
     await rewards.collectReward(activeWallet, accountAddress, type)
     await loadRewards()
     emit('rewardsCollected')
-    emit('showToast', `Successfully collected ${type} rewards!`, 'success')
   } catch (error) {
     console.error('Failed to collect reward:', error)
     emit(
@@ -117,37 +116,37 @@ async function collectAllRewards() {
   let failCount = 0
 
   const rewardTypes = [...rewards.rewards.value]
-  for (const reward of rewardTypes) {
-    // Skip if no rewards
-    if (
-      BigInt(reward.reward.znnAmount.toString()) === 0n &&
-      BigInt(reward.reward.qsrAmount.toString()) === 0n
-    ) {
-      continue
-    }
+  await runActivity('Collecting rewards', async () => {
+    for (const reward of rewardTypes) {
+      // Skip if no rewards
+      if (
+        BigInt(reward.reward.znnAmount.toString()) === 0n &&
+        BigInt(reward.reward.qsrAmount.toString()) === 0n
+      ) {
+        continue
+      }
 
-    try {
-      await rewards.collectReward(activeWallet, accountAddress, reward.type)
-      successCount++
-      // Small delay between collections
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-    } catch (error) {
-      console.error(`Failed to collect ${reward.type} reward:`, error)
-      failCount++
+      try {
+        await rewards.collectReward(activeWallet, accountAddress, reward.type)
+        successCount++
+        // Small delay between collections
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+      } catch (error) {
+        console.error(`Failed to collect ${reward.type} reward:`, error)
+        failCount++
+      }
     }
-  }
+  })
 
   await loadRewards()
 
-  if (successCount > 0) {
-    emit('rewardsCollected')
+  if (successCount > 0) emit('rewardsCollected')
+  if (failCount > 0) {
     emit(
       'showToast',
-      `Successfully collected ${successCount} reward(s)${failCount > 0 ? `, ${failCount} failed` : ''}`,
-      'success'
+      successCount > 0 ? `Failed to collect ${failCount} reward(s)` : 'Failed to collect all rewards',
+      'error'
     )
-  } else if (failCount > 0) {
-    emit('showToast', 'Failed to collect all rewards', 'error')
   }
 }
 </script>

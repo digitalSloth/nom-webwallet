@@ -3,6 +3,7 @@ import {PillarService} from '../pillar-service'
 import {TransactionService} from '../transaction-service'
 import {sessionManager} from '../session-manager'
 import {runActivity} from './useActivity'
+import {trackTransaction} from './useTxTracker'
 import type {PillarInfo} from 'znn-typescript-sdk'
 import type {Wallet} from '@/types'
 
@@ -174,13 +175,18 @@ export function usePillar() {
         // First undelegate if needed
         if (shouldUndelegate) {
           const undelegateBlock = pillarService.createUndelegateBlock()
-          await transactionService.sendEmbeddedContractBlock(undelegateBlock, keyPair)
+          const undelegated = await transactionService.sendEmbeddedContractBlock(
+            undelegateBlock,
+            keyPair
+          )
+          trackTransaction('Undelegate', undelegated)
           setStep(`Step 2/2: Delegating to ${pillarName}`)
         }
 
         // Then delegate to new pillar
         const delegateBlock = pillarService.createDelegateBlock(pillarName)
-        await transactionService.sendEmbeddedContractBlock(delegateBlock, keyPair)
+        const delegated = await transactionService.sendEmbeddedContractBlock(delegateBlock, keyPair)
+        trackTransaction(`Delegate to ${pillarName}`, delegated)
       })
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to delegate to pillar'

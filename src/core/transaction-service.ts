@@ -13,7 +13,7 @@ import {withTimeout} from './with-timeout'
 import {SEND_TIMEOUT_MS} from '@/config'
 
 const SEND_TIMEOUT_MESSAGE =
-  'The node did not respond in time. Check your account history before sending again, because this transaction may still go through.'
+  'The outcome is unknown: the node did not respond in time and this transaction may still go through. Check your account history before sending again.'
 
 export class TransactionService extends ChainService {
   private static instance: TransactionService | null = null

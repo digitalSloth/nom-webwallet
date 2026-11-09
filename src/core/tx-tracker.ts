@@ -173,8 +173,10 @@ function isWellFormed(value: unknown): value is TrackedTx {
   )
 }
 
+// A publish time in the future counts as expired, so the tracking limit always holds.
 function isExpired(tx: TrackedTx): boolean {
-  return Date.now() >= tx.publishedAt + TX_TRACK_TIMEOUT_MS
+  const now = Date.now()
+  return tx.publishedAt > now || now >= tx.publishedAt + TX_TRACK_TIMEOUT_MS
 }
 
 function sleep(ms: number): Promise<void> {

@@ -335,6 +335,8 @@ describe('createTxTracker', () => {
       tx('old', NOW - TX_TRACK_TIMEOUT_MS),
       { hash: 'bad' },
       { ...tx('nan'), publishedAt: Number.NaN },
+      tx('future', NOW + 1000),
+      tx('far-future', NOW + 10 * TX_TRACK_TIMEOUT_MS),
       'junk',
     ])
     const notify = vi.fn()

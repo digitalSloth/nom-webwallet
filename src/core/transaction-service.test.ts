@@ -168,4 +168,31 @@ describe('TransactionService send queue', () => {
     expect(send).toHaveBeenCalledTimes(2)
     expect(isSendBusy.value).toBe(false)
   })
+
+  it('starts the timeout when a send leaves the queue, not when it is enqueued', async () => {
+    const first = deferred()
+    const send = vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(new Promise(() => {}))
+    const service = makeService(send)
+
+    const p1 = service.sendEmbeddedContractBlock(blockA, keyPair)
+    const p2 = service.sendEmbeddedContractBlock(blockB, keyPair)
+    let p2Settled = false
+    p2.then(
+      () => (p2Settled = true),
+      () => (p2Settled = true)
+    )
+    const rejection = expect(p2).rejects.toThrow(/did not respond in time/)
+
+    await vi.advanceTimersByTimeAsync(SEND_TIMEOUT_MS - 1000)
+    first.resolve('first')
+    await p1
+    await flush()
+    expect(send).toHaveBeenCalledTimes(2)
+
+    await vi.advanceTimersByTimeAsync(SEND_TIMEOUT_MS - 1)
+    expect(p2Settled).toBe(false)
+
+    await vi.advanceTimersByTimeAsync(1)
+    await rejection
+  })
 })

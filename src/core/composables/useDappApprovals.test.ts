@@ -149,6 +149,19 @@ describe('useDappApprovals account binding', () => {
     expect(listApprovals()).toEqual([])
   })
 
+  it('rejects with sendFailed and passes the send error text through as the detail', async () => {
+    const h = handlers()
+    enqueueApproval(approval(SEND), h)
+    sendEmbeddedContractBlock.mockRejectedValueOnce(new Error('The outcome is unknown: timed out'))
+
+    await useDappApprovals().approve('ip:1')
+
+    expect(h.reject).toHaveBeenCalledWith({
+      reason: 'sendFailed',
+      detail: 'The outcome is unknown: timed out',
+    })
+  })
+
   it('refuses to send after another window switched the active account', async () => {
     const h = handlers()
     enqueueApproval(approval(SEND), h)

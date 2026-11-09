@@ -156,7 +156,7 @@ describe('TransactionService send queue', () => {
     const service = makeService(send)
 
     const p1 = service.sendEmbeddedContractBlock(blockA, keyPair)
-    const rejection = expect(p1).rejects.toThrow(/did not respond in time/)
+    const rejection = expect(p1).rejects.toThrow(/outcome is unknown.*may still go through/)
     const p2 = service.sendEmbeddedContractBlock(blockB, keyPair)
     await vi.advanceTimersByTimeAsync(SEND_TIMEOUT_MS - 1)
     expect(send).toHaveBeenCalledTimes(1)

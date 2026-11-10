@@ -149,6 +149,40 @@ describe('WalletConnect requests', () => {
     expect(approvals.listApprovals()[0].verification).toBe('invalid')
   })
 
+  it('refuses a znn_send whose fromAddress is not the active account, before any dialog', async () => {
+    const accountBlock = {
+      blockType: 2,
+      toAddress: ACCOUNT,
+      tokenStandard: 'zts1znnxxxxxxxxxxxxx9z4ulx',
+      amount: '1',
+    }
+    const sendRequest = (rpcId: number, fromAddress: string) =>
+      signRequest('t', rpcId, {
+        request: {
+          method: 'znn_send',
+          params: { accountBlock, fromAddress },
+          expiryTimestamp: 1_900_000_000,
+        },
+      })
+
+    handlers.onRequest(sendRequest(1, 'z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz'))
+    await flush()
+
+    expect(client.respondError).toHaveBeenCalledWith('t', 1, {
+      kind: 'literal',
+      code: -32602,
+      message: 'fromAddress is not the active account.',
+    })
+    expect(approvals.listApprovals()).toEqual([])
+
+    // The same send from the active account is queued, so the refusal above
+    // comes from the fromAddress check alone.
+    handlers.onRequest(sendRequest(2, ACCOUNT))
+    await flush()
+
+    expect(approvals.listApprovals().map((a) => a.id)).toEqual(['wc:t:2'])
+  })
+
   it('drops pending approvals when their session ends', async () => {
     handlers.onRequest(signRequest('t', 1))
     handlers.onRequest(signRequest('u', 2))

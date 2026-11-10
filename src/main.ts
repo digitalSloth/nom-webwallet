@@ -26,4 +26,10 @@ app.config.errorHandler = (err, _instance, info) => {
 }
 
 app.use(router)
-app.mount('#app')
+
+// Wait for the initial navigation to resolve before mounting, so App.vue's
+// onMounted sees the URL's query params (e.g. deep-linked node/chainId) via
+// route.query instead of racing router's async initial resolution.
+router.isReady().then(() => {
+  app.mount('#app')
+})

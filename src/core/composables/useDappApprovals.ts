@@ -19,6 +19,9 @@ import { runActivity } from './useActivity'
 // Module-level reactive state — shared across every useDappApprovals() caller
 const isBusy = ref(false)
 
+/** Thrown before publishing when the approval expired or was dropped mid-send. */
+class ApprovalLapsedError extends Error {}
+
 /** What the dialog must tell the user after the last approve() call. */
 export type ApproveNotice = 'accountChanged' | 'needsUnlock' | null
 const notice = ref<ApproveNotice>(null)
@@ -129,10 +132,21 @@ export function useDappApprovals(): {
         return
       }
 
+      // The approval can expire, or its session can end and drop it, during
+      // any await below. Checked after each one and right before publishing:
+      // a lapsed approval is dequeued without an answer, like an expired one.
+      const isLive = (): boolean =>
+        (approval.expiresAt === undefined || approval.expiresAt > Date.now()) &&
+        getHandlers(approval.id) === handlers
+
       // Re-read storage rather than trusting this window's copy: another
       // window may have switched the active account or chain since this one
       // loaded, and the dApp has already been told about that switch.
       const [loaded, chainId] = await Promise.all([wallet.loadWalletData(), readPersistedChainId()])
+      if (!isLive()) {
+        dequeueApproval(approval.id)
+        return
+      }
       // A failed read leaves this window's previous copy in place, which is
       // not the re-read the guard below relies on.
       if (!loaded) {
@@ -193,12 +207,20 @@ export function useDappApprovals(): {
           )
         } else {
           const sent = await runActivity('Sending dApp transaction', () =>
-            TransactionService.getInstance().sendEmbeddedContractBlock(action.block, keyPair)
+            TransactionService.getInstance().sendEmbeddedContractBlock(
+              action.block,
+              keyPair,
+              () => {
+                if (!isLive()) throw new ApprovalLapsedError()
+              }
+            )
           )
           await settle(approval.id, () => handlers.resolve({ kind: 'sendBlock', block: sent }))
         }
       } catch (err) {
-        if (err instanceof InvalidParamsError) {
+        if (err instanceof ApprovalLapsedError) {
+          dequeueApproval(approval.id)
+        } else if (err instanceof InvalidParamsError) {
           await settle(approval.id, () =>
             handlers.reject({ reason: 'invalidParams', detail: err.message })
           )

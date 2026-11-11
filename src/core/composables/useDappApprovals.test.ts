@@ -179,7 +179,11 @@ describe('useDappApprovals account binding', () => {
 
     await useDappApprovals().approve('ip:1')
 
-    expect(sendEmbeddedContractBlock).toHaveBeenCalledWith(expect.anything(), { index: 1 })
+    expect(sendEmbeddedContractBlock).toHaveBeenCalledWith(
+      expect.anything(),
+      { index: 1 },
+      expect.any(Function)
+    )
     expect(h.reject).not.toHaveBeenCalled()
   })
 
@@ -415,5 +419,116 @@ describe('useDappApprovals settleEmptyLocked', () => {
 
     expect(close).not.toHaveBeenCalled()
     expect(walletState.lockAllWallets).not.toHaveBeenCalled()
+  })
+})
+
+describe('useDappApprovals approval lifetime', () => {
+  const EXPIRES_AT = 1_900_000_000_000
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(EXPIRES_AT - 1000)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  // Runs `during` in the middle of approve(), while the storage re-read is
+  // still pending.
+  function duringReload(during: () => void): void {
+    walletState.loadWalletData.mockImplementationOnce(async () => {
+      during()
+      walletState.activeWallet.value = stored.activeWallet
+      walletState.activeAccountAddress.value = stored.activeAccountAddress
+      return true
+    })
+  }
+
+  type BeforePublish = () => void
+  const sendMock = sendEmbeddedContractBlock as unknown as ReturnType<
+    typeof vi.fn<
+      (block: unknown, keyPair: unknown, beforePublish?: BeforePublish) => Promise<unknown>
+    >
+  >
+
+  it('does not sign when the approval expires during the storage re-read', async () => {
+    const h = handlers()
+    enqueueApproval(approval(SIGN, { expiresAt: EXPIRES_AT }), h)
+    duringReload(() => vi.setSystemTime(EXPIRES_AT))
+
+    await useDappApprovals().approve('ip:1')
+
+    expect(signMessage).not.toHaveBeenCalled()
+    expect(h.resolve).not.toHaveBeenCalled()
+    expect(h.reject).not.toHaveBeenCalled()
+    expect(listApprovals()).toEqual([])
+  })
+
+  it('does not send when the approval is dropped during the storage re-read', async () => {
+    const { dropApprovals } = await import('@/core/dapp-approvals')
+    const h = handlers()
+    enqueueApproval(approval(SEND), h)
+    duringReload(() => dropApprovals((a) => a.id === 'ip:1'))
+
+    await useDappApprovals().approve('ip:1')
+
+    expect(sendEmbeddedContractBlock).not.toHaveBeenCalled()
+    expect(h.resolve).not.toHaveBeenCalled()
+    expect(h.reject).not.toHaveBeenCalled()
+  })
+
+  it('stops the publish when the approval expires during PoW', async () => {
+    const h = handlers()
+    enqueueApproval(approval(SEND, { expiresAt: EXPIRES_AT }), h)
+    const published = vi.fn()
+    sendMock.mockImplementationOnce(async (block, _keyPair, beforePublish) => {
+      vi.setSystemTime(EXPIRES_AT)
+      beforePublish?.()
+      published()
+      return block
+    })
+
+    await useDappApprovals().approve('ip:1')
+
+    expect(published).not.toHaveBeenCalled()
+    expect(h.resolve).not.toHaveBeenCalled()
+    expect(h.reject).not.toHaveBeenCalled()
+    expect(listApprovals()).toEqual([])
+  })
+
+  it('stops the publish when the approval is dropped during PoW', async () => {
+    const { dropApprovals } = await import('@/core/dapp-approvals')
+    const h = handlers()
+    enqueueApproval(approval(SEND), h)
+    const published = vi.fn()
+    sendMock.mockImplementationOnce(async (block, _keyPair, beforePublish) => {
+      dropApprovals((a) => a.id === 'ip:1')
+      beforePublish?.()
+      published()
+      return block
+    })
+
+    await useDappApprovals().approve('ip:1')
+
+    expect(published).not.toHaveBeenCalled()
+    expect(h.resolve).not.toHaveBeenCalled()
+    expect(h.reject).not.toHaveBeenCalled()
+  })
+
+  it('publishes and resolves an approval that is still live after PoW', async () => {
+    const h = handlers()
+    enqueueApproval(approval(SEND, { expiresAt: EXPIRES_AT }), h)
+    const published = vi.fn()
+    sendMock.mockImplementationOnce(async (block, _keyPair, beforePublish) => {
+      beforePublish?.()
+      published()
+      return block
+    })
+
+    await useDappApprovals().approve('ip:1')
+
+    expect(published).toHaveBeenCalledOnce()
+    expect(h.resolve).toHaveBeenCalledWith(expect.objectContaining({ kind: 'sendBlock' }))
   })
 })

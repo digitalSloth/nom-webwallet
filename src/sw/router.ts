@@ -86,13 +86,20 @@ async function handleReadOnlyRequest(
       return { granted, result: address ? [address] : [] }
     }
 
-    // Chain id and node url are public, non-sensitive data — answered
-    // regardless of grant, matching desktop's znn_info (§2.1) and unlike
-    // znn_accounts, which identifies the user to the site.
+    // The chain id is public, non-sensitive data, answered regardless of
+    // grant, matching desktop's znn_info (§2.1).
     case ZNN_CHAIN_ID:
       return { granted, result: await getChainId() }
 
+    // The node URL can be a private custom endpoint, with a path or query
+    // that grants access to it, so only a connected origin gets it.
     case ZNN_NODE_URL:
+      if (!granted) {
+        return {
+          granted,
+          error: { code: ERR_NOT_CONNECTED, message: 'Connect to the wallet to read its node.' },
+        }
+      }
       return { granted, result: await getNodeUrl() }
 
     case ZNN_DISCONNECT:

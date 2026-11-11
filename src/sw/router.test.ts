@@ -125,3 +125,44 @@ describe('router settings revoke', () => {
     expect(await isGranted(ORIGIN)).toBe(true)
   })
 })
+
+describe('router read-only requests', () => {
+  const PRIVATE_NODE = 'wss://node.private.example:35998/rpc?key=secret'
+
+  async function readOnly(method: string): Promise<unknown> {
+    const listener = env.chrome.runtime.onMessage.addListener.mock.calls[0][0] as (
+      message: unknown,
+      sender: { origin: string },
+      sendResponse: (response: unknown) => void
+    ) => boolean
+    const sendResponse = vi.fn()
+    listener({ channel: 'znn-provider', method }, { origin: ORIGIN }, sendResponse)
+    await settleStorage()
+    return sendResponse.mock.calls[0][0]
+  }
+
+  beforeEach(() => {
+    env.local.data['nom-wallet-selected-node'] = PRIVATE_NODE
+  })
+
+  it('does not tell an origin that is not connected which node the wallet uses', async () => {
+    const response = (await readOnly('znn_nodeUrl')) as Record<string, unknown>
+
+    expect(response).toEqual({
+      granted: false,
+      error: { code: 4100, message: 'Connect to the wallet to read its node.' },
+    })
+    expect(JSON.stringify(response)).not.toContain('private.example')
+  })
+
+  it('gives a connected origin the node URL', async () => {
+    const { grant } = await import('@/core/site-permissions')
+    await grant(ORIGIN)
+
+    expect(await readOnly('znn_nodeUrl')).toEqual({ granted: true, result: PRIVATE_NODE })
+  })
+
+  it('still answers the chain id for an origin that is not connected', async () => {
+    expect(await readOnly('znn_chainId')).toEqual({ granted: false, result: 3 })
+  })
+})

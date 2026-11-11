@@ -39,7 +39,9 @@ export class WalletConnectStorage implements IKeyValueStorage {
       const index = await this.readIndex()
       await this.storage.set(this.indexKey(), mutate(index))
     })
-    this.tail = next
+    // The caller gets the rejection. The queue does not, so one failed write
+    // never skips the mutations queued after it.
+    this.tail = next.catch(() => undefined)
     return next
   }
 

@@ -55,6 +55,27 @@ describe('messageSegments', () => {
     expect(hidden).toEqual(['U+0000', 'U+0007', 'U+2028', 'U+2029'])
   })
 
+  it('labels default-ignorable marks that are not format characters', () => {
+    // U+034F COMBINING GRAPHEME JOINER and U+FE0F VARIATION SELECTOR-16 are
+    // nonspacing marks; U+3164 HANGUL FILLER is a letter. All render as nothing.
+    expect(messageSegments('pay͏ 1️0 ㅤZNN')).toEqual([
+      { text: 'pay', hidden: false },
+      { text: 'U+034F', hidden: true },
+      { text: ' 1', hidden: false },
+      { text: 'U+FE0F', hidden: true },
+      { text: '0 ', hidden: false },
+      { text: 'U+3164', hidden: true },
+      { text: 'ZNN', hidden: false },
+    ])
+  })
+
+  it('labels the variation selector inside an emoji presentation sequence', () => {
+    expect(messageSegments('gm ❤️')).toEqual([
+      { text: 'gm ❤', hidden: false },
+      { text: 'U+FE0F', hidden: true },
+    ])
+  })
+
   it('leaves astral characters such as emoji intact', () => {
     expect(messageSegments('gm 👋')).toEqual([{ text: 'gm 👋', hidden: false }])
   })

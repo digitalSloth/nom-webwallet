@@ -23,9 +23,11 @@ const UNPAIRED_SURROGATE = /\p{Cs}/u
 
 // Code points that render as nothing, reorder the text around them, or break
 // a line without looking like a newline: controls (except \n and \t),
-// format characters (bidi controls, zero-width characters, BOM, soft hyphen)
-// and the Unicode line/paragraph separators.
-const HIDDEN_CODE_POINT = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u
+// format characters (bidi controls, zero-width characters, BOM, soft hyphen),
+// the Unicode line/paragraph separators, and every other default-ignorable
+// code point, such as the combining grapheme joiner, variation selectors and
+// Hangul fillers.
+const HIDDEN_CODE_POINT = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Default_Ignorable_Code_Point}]/u
 
 export interface MessageSegment {
   text: string

@@ -36,6 +36,11 @@ export function copyPowFiles(): Plugin {
 }
 
 // Node polyfills required by znn-typescript-sdk. Identical for both build targets.
+//
+// `globals` injects a shim import into each module that references
+// Buffer/global/process, not into every chunk. The content-script entries
+// reference none of them, so the MAIN-world script that runs on every visited
+// page ships no shim and leaks no globals onto the site.
 export const nodePolyfillsConfig: NonNullable<Parameters<typeof nodePolyfills>[0]> = {
   include: ['crypto', 'buffer', 'stream', 'util'],
   globals: {

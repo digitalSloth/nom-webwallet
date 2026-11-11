@@ -15,6 +15,7 @@ Your keys stay on your device. Wallets are encrypted with a password you choose,
 - **Multiple networks** — connect to the default Zenon node or point at your own
 - **In-browser Proof-of-Work** — generates the required PoW locally when an account lacks plasma; nothing is outsourced
 - **Password-encrypted storage** with an auto-locking session (30-minute inactivity timeout)
+- **WalletConnect** — pair with dApps over the Reown relay, in both the web app and the extension
 
 ## Getting Started
 
@@ -61,6 +62,20 @@ npm run dev:extension
 On first launch the wallet has no accounts, so you're taken to the **setup** flow to create a new wallet or import one from a mnemonic. After setup, the home dashboard shows your balances, with tabs for Tokens, Rewards, Plasma, Pillar, and Staking.
 
 Sending a transaction requires the active wallet to be unlocked — if it's locked, the wallet prompts you for your password and then continues to the action.
+
+## WalletConnect
+
+The wallet can pair with dApps over [WalletConnect](https://walletconnect.com), in both the web app and the extension (via its WalletConnect popup window). Pairing needs a Reown project ID:
+
+1. Get a project ID from [dashboard.reown.com](https://dashboard.reown.com)
+2. Copy `.env.example` to `.env` and set `VITE_WALLETCONNECT_PROJECT_ID`
+3. Rebuild — without a project ID, WalletConnect is disabled with no relay dependency and the rest of the wallet is unaffected
+
+Portions © 2025 Reown, Inc. All Rights Reserved. `@walletconnect/sign-client` is used under the WalletConnect Community License Agreement (see `LICENSE.md` in the package, or [the walletconnect-monorepo repository](https://github.com/walletconnect/walletconnect-monorepo)).
+
+### Known limitation: macOS native fullscreen
+
+The extension's approval window and its WalletConnect window are both separate popup windows (`chrome.windows.create`). On macOS, when the browser is in native fullscreen (the green traffic-light button, not maximized), Chrome cannot attach or reliably surface a new popup window — this is a platform limitation of Chrome on macOS, not specific to this wallet ([MetaMask has the same issue](https://github.com/MetaMask/metamask-extension/issues/13590)). Exit fullscreen before approving a dApp request or pairing over WalletConnect in the extension.
 
 ## Scripts
 

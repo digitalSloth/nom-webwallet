@@ -33,6 +33,14 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist-extension',
+    rollupOptions: {
+      // §5.1 spike: a second HTML entry alongside crx()'s own input (the
+      // popup's index.html), so the approval window gets its own chunk graph
+      // and does not pull in App.vue, the router, or WalletConnect.
+      input: {
+        approve: resolve(__dirname, 'approve.html'),
+      },
+    },
   },
   worker: {
     format: 'es',

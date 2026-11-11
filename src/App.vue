@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { onMounted, provide, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { isGeneratingPow, useAccount, useNetwork, useWallet } from '@/core'
+import { isGeneratingPow, useAccount, useNetwork, useUnlockTarget, useWallet, useWalletConnect } from '@/core'
+import { SESSION_KEY_WALLETCONNECT_WINDOW_ID, WALLETCONNECT_ENABLED } from '@/config'
 import {
   Address,
   Button,
@@ -25,8 +26,10 @@ import NetworkIndicator from '@/components/NetworkIndicator.vue'
 import PlasmaIndicator from '@/components/PlasmaIndicator.vue'
 import SettingsDialog from '@/components/SettingsDialog.vue'
 import UnlockWalletDialog from '@/components/UnlockWalletDialog.vue'
+import DappApprovalDialog from '@/components/DappApprovalDialog.vue'
+import { openOrFocusWindow } from '@/core/extension-window'
 import AccountList from '@/components/AccountList.vue'
-import { ChevronDownIcon, LockIcon, LockOpenIcon, SettingsIcon } from 'lucide-vue-next'
+import { ChevronDownIcon, LinkIcon, LockIcon, LockOpenIcon, SettingsIcon } from 'lucide-vue-next'
 
 const router = useRouter()
 const route = useRoute()
@@ -37,17 +40,20 @@ const toast = useToast()
 const wallet = useWallet()
 const account = useAccount(() => wallet.activeAccountAddress.value)
 const network = useNetwork()
+const walletConnect = useWalletConnect()
 
 // Global unlock dialog state
 const showUnlockDialog = ref(false)
 const unlockError = ref<string | null>(null)
 const pendingNavigation = ref<string | null>(null)
+const { unlockTarget, pinActiveWallet } = useUnlockTarget(handleCancelUnlock)
 
 /**
  * Request unlock with optional navigation
  */
 function requestUnlock(path?: string) {
   unlockError.value = null
+  pinActiveWallet()
   pendingNavigation.value = path || null
   showUnlockDialog.value = true
 }
@@ -78,7 +84,33 @@ onMounted(async () => {
       await account.loadAccountData()
     }
   }
+
+  // The extension's WalletConnect tab initializes itself instead (§1.8) — the
+  // popup and the approval window never load the WalletConnect stack.
+  if (!__IS_EXTENSION__ && WALLETCONNECT_ENABLED) {
+    try {
+      await walletConnect.initialize()
+    } catch (error) {
+      console.error('Failed to initialize WalletConnect:', error)
+    }
+  }
 })
+
+async function openWalletConnect() {
+  if (!__IS_EXTENSION__) {
+    router.push('/walletconnect')
+    return
+  }
+
+  // A popup window, not a tab: like the approval window, it survives focus
+  // moving to the dApp's own tab, which pairing/session management needs to
+  // stay alive through. Reused across opens rather than piling up windows.
+  await openOrFocusWindow(
+    SESSION_KEY_WALLETCONNECT_WINDOW_ID,
+    chrome.runtime.getURL('index.html#/walletconnect'),
+    { width: 420, height: 640 }
+  )
+}
 
 // Watch for route changes to reload wallet data (in case user just finished setup)
 watch(
@@ -243,11 +275,11 @@ async function handleUnlock(address: string, password: string) {
 }
 
 async function handleQuickUnlock(password: string) {
-  if (!wallet.activeWallet.value) return
+  if (!unlockTarget.value) return
 
   try {
     unlockError.value = null
-    await wallet.unlockWallet(wallet.activeWallet.value.baseAddress, password)
+    await wallet.unlockWallet(unlockTarget.value.baseAddress, password)
 
     toast.show('Wallet unlocked!', 'success')
 
@@ -361,7 +393,7 @@ async function handleWalletAdded(address: string) {
 <template>
   <TooltipProvider disable-hoverable-content>
     <div class="relative min-h-screen overflow-x-hidden">
-      <Toaster />
+      <Toaster class="pointer-events-auto" />
       <!-- Ambient brand glow -->
       <div
         class="pointer-events-none fixed -top-40 left-1/2 -z-10 h-72 w-[40rem] -translate-x-1/2 rounded-full bg-zenon-green/15 blur-[110px]"
@@ -444,6 +476,18 @@ async function handleWalletAdded(address: string) {
 
               <Separator orientation="vertical" class="mx-1 h-5" />
 
+              <!-- WalletConnect -->
+              <Button
+                v-if="walletConnect.isEnabled"
+                variant="ghost"
+                size="icon"
+                class="text-muted-foreground"
+                @click="openWalletConnect"
+                aria-label="WalletConnect"
+              >
+                <LinkIcon class="h-5 w-5" />
+              </Button>
+
               <!-- Lock/Unlock Button -->
               <Button
                 v-if="wallet.isActiveWalletUnlocked.value"
@@ -490,14 +534,17 @@ async function handleWalletAdded(address: string) {
 
       <!-- Unlock Dialog -->
       <UnlockWalletDialog
-        v-if="wallet.activeWallet.value"
+        v-if="unlockTarget"
         v-model:open="showUnlockDialog"
-        :wallet-address="wallet.activeWallet.value.baseAddress"
-        :wallet-name="wallet.activeWallet.value.name"
+        :wallet-address="unlockTarget.baseAddress"
+        :wallet-name="unlockTarget.name"
         :unlock-error="unlockError"
         @unlock="handleQuickUnlock"
         @cancel="handleCancelUnlock"
       />
+
+      <!-- dApp Approval Dialog -->
+      <DappApprovalDialog :unlock-dialog-open="showUnlockDialog" />
 
       <!-- Settings Dialog -->
       <SettingsDialog

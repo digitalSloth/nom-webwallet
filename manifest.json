@@ -14,6 +14,21 @@
     "service_worker": "src/background.ts",
     "type": "module"
   },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["src/inpage.ts"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "MAIN"
+    },
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["src/content-script.ts"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
   "sandbox": {
     "pages": ["pow-sandbox.html"]
   },

@@ -1,11 +1,9 @@
 import {KeyFile, KeyStore} from 'znn-typescript-sdk'
 import type {StorageAdapter, Wallet, WalletAccount, WalletStorage} from '@/types'
-import {KDF_CONFIG} from '@/config'
+import {KDF_CONFIG, STORAGE_KEY_WALLETS as STORAGE_KEY} from '@/config'
 import {sessionManager} from './session-manager'
 import {storageService} from './storage/storage-service'
 import {Buffer} from 'buffer'
-
-const STORAGE_KEY = 'nom-wallet-storage'
 
 const MAX_UNLOCK_ATTEMPTS = 5
 const BASE_LOCKOUT_MS = 5_000 // 5 seconds after 5th failed attempt
@@ -30,24 +28,25 @@ export class WalletService {
     return WalletService.instance
   }
 
-  // Get all wallets
-  async getWallets(): Promise<Wallet[]> {
-    const data = await this.storage.get<WalletStorage>(STORAGE_KEY)
-    return data?.wallets ?? []
-  }
-
-  // Get active wallet
-  async getActiveWallet(): Promise<Wallet | null> {
-    const data = await this.storage.get<WalletStorage>(STORAGE_KEY)
-    if (!data?.activeWalletAddress) return null
-
-    return data.wallets.find((w) => w.baseAddress === data.activeWalletAddress) ?? null
-  }
-
   // Get active account address
   async getActiveAccount(): Promise<string | null> {
     const data = await this.storage.get<WalletStorage>(STORAGE_KEY)
     return data?.activeAccountAddress ?? null
+  }
+
+  // Read the wallet list, active wallet and active account from one storage
+  // read, so the three values always describe the same state.
+  async getSnapshot(): Promise<{
+    wallets: Wallet[]
+    activeWallet: Wallet | null
+    activeAccount: string | null
+  }> {
+    const data = await this.storage.get<WalletStorage>(STORAGE_KEY)
+    return {
+      wallets: data?.wallets ?? [],
+      activeWallet: data?.wallets.find((w) => w.baseAddress === data.activeWalletAddress) ?? null,
+      activeAccount: data?.activeAccountAddress ?? null,
+    }
   }
 
   // Create new wallet
@@ -137,8 +136,21 @@ export class WalletService {
       // the unlock.
       if (KeyFile.needsUpgrade(wallet.encryptedKeyFile, KDF_CONFIG)) {
         try {
-          wallet.encryptedKeyFile = await keyFile.encrypt(keyStore, KDF_CONFIG)
-          await this.storage.set(STORAGE_KEY, data!)
+          const upgraded = await keyFile.encrypt(keyStore, KDF_CONFIG)
+          // Re-read after the slow encrypt and patch only this wallet's
+          // keyfile, so a change another window saved meanwhile survives.
+          // A key file that differs from the decrypted one was replaced (a
+          // delete and re-import), and stays.
+          const latest = await this.storage.get<WalletStorage>(STORAGE_KEY)
+          const target = latest?.wallets.find((w) => w.baseAddress === address)
+          if (
+            latest &&
+            target &&
+            JSON.stringify(target.encryptedKeyFile) === JSON.stringify(wallet.encryptedKeyFile)
+          ) {
+            target.encryptedKeyFile = upgraded
+            await this.storage.set(STORAGE_KEY, latest)
+          }
         } catch (err) {
           console.error('Failed to upgrade wallet KDF on unlock:', err)
         }

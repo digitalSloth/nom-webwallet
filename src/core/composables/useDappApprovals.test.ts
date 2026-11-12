@@ -59,6 +59,7 @@ const signMessage = vi.fn(() => ({ signature: 'sig', publicKey: 'pub' }))
 const sendEmbeddedContractBlock = vi.fn(async (block: unknown) => block)
 
 vi.mock('@/core/composables/useWallet', () => ({ useWallet: () => walletState }))
+vi.mock('@/core/composables/useTxTracker', () => ({ trackTransaction: vi.fn() }))
 vi.mock('@/core/composables/useActivity', () => ({
   runActivity: (_label: string, run: () => Promise<unknown>) => run(),
 }))
@@ -146,6 +147,19 @@ describe('useDappApprovals account binding', () => {
     expect(h.resolve).not.toHaveBeenCalled()
     expect(h.reject).toHaveBeenCalledWith({ reason: 'accountChanged' })
     expect(listApprovals()).toEqual([])
+  })
+
+  it('rejects with sendFailed and passes the send error text through as the detail', async () => {
+    const h = handlers()
+    enqueueApproval(approval(SEND), h)
+    sendEmbeddedContractBlock.mockRejectedValueOnce(new Error('The outcome is unknown: timed out'))
+
+    await useDappApprovals().approve('ip:1')
+
+    expect(h.reject).toHaveBeenCalledWith({
+      reason: 'sendFailed',
+      detail: 'The outcome is unknown: timed out',
+    })
   })
 
   it('refuses to send after another window switched the active account', async () => {

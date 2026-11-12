@@ -3,6 +3,8 @@ import type {RewardInfo, RewardType} from '../rewards-service'
 import {RewardsService} from '../rewards-service'
 import {TransactionService} from '../transaction-service'
 import {sessionManager} from '../session-manager'
+import {runActivity} from './useActivity'
+import {trackTransaction} from './useTxTracker'
 import type {Wallet} from '@/types'
 
 // Module-level reactive state — shared across every useRewards() caller
@@ -65,7 +67,10 @@ export function useRewards() {
 
       // Create collect block and send
       const block = rewardsService.createCollectRewardBlock(type)
-      await transactionService.sendEmbeddedContractBlock(block, keyPair)
+      await runActivity(`Collecting ${type} rewards`, async () => {
+        const sent = await transactionService.sendEmbeddedContractBlock(block, keyPair)
+        trackTransaction(`Collect ${type} rewards`, sent)
+      })
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to collect reward'
       throw err

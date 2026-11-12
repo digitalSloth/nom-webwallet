@@ -2,6 +2,8 @@ import {ref} from 'vue'
 import {StakeService} from '../stake-service'
 import {TransactionService} from '../transaction-service'
 import {sessionManager} from '../session-manager'
+import {runActivity} from './useActivity'
+import {trackTransaction} from './useTxTracker'
 import type {StakeEntry} from 'znn-typescript-sdk'
 import type {Wallet} from '@/types'
 
@@ -69,7 +71,10 @@ export function useStake() {
       const block = stakeService.createStakeBlock(durationInSec, amount)
 
       // Send transaction
-      await transactionService.sendEmbeddedContractBlock(block, keyPair)
+      await runActivity('Staking ZNN', async () => {
+        const sent = await transactionService.sendEmbeddedContractBlock(block, keyPair)
+        trackTransaction('Stake ZNN', sent)
+      })
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to stake ZNN'
       throw err
@@ -108,7 +113,10 @@ export function useStake() {
       const block = stakeService.createCancelStakeBlock(stakeId)
 
       // Send transaction
-      await transactionService.sendEmbeddedContractBlock(block, keyPair)
+      await runActivity('Cancelling stake', async () => {
+        const sent = await transactionService.sendEmbeddedContractBlock(block, keyPair)
+        trackTransaction('Cancel stake', sent)
+      })
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to cancel stake'
       throw err

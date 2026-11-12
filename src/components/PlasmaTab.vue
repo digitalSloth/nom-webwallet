@@ -164,7 +164,6 @@ async function handleFuse() {
 
     // Emit events
     emit('plasmaUpdated')
-    emit('showToast', `Successfully fused ${amount} QSR!`, 'success')
   } catch (error) {
     console.error('Failed to fuse QSR:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -191,7 +190,6 @@ async function handleCancel(fusionId: string) {
 
     // Emit events
     emit('plasmaUpdated')
-    emit('showToast', 'Successfully canceled fusion!', 'success')
   } catch (error) {
     console.error('Failed to cancel fusion:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'

@@ -6,6 +6,7 @@ import { startInboxBridge } from '@/core/inpage-approval-bridge'
 import { APPROVAL_WINDOW_IDLE_MS } from '@/config'
 import { Button, Heading, Toaster, TooltipProvider, useTheme, useToast } from 'nom-ui'
 import DappApprovalDialog from '@/components/DappApprovalDialog.vue'
+import SendOverlay from '@/components/SendOverlay.vue'
 import UnlockWalletDialog from '@/components/UnlockWalletDialog.vue'
 import { LockIcon } from 'lucide-vue-next'
 
@@ -139,6 +140,7 @@ onBeforeUnmount(() => {
   <TooltipProvider disable-hoverable-content>
     <div class="flex min-h-screen flex-col bg-background p-4">
       <Toaster class="pointer-events-auto" />
+      <SendOverlay />
 
       <template v-if="isReady">
         <!-- Idle state: no pending approval, wallet unlocked — stay open (§6.6). -->

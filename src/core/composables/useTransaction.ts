@@ -2,6 +2,7 @@ import {ref} from 'vue'
 import {TransactionService} from '../transaction-service'
 import {sessionManager} from '../session-manager'
 import {runActivity} from './useActivity'
+import {trackTransaction} from './useTxTracker'
 import type {Wallet} from '@/types'
 
 // Module-level reactive state — shared across every useTransaction() caller
@@ -41,7 +42,13 @@ export function useTransaction() {
 
       // Send transaction
       await runActivity('Sending transaction', async () => {
-        await transactionService.sendTransaction(recipient, tokenStandard, amount, keyPair)
+        const block = await transactionService.sendTransaction(
+          recipient,
+          tokenStandard,
+          amount,
+          keyPair
+        )
+        trackTransaction('Send', block)
       })
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to send transaction'
@@ -78,7 +85,8 @@ export function useTransaction() {
 
       // Receive transaction
       await runActivity('Receiving transaction', async () => {
-        await transactionService.receiveTransaction(blockHash, keyPair)
+        const block = await transactionService.receiveTransaction(blockHash, keyPair)
+        trackTransaction('Receive', block)
       })
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to receive transaction'

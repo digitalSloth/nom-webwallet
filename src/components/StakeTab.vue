@@ -143,7 +143,6 @@ async function handleStake() {
 
     // Emit events
     emit('stakeUpdated')
-    emit('showToast', `Successfully staked ${amount} ZNN!`, 'success')
   } catch (error) {
     console.error('Failed to stake ZNN:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -170,7 +169,6 @@ async function handleCancel(stakeId: string) {
 
     // Emit events
     emit('stakeUpdated')
-    emit('showToast', 'Successfully canceled stake!', 'success')
   } catch (error) {
     console.error('Failed to cancel stake:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'

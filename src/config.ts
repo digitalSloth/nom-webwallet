@@ -135,3 +135,16 @@ export const DELIVERED_OUTCOME_TTL_MS = 60 * 1000
 
 /** App.vue — the extension's WalletConnect popup window, reused across opens. */
 export const SESSION_KEY_WALLETCONNECT_WINDOW_ID = 'nom-wallet.walletConnectWindowId'
+
+/** tx-tracker.ts. Storage key for the transactions still being tracked. */
+export const STORAGE_KEY_TRACKED_TRANSACTIONS = 'nom-wallet-tracked-transactions'
+/** tx-tracker.ts. Gap between two reads of a tracked transaction, and the cap on one read. */
+export const TX_TRACK_POLL_MS = 5000
+/** tx-tracker.ts. How long a transaction is tracked after publish before the wallet gives up. */
+export const TX_TRACK_TIMEOUT_MS = 5 * 60 * 1000
+/**
+ * transaction-service.ts. Ceiling on one send once it leaves the queue. It
+ * covers the node connect (CONNECT_TIMEOUT_MS), the extension's 120 s PoW
+ * ceiling (extension-pow-provider.ts) and the send's RPC calls, with margin.
+ */
+export const SEND_TIMEOUT_MS = 3 * 60 * 1000

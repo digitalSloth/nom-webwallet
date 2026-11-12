@@ -1,7 +1,16 @@
 <script setup lang="ts">
 import { onMounted, provide, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { isGeneratingPow, useAccount, useNetwork, useUnlockTarget, useWallet, useWalletConnect } from '@/core'
+import {
+  isGeneratingPow,
+  onTxProgress,
+  resumeTracking,
+  useAccount,
+  useNetwork,
+  useUnlockTarget,
+  useWallet,
+  useWalletConnect,
+} from '@/core'
 import { SESSION_KEY_WALLETCONNECT_WINDOW_ID, WALLETCONNECT_ENABLED } from '@/config'
 import {
   Address,
@@ -27,6 +36,7 @@ import PlasmaIndicator from '@/components/PlasmaIndicator.vue'
 import SettingsDialog from '@/components/SettingsDialog.vue'
 import UnlockWalletDialog from '@/components/UnlockWalletDialog.vue'
 import DappApprovalDialog from '@/components/DappApprovalDialog.vue'
+import SendOverlay from '@/components/SendOverlay.vue'
 import { openOrFocusWindow } from '@/core/extension-window'
 import AccountList from '@/components/AccountList.vue'
 import { ChevronDownIcon, LinkIcon, LockIcon, LockOpenIcon, SettingsIcon } from 'lucide-vue-next'
@@ -39,6 +49,13 @@ const toast = useToast()
 // Use composables
 const wallet = useWallet()
 const account = useAccount(() => wallet.activeAccountAddress.value)
+
+// Every stage after publish can change balances, e.g. a reward payout once its
+// contract call executes. The root lives as long as the page, so the
+// unsubscribe function is not kept.
+onTxProgress((tx) => {
+  if (tx.address === wallet.activeAccountAddress.value) void account.loadAccountData()
+})
 const network = useNetwork()
 const walletConnect = useWalletConnect()
 
@@ -78,6 +95,7 @@ onMounted(async () => {
   if (wallet.hasWallets.value) {
     // Initialize network
     await network.initialize()
+    void resumeTracking()
 
     // Load account data if account is active
     if (wallet.activeAccountAddress.value) {
@@ -394,6 +412,7 @@ async function handleWalletAdded(address: string) {
   <TooltipProvider disable-hoverable-content>
     <div class="relative min-h-screen overflow-x-hidden">
       <Toaster class="pointer-events-auto" />
+      <SendOverlay />
       <!-- Ambient brand glow -->
       <div
         class="pointer-events-none fixed -top-40 left-1/2 -z-10 h-72 w-[40rem] -translate-x-1/2 rounded-full bg-zenon-green/15 blur-[110px]"

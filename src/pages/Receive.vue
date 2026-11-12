@@ -89,8 +89,6 @@ async function handleReceive(block: AccountBlock) {
     // Update unreceived count
     await account.loadUnreceivedCount()
 
-    // Show success toast
-    toast.show('Transaction received successfully!', 'success')
   } catch (error: any) {
     receiveError.value = error?.message || 'Failed to receive transaction'
   } finally {

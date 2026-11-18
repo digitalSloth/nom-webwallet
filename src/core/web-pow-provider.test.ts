@@ -101,12 +101,14 @@ describe('webPowProvider', () => {
     await expect(retry).resolves.toBe('ff')
   })
 
-  it('times out after ten minutes and drops the stuck worker', async () => {
+  it('times out after twenty minutes and drops the stuck worker', async () => {
     vi.useFakeTimers()
     const pow = await load()
     const stuck = pow('aa', 1)
     const [worker] = FakeWorker.instances
-    vi.advanceTimersByTime(10 * 60_000)
+    vi.advanceTimersByTime(20 * 60_000 - 1)
+    expect(worker.terminated).toBe(false)
+    vi.advanceTimersByTime(1)
     await expect(stuck).rejects.toThrow('PoW timed out')
     expect(worker.terminated).toBe(true)
 

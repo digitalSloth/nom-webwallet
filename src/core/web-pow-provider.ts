@@ -5,8 +5,10 @@ import type { PowProvider } from 'znn-typescript-sdk'
  * the SDK's Blob worker, it doesn't inherit the page's CSP, so the server can
  * allow the 'unsafe-eval' the emscripten PoW module needs for that file alone.
  */
-// Generous: a block without plasma can take minutes on a slow phone.
-const POW_TIMEOUT_MS = 10 * 60_000
+// Only a guard against a hung worker. A contract call without plasma needs PoW
+// at difficulty 78.75M; single runs vary from seconds to several minutes on a
+// desktop, and phones are slower.
+const POW_TIMEOUT_MS = 20 * 60_000
 const HEX = /^[0-9a-f]+$/i
 
 let worker: Worker | null = null

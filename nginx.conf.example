@@ -15,6 +15,9 @@ server {
     listen 80;
     server_name your-domain.com;
 
+    # Serve the wallet from the domain root: PoW loads /pow-worker.js, /pow.js
+    # and /pow.wasm by absolute path, so a sub-path deployment (e.g.
+    # example.com/wallet/) would break proof-of-work.
     root /var/www/nom-wallet;
     index index.html;
 

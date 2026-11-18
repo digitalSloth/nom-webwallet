@@ -9,6 +9,7 @@ import {
 import {storageService} from './storage/storage-service'
 import {trackPow} from './pow-status'
 import {sandboxPowProvider} from './extension-pow-provider'
+import {webPowProvider} from './web-pow-provider'
 
 /**
  * True when running inside the MV3 browser extension (popup / full page), as
@@ -85,16 +86,13 @@ export class ZenonService {
           ZenonService.powWorkerEnabled = true
         }
       } else if (isPowWorkerSupported()) {
-        try {
-          const worker = Zenon.usePowWorker()
-          // Wrap the worker's generator so global isGeneratingPow tracks PoW.
-          Zenon.setPowProvider(trackPow(worker.generate))
-          ZenonService.powWorkerEnabled = true
-        } catch (error) {
-          // A blocked worker (e.g. strict CSP) must not break sending — the SDK
-          // transparently falls back to main-thread PoW when no provider is set.
-          console.warn('Off-thread PoW worker unavailable; using main-thread PoW.', error)
-        }
+        // Our own worker file rather than the SDK's Blob worker: a Blob worker
+        // inherits the page CSP, and the PoW module needs 'unsafe-eval', which
+        // the wallet page must not allow. A worker loaded from a URL runs under
+        // its own response's CSP (see nginx.conf.example). It starts on the
+        // first PoW; if it fails to load, that send is rejected with the reason.
+        Zenon.setPowProvider(trackPow(webPowProvider))
+        ZenonService.powWorkerEnabled = true
       }
     }
   }

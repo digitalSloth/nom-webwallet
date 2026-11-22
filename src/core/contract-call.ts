@@ -48,6 +48,10 @@ const EMBEDDED_CONTRACTS = new Map<string, { name: string; abi: typeof EmbeddedC
   [TOKEN_ADDRESS.toString(), { name: 'Token', abi: TokenContract }],
 ])
 
+export function isEmbeddedContract(address: string): boolean {
+  return EMBEDDED_CONTRACTS.has(address)
+}
+
 function formatValue(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(formatValue).join(', ')}]`
   if (value instanceof Uint8Array) return `0x${Buffer.from(value).toString('hex')}`

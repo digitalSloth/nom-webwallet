@@ -1,11 +1,19 @@
 import {
   DELIVERED_OUTCOME_TTL_MS,
   MAX_PENDING_DAPP_REQUESTS,
+  MAX_PENDING_PER_ORIGIN,
+  MAX_PENDING_PER_TAB,
   SESSION_KEY_APPROVAL_WINDOW_ID,
   SESSION_KEY_OUTCOMES,
   SESSION_KEY_PENDING_REQUESTS,
+  STORAGE_KEY_WALLETS,
 } from '@/config'
-import type { InboxEntry, ProviderError } from '@/core/inpage-protocol'
+import {
+  ERR_USER_REJECTED,
+  ZNN_CONNECT,
+  type InboxEntry,
+  type ProviderError,
+} from '@/core/inpage-protocol'
 import { openOrFocusWindow } from '@/core/extension-window'
 import { createSerialQueue } from '@/core/serial-queue'
 import { getPort } from './ports'
@@ -13,14 +21,23 @@ import { getPort } from './ports'
 /**
  * The chrome.storage.session inbox, its cap, the approval-window lifecycle,
  * the outcome store, and single-port delivery (§6.4, §6.5, §6.6). Session
- * storage — never key material, only requests and outcomes — because a
- * manifest v3 service worker can be unloaded at any time.
+ * storage holds requests, outcomes and window ids, because a manifest v3
+ * service worker can be unloaded at any time. The only key material in
+ * session storage is the key cache in core/key-cache.ts: trusted contexts
+ * only, wiped on lock, lock all, auto-lock, wallet removal and the last
+ * browser window closing.
  *
  * Every write runs through one serial queue (`exclusive`). Reads stay outside
  * it: settle() records an outcome before it removes the inbox entry, so a
  * reader that checks the inbox first and the outcomes second always finds an
  * id in at least one of them.
  */
+
+/** The outcome of a request whose approval window or side panel closed without a decision. */
+export const APPROVAL_CLOSED_ERROR: ProviderError = {
+  code: ERR_USER_REJECTED,
+  message: 'The approval window was closed.',
+}
 
 interface StoredOutcome {
   id: string
@@ -92,6 +109,9 @@ export function addToInbox(entry: InboxEntry): Promise<AddToInboxResult> {
     const inbox = await readInbox()
     if (inbox.some((e) => e.id === entry.id) || (await findOutcome(entry.id))) return 'tracked'
     if (inbox.length >= MAX_PENDING_DAPP_REQUESTS) return 'full'
+    if (inbox.filter((e) => e.origin === entry.origin).length >= MAX_PENDING_PER_ORIGIN)
+      return 'full'
+    if (inbox.filter((e) => e.tabId === entry.tabId).length >= MAX_PENDING_PER_TAB) return 'full'
     await writeInbox([...inbox, entry])
     return 'added'
   })
@@ -103,7 +123,7 @@ export function stampWindow(windowId: number): Promise<void> {
     const inbox = await readInbox()
     let changed = false
     for (const entry of inbox) {
-      if (entry.windowId === undefined) {
+      if (entry.windowId === undefined && entry.panelWindowId === undefined) {
         entry.windowId = windowId
         changed = true
       }
@@ -112,22 +132,34 @@ export function stampWindow(windowId: number): Promise<void> {
   })
 }
 
-/** chrome.windows.onRemoved rejects only that window's entries (§6.6). */
-export async function rejectEntriesForWindow(windowId: number, reason: ProviderError): Promise<void> {
+async function rejectWhere(
+  match: (e: InboxEntry) => boolean,
+  reason: ProviderError
+): Promise<void> {
   const rejected = await exclusive(async () => {
     const inbox = await readInbox()
-    const forWindow = inbox.filter((e) => e.windowId === windowId)
-    if (forWindow.length === 0) return []
+    const matched = inbox.filter(match)
+    if (matched.length === 0) return []
 
-    const outcomes = forWindow.map(
+    const outcomes = matched.map(
       (e): StoredOutcome => ({ id: e.id, tabId: e.tabId, frameId: e.frameId, error: reason })
     )
     await storeOutcomes(outcomes)
-    await writeInbox(inbox.filter((e) => e.windowId !== windowId))
+    await writeInbox(inbox.filter((e) => !match(e)))
     return outcomes
   })
 
   for (const outcome of rejected) await deliver(outcome)
+}
+
+/** chrome.windows.onRemoved rejects only that window's entries, and those shown in its side panel (§6.6). */
+export function rejectEntriesForWindow(windowId: number, reason: ProviderError): Promise<void> {
+  return rejectWhere((e) => e.windowId === windowId || e.panelWindowId === windowId, reason)
+}
+
+/** Rejects the entries shown in the side panel of `windowId`. */
+export function rejectEntriesForPanel(windowId: number, reason: ProviderError): Promise<void> {
+  return rejectWhere((e) => e.panelWindowId === windowId, reason)
 }
 
 /**
@@ -171,7 +203,9 @@ async function storeOutcomes(added: StoredOutcome[]): Promise<void> {
 
 function pruneDelivered(outcomes: StoredOutcome[]): StoredOutcome[] {
   const now = Date.now()
-  return outcomes.filter((o) => o.deliveredAt === undefined || now - o.deliveredAt < DELIVERED_OUTCOME_TTL_MS)
+  return outcomes.filter(
+    (o) => o.deliveredAt === undefined || now - o.deliveredAt < DELIVERED_OUTCOME_TTL_MS
+  )
 }
 
 /** Single-port delivery to the port registered for `${tabId}:${frameId}` — never fanned out (§6.4). */
@@ -179,7 +213,12 @@ async function deliver(outcome: StoredOutcome): Promise<void> {
   const port = getPort(outcome.tabId, outcome.frameId)
   if (!port) return
   try {
-    port.postMessage({ kind: 'outcome', id: outcome.id, result: outcome.result, error: outcome.error })
+    port.postMessage({
+      kind: 'outcome',
+      id: outcome.id,
+      result: outcome.result,
+      error: outcome.error,
+    })
   } catch {
     // The port died between lookup and post; the outcome stays undelivered
     // and a future resync will pick it up.
@@ -208,6 +247,38 @@ export async function redeliverTo(tabId: number, frameId: number, ids: string[])
   }
 }
 
+/**
+ * True when `address` is an account of a stored wallet, hidden accounts
+ * included. Reads storage directly: public-state.ts registers a storage
+ * listener at load, and the approval window loads this module too.
+ */
+async function isKnownAccount(address: string): Promise<boolean> {
+  if (typeof address !== 'string' || address === '') return false
+  const stored = await chrome.storage.local.get(STORAGE_KEY_WALLETS)
+  const value = stored[STORAGE_KEY_WALLETS] as { wallets?: unknown } | null | undefined
+  const wallets = value?.wallets
+  if (!Array.isArray(wallets)) return false
+  return wallets.some((w: { accounts?: unknown } | null) => {
+    const accounts = w?.accounts
+    return (
+      Array.isArray(accounts) &&
+      accounts.some((a: { address?: unknown } | null) => a?.address === address)
+    )
+  })
+}
+
+/** Replaces a pending znn_connect entry's account with an account of a stored wallet. */
+export function rebindConnect(id: string, account: string): Promise<boolean> {
+  return exclusive(async () => {
+    const inbox = await readInbox()
+    const entry = inbox.find((e) => e.id === id)
+    if (!entry || entry.method !== ZNN_CONNECT) return false
+    if (!(await isKnownAccount(account))) return false
+    await writeInbox(inbox.map((e) => (e.id === id ? { ...e, account } : e)))
+    return true
+  })
+}
+
 // --- Approval window lifecycle (§6.6) ---
 
 /**
@@ -220,7 +291,9 @@ export function openOrFocusApprovalWindow(): Promise<void> {
     const windowId = await openOrFocusWindow(
       SESSION_KEY_APPROVAL_WINDOW_ID,
       chrome.runtime.getURL('approve.html'),
-      { width: 380, height: 600 }
+      // The outer size includes the title bar; 680 leaves room around the
+      // centred 360x600 frame.
+      { width: 420, height: 680 }
     )
     await stampWindow(windowId)
   })

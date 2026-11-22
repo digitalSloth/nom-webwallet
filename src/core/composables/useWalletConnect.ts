@@ -8,6 +8,7 @@ import {
   WALLETCONNECT_ENABLED,
 } from '@/config'
 import { WalletConnectService, walletConnectSessions } from '../walletconnect-service'
+import { readSessionMeta, type SessionMeta } from '../walletconnect-session-meta'
 import { useWallet } from './useWallet'
 import { useNetwork } from './useNetwork'
 
@@ -21,7 +22,20 @@ import { useNetwork } from './useNetwork'
 const isInitialized = ref(false)
 const isPairing = ref(false)
 const error = ref<string | null>(null)
+const sessionMeta = ref<Record<string, SessionMeta>>({})
+let metaReads = 0
 let watchersStarted = false
+
+// Only the newest read may assign, so a slow older read never overwrites it.
+async function reloadSessionMeta(): Promise<void> {
+  const count = ++metaReads
+  try {
+    const meta = await readSessionMeta()
+    if (count === metaReads) sessionMeta.value = meta
+  } catch (err) {
+    console.error('Failed to read session meta:', err)
+  }
+}
 
 export function useWalletConnect(): {
   isEnabled: boolean
@@ -32,6 +46,10 @@ export function useWalletConnect(): {
   initialize(): Promise<void>
   pair(uri: string): Promise<void>
   disconnect(topic: string): Promise<void>
+  /** Session meta by topic. Web only: stays {} in the extension. */
+  sessionMeta: Readonly<Ref<Record<string, SessionMeta>>>
+  /** Ends every session in list order, continuing past failures; rejects with the first error after trying all. */
+  disconnectAll(): Promise<void>
 } {
   const service = WalletConnectService.getInstance()
 
@@ -46,6 +64,10 @@ export function useWalletConnect(): {
       if (address) void service.setActiveAccount(address)
     })
     watch(network.chainId, (chainId) => void service.emitChainIdChange(chainId))
+
+    if (!__IS_EXTENSION__) {
+      watch(walletConnectSessions, () => void reloadSessionMeta(), { immediate: true })
+    }
 
     // The extension's WalletConnect window keeps its own copy of wallet and
     // network state, and hears about a switch made in another window (the
@@ -93,6 +115,22 @@ export function useWalletConnect(): {
     await service.disconnect(topic)
   }
 
+  async function disconnectAll(): Promise<void> {
+    let first: unknown
+    let failed = false
+    for (const { topic } of [...walletConnectSessions.value]) {
+      try {
+        await service.disconnect(topic)
+      } catch (err) {
+        if (!failed) {
+          failed = true
+          first = err
+        }
+      }
+    }
+    if (failed) throw first
+  }
+
   return {
     isEnabled: WALLETCONNECT_ENABLED,
     isInitialized,
@@ -102,5 +140,7 @@ export function useWalletConnect(): {
     initialize,
     pair,
     disconnect,
+    sessionMeta,
+    disconnectAll,
   }
 }

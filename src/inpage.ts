@@ -7,6 +7,8 @@ import type {
   PromptingMethod,
   ReadOnlyMethod,
 } from '@/core/inpage-protocol'
+import type { EncryptedMessageParams, MessageToOpen, OpenedMessage } from '@/core/message-envelope'
+import type { OpenedInscription, SealedToOpen } from '@/core/sealed-box'
 
 /**
  * Runs in the MAIN world at document_start, on every frame. Defines
@@ -32,6 +34,10 @@ const ZNN_CONNECT = 'znn_connect'
 const ZNN_SIGN = 'znn_sign'
 const ZNN_SEND_TRANSACTION = 'znn_sendTransaction'
 const ZNN_SIGN_AND_SEND_BLOCK = 'znn_signAndSendBlock'
+const ZNN_REQUEST_MESSAGE_ACCESS = 'znn_requestMessageAccess'
+const ZNN_DECRYPT_MESSAGES = 'znn_decryptMessages'
+const ZNN_DECRYPT_INSCRIPTIONS = 'znn_decryptInscriptions'
+const ZNN_SEND_ENCRYPTED_MESSAGE = 'znn_sendEncryptedMessage'
 
 const READ_ONLY_TIMEOUT_MS = 30_000
 
@@ -158,6 +164,30 @@ const zenon = {
   /** Result: the published block, as JSON. */
   async sendAccountBlock(block: unknown): Promise<unknown> {
     return await call(ZNN_SIGN_AND_SEND_BLOCK, block, null)
+  },
+
+  /** Prompts the user to let this site read the account's encrypted messages. Result: the account address. */
+  async requestMessageAccess(): Promise<string> {
+    return (await call(ZNN_REQUEST_MESSAGE_ACCESS, undefined, null)) as string
+  },
+
+  /** Decrypts 1 to 50 messages with the granted account's key. Results come back in input order. */
+  async decryptMessages(items: MessageToOpen[]): Promise<OpenedMessage[]> {
+    return (await call(ZNN_DECRYPT_MESSAGES, items, READ_ONLY_TIMEOUT_MS)) as OpenedMessage[]
+  },
+
+  /** Opens 1 to 50 sealed inscription payloads with the granted account's key. Results come back in input order. */
+  async decryptInscriptions(items: SealedToOpen[]): Promise<OpenedInscription[]> {
+    return (await call(
+      ZNN_DECRYPT_INSCRIPTIONS,
+      items,
+      READ_ONLY_TIMEOUT_MS
+    )) as OpenedInscription[]
+  },
+
+  /** Encrypts and sends a message after the user approves it. Result: the published block, as JSON. */
+  async sendEncryptedMessage(params: EncryptedMessageParams): Promise<unknown> {
+    return await call(ZNN_SEND_ENCRYPTED_MESSAGE, params, null)
   },
 
   on(event: ProviderEventName, listener: EventListener): void {

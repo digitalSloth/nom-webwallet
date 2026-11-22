@@ -66,4 +66,119 @@ describe('site permissions', () => {
 
     expect(await permissions.isGranted(ORIGIN)).toBe(false)
   })
+
+  describe('isSecureMessageOrigin', () => {
+    it.each([
+      'https://zenonhub.io',
+      'https://localhost',
+      'http://localhost',
+      'http://localhost:5173',
+      'http://127.0.0.1:8000',
+      'http://[::1]:8000',
+      'http://zenonhub.localhost',
+      'http://devnet.zenonhub.localhost',
+    ])('accepts %s', (origin) => {
+      expect(permissions.isSecureMessageOrigin(origin)).toBe(true)
+    })
+
+    it.each([
+      'http://example.com',
+      'http://192.168.1.5',
+      'http://localhost.evil.com',
+      'http://evil-localhost',
+      'http://evillocalhost',
+      'ftp://localhost',
+      'chrome-extension://abc',
+      'null',
+      '',
+    ])('refuses %s', (origin) => {
+      expect(permissions.isSecureMessageOrigin(origin)).toBe(false)
+    })
+  })
+
+  describe('message access', () => {
+    const ACCOUNT = 'z1qyqszqgpqyqszqgpqyqszqgpqyqszqgp3cfdqg'
+    const OTHER = 'z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz'
+
+    it('grantMessages on an unknown origin is a no-op', async () => {
+      await permissions.grantMessages(ORIGIN, ACCOUNT)
+
+      expect(await permissions.list()).toEqual([])
+      expect(await permissions.canReadMessages(ORIGIN, ACCOUNT)).toBe(false)
+    })
+
+    it('grants one account and lists several', async () => {
+      await permissions.grant(ORIGIN)
+      await permissions.grantMessages(ORIGIN, ACCOUNT)
+      await permissions.grantMessages(ORIGIN, ACCOUNT)
+      await permissions.grantMessages(ORIGIN, OTHER)
+
+      expect((await permissions.list())[0].messageAccounts).toEqual([ACCOUNT, OTHER])
+      expect(await permissions.canReadMessages(ORIGIN, ACCOUNT)).toBe(true)
+      expect(await permissions.canReadMessages('https://other.example', ACCOUNT)).toBe(false)
+    })
+
+    it('grant() keeps messageAccounts when it rebuilds the entry', async () => {
+      await permissions.grant(ORIGIN)
+      await permissions.grantMessages(ORIGIN, ACCOUNT)
+
+      await permissions.grant(ORIGIN, { title: 'Dapp' })
+
+      expect(await permissions.canReadMessages(ORIGIN, ACCOUNT)).toBe(true)
+    })
+
+    it('a touch keeps messageAccounts', async () => {
+      await permissions.grant(ORIGIN)
+      await permissions.grantMessages(ORIGIN, ACCOUNT)
+      vi.setSystemTime(START + 5 * 60 * 1000)
+
+      await permissions.touch(ORIGIN)
+
+      expect(await permissions.canReadMessages(ORIGIN, ACCOUNT)).toBe(true)
+    })
+
+    it('revoke removes the origin and its messageAccounts', async () => {
+      await permissions.grant(ORIGIN)
+      await permissions.grantMessages(ORIGIN, ACCOUNT)
+
+      await permissions.revoke(ORIGIN)
+      await permissions.grant(ORIGIN)
+
+      expect(await permissions.canReadMessages(ORIGIN, ACCOUNT)).toBe(false)
+    })
+
+    it('revokeAll removes every messageAccounts', async () => {
+      await permissions.grant(ORIGIN)
+      await permissions.grantMessages(ORIGIN, ACCOUNT)
+
+      await permissions.revokeAll()
+      await permissions.grant(ORIGIN)
+
+      expect(await permissions.canReadMessages(ORIGIN, ACCOUNT)).toBe(false)
+    })
+
+    it('revokeMessages keeps the site connected', async () => {
+      await permissions.grant(ORIGIN)
+      await permissions.grantMessages(ORIGIN, ACCOUNT)
+
+      await permissions.revokeMessages(ORIGIN)
+
+      expect(await permissions.isGranted(ORIGIN)).toBe(true)
+      expect(await permissions.canReadMessages(ORIGIN, ACCOUNT)).toBe(false)
+      expect((await permissions.list())[0]).not.toHaveProperty('messageAccounts')
+    })
+
+    it('a revokeMessages racing a grantMessages leaves one consistent result', async () => {
+      await permissions.grant(ORIGIN)
+      await permissions.grantMessages(ORIGIN, ACCOUNT)
+
+      await Promise.all([
+        permissions.revokeMessages(ORIGIN),
+        permissions.grantMessages(ORIGIN, OTHER),
+      ])
+
+      expect(await permissions.canReadMessages(ORIGIN, ACCOUNT)).toBe(false)
+      expect(await permissions.canReadMessages(ORIGIN, OTHER)).toBe(true)
+    })
+  })
 })

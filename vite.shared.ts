@@ -4,7 +4,7 @@ import {resolve} from 'path'
 import {copyFileSync, createReadStream} from 'fs'
 
 const POW_FILES = ['pow.js', 'pow.wasm'] as const
-const powSrcDir = resolve(__dirname, 'node_modules/znn-typescript-sdk/dist/browser')
+const powSrcDir = resolve(__dirname, 'node_modules/znn-typescript-sdk/lib')
 
 // znn-typescript-sdk fetches pow.js + pow.wasm from the configured PoW base path
 // at runtime. Vite doesn't know about these files, so we serve them during dev

@@ -34,7 +34,7 @@ export interface IWalletConnectClient {
   listSessions(): SessionTypes.Struct[]
   // Namespaces here, not ProposalTypes.RequiredNamespaces: the approved namespace
   // carries `accounts` (SessionTypes.Namespace), which a required namespace doesn't.
-  approveProposal(id: number, namespaces: SessionTypes.Namespaces): Promise<void>
+  approveProposal(id: number, namespaces: SessionTypes.Namespaces): Promise<string>
   rejectProposal(id: number, error: OutgoingError): Promise<void>
   respond(topic: string, rpcId: number, result: unknown): Promise<void>
   respondError(topic: string, rpcId: number, error: OutgoingError): Promise<void>

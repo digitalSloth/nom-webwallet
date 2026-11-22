@@ -109,9 +109,9 @@ The extension's approval window and its WalletConnect window are both separate p
 nom-webwallet/
 ├── src/                      # Application code (pages, components, core logic)
 │   ├── core/                 # Services, composables, storage adapters
-│   ├── components/           # Vue components
-│   ├── pages/                # Routed views
-│   ├── App.vue / main.ts     # App shell and entry point
+│   ├── apps/                 # Entry points: web/ (full wallet) and extension/ (popup)
+│   ├── app-shell/            # Startup (`bootstrap.ts`) shared by both apps
+│   ├── shared/               # Surface-free helpers and components both apps import
 │   └── background.ts         # Extension service worker
 ├── vite.config.web.ts        # Web build config
 ├── vite.config.extension.ts  # Extension build config

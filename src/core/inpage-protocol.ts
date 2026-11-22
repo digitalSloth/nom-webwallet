@@ -13,6 +13,7 @@ import {
  */
 
 export { accountBlockProblem, addressProblem, sendTransactionParamsProblem, tokenStandardProblem }
+export { encryptedMessageParamsProblem, openParamsProblem } from './message-envelope'
 
 // --- postMessage bridge targets (inpage.ts ↔ content-script.ts, §6.3) ---
 export const TARGET_CONTENT_SCRIPT = 'znn-contentscript'
@@ -20,6 +21,9 @@ export const TARGET_INPAGE = 'znn-inpage'
 
 /** Name of the chrome.runtime.Port content-script.ts opens to the worker. */
 export const PROVIDER_PORT_NAME = 'znn-provider'
+
+/** Name of the chrome.runtime.Port a side panel holds open for its whole lifetime. */
+export const SIDE_PANEL_PORT_NAME = 'znn-side-panel'
 
 /** `message.channel` for the one-shot read-only request/response below. */
 export const PROVIDER_MESSAGE_CHANNEL = 'znn-provider'
@@ -30,24 +34,32 @@ export const ZNN_ACCOUNTS = 'znn_accounts'
 export const ZNN_CHAIN_ID = 'znn_chainId'
 export const ZNN_NODE_URL = 'znn_nodeUrl'
 export const ZNN_DISCONNECT = 'znn_disconnect'
+export const ZNN_DECRYPT_MESSAGES = 'znn_decryptMessages'
+export const ZNN_DECRYPT_INSCRIPTIONS = 'znn_decryptInscriptions'
 // Prompting, chrome.runtime.Port (phase 3b). Named now so the whole wire
 // contract is one vocabulary; not reachable until window.zenon exposes them.
 export const ZNN_CONNECT = 'znn_connect'
 export const ZNN_SIGN = 'znn_sign'
 export const ZNN_SEND_TRANSACTION = 'znn_sendTransaction'
 export const ZNN_SIGN_AND_SEND_BLOCK = 'znn_signAndSendBlock'
+export const ZNN_REQUEST_MESSAGE_ACCESS = 'znn_requestMessageAccess'
+export const ZNN_SEND_ENCRYPTED_MESSAGE = 'znn_sendEncryptedMessage'
 
 export type ReadOnlyMethod =
   | typeof ZNN_ACCOUNTS
   | typeof ZNN_CHAIN_ID
   | typeof ZNN_NODE_URL
   | typeof ZNN_DISCONNECT
+  | typeof ZNN_DECRYPT_MESSAGES
+  | typeof ZNN_DECRYPT_INSCRIPTIONS
 
 export type PromptingMethod =
   | typeof ZNN_CONNECT
   | typeof ZNN_SIGN
   | typeof ZNN_SEND_TRANSACTION
   | typeof ZNN_SIGN_AND_SEND_BLOCK
+  | typeof ZNN_REQUEST_MESSAGE_ACCESS
+  | typeof ZNN_SEND_ENCRYPTED_MESSAGE
 
 /**
  * Content-script-internal check, never exposed on `window.zenon`. Lets the
@@ -77,6 +89,7 @@ export interface ProviderError {
 export interface ReadOnlyRequest {
   channel: typeof PROVIDER_MESSAGE_CHANNEL
   method: ReadOnlyMethod | typeof ZNN_IS_GRANTED
+  params?: unknown
 }
 
 /** src/sw/router.ts → content-script.ts, in the sendResponse callback. */
@@ -88,7 +101,13 @@ export interface ReadOnlyResponse {
 
 // --- Port channel (page → content script → SW, long-lived) ---
 
-export type PortMessageKind = 'request' | 'accepted' | 'outcome' | 'resync' | 'resyncResult' | 'event'
+export type PortMessageKind =
+  | 'request'
+  | 'accepted'
+  | 'outcome'
+  | 'resync'
+  | 'resyncResult'
+  | 'event'
 
 export type ProviderEventName = 'accountsChanged' | 'chainChanged' | 'nodeChanged'
 
@@ -156,6 +175,7 @@ export interface InboxEntry {
   chainId: number // chain id when the request arrived (PendingApproval.chainId)
   createdAt: number
   windowId?: number // stamped when a window is shown the entry
+  panelWindowId?: number // set when added: the browser window whose side panel shows the entry. Never set with windowId
 }
 
 // --- The internal settle channel (approval window → SW, chrome.runtime.sendMessage) ---
@@ -171,6 +191,14 @@ export interface ApprovalsSettleMessage {
   error?: ProviderError
 }
 
+/** Approval window → SW: re-binds a pending znn_connect entry to another stored account. */
+export interface ApprovalsRebindMessage {
+  channel: typeof INTERNAL_MESSAGE_CHANNEL
+  kind: 'approvals.rebind'
+  id: string
+  account: string
+}
+
 /**
  * useConnectedSites.ts → SW: a revoke initiated from the settings dialog,
  * not the dApp's own tab. The worker performs the revoke itself, so every
@@ -182,6 +210,14 @@ export interface SitesRevokeMessage {
   channel: typeof INTERNAL_MESSAGE_CHANNEL
   kind: 'sites.revoke'
   origin?: string
+  /** Remove only the origin's message access and keep the site connected. */
+  messagesOnly?: boolean
+}
+
+/** First message on a side panel port: the hosting browser window and the panel's identity token. */
+export interface SidePanelHelloMessage {
+  windowId: number
+  token: string
 }
 
 // --- window.postMessage bridge shapes (inpage.ts ↔ content-script.ts) ---

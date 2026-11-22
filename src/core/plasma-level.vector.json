@@ -1,0 +1,17 @@
+[
+  { "case": "no plasma", "available": 0, "perSend": 21000, "level": "low" },
+  { "case": "one short of a send", "available": 20999, "perSend": 21000, "level": "low" },
+  { "case": "one send at the floor", "available": 21000, "perSend": 21000, "level": "medium" },
+  { "case": "four sends at the floor", "available": 84000, "perSend": 21000, "level": "medium" },
+  { "case": "one short of ten", "available": 209999, "perSend": 21000, "level": "medium" },
+  { "case": "ten sends at the floor", "available": 210000, "perSend": 21000, "level": "high" },
+  { "case": "pre-spork fusion cap", "available": 10500000, "perSend": 21000, "level": "high" },
+  { "case": "21,000 at price 1,001", "available": 21000, "perSend": 21021, "level": "low" },
+  { "case": "one send at price 1,001", "available": 21021, "perSend": 21021, "level": "medium" },
+  { "case": "one short of ten at price 1,001", "available": 210209, "perSend": 21021, "level": "medium" },
+  { "case": "ten sends at price 1,001", "available": 210210, "perSend": 21021, "level": "high" },
+  { "case": "210,000 at price 1,100", "available": 210000, "perSend": 23100, "level": "medium" },
+  { "case": "ten sends at price 1,100", "available": 231000, "perSend": 23100, "level": "high" },
+  { "case": "price 100,000", "available": 2000000, "perSend": 2100000, "level": "low" },
+  { "case": "post-spork fusion cap", "available": 210000000000, "perSend": 21000, "level": "high" }
+]

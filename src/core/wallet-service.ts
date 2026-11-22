@@ -2,6 +2,7 @@ import {KeyFile, KeyStore} from 'znn-typescript-sdk'
 import type {StorageAdapter, Wallet, WalletAccount, WalletStorage} from '@/types'
 import {KDF_CONFIG, STORAGE_KEY_WALLETS as STORAGE_KEY} from '@/config'
 import {sessionManager} from './session-manager'
+import {estimatePasswordStrength} from './password-strength'
 import {storageService} from './storage/storage-service'
 import {Buffer} from 'buffer'
 
@@ -49,16 +50,52 @@ export class WalletService {
     }
   }
 
-  // Create new wallet
-  async createWallet(password: string, name?: string): Promise<Wallet> {
-    const keyStore = KeyStore.newRandom()
-    return await this.saveWallet(keyStore, password, name || 'Wallet 1')
-  }
-
   // Import wallet from mnemonic
   async importWallet(mnemonic: string, password: string, name?: string): Promise<Wallet> {
     const keyStore = KeyStore.fromMnemonic(mnemonic)
     return await this.saveWallet(keyStore, password, name || 'Imported Wallet')
+  }
+
+  // Imports a phrase, or, when a wallet with the phrase's base address exists,
+  // replaces that wallet's key file under the new password. The target is found
+  // only by the base address the phrase derives, so a key file cannot be
+  // replaced without that wallet's phrase.
+  async restoreWallet(mnemonic: string, password: string, name?: string): Promise<Wallet> {
+    if (!(await estimatePasswordStrength(password)).meetsFloor) {
+      throw new Error('Please choose a stronger password')
+    }
+
+    const keyStore = KeyStore.fromMnemonic(mnemonic)
+    const baseAddress = keyStore.getBaseAddress().toString()
+
+    const data = await this.storage.get<WalletStorage>(STORAGE_KEY)
+    if (!data?.wallets.some((w) => w.baseAddress === baseAddress)) {
+      return await this.saveWallet(keyStore, password, name || 'Imported Wallet')
+    }
+
+    const encrypted = await KeyFile.setPassword(password).encrypt(keyStore, KDF_CONFIG)
+
+    const latest = await this.storage.get<WalletStorage>(STORAGE_KEY)
+    const target = latest?.wallets.find((w) => w.baseAddress === baseAddress)
+    if (!latest || !target) throw new Error('This wallet changed in another window. Try again.')
+
+    target.encryptedKeyFile = encrypted
+    if (latest.activeWalletAddress !== baseAddress) {
+      latest.activeWalletAddress = baseAddress
+      latest.activeAccountAddress = target.accounts[0]?.address ?? null
+    }
+    // Not writeKeepingKeyFiles: it would put the old key file back.
+    await this.storage.set(STORAGE_KEY, latest)
+
+    const written = await this.storage.get<WalletStorage>(STORAGE_KEY)
+    const saved = written?.wallets.find((w) => w.baseAddress === baseAddress)
+    if (!saved || JSON.stringify(saved.encryptedKeyFile) !== JSON.stringify(encrypted)) {
+      throw new Error('This wallet changed in another window. Try again.')
+    }
+
+    this.failedAttempts.delete(baseAddress)
+    sessionManager.unlock(baseAddress, keyStore)
+    return target
   }
 
   // Shared logic for saving a wallet
@@ -103,17 +140,7 @@ export class WalletService {
 
   // Unlock wallet with password
   async unlockWallet(address: string, password: string): Promise<void> {
-    const failed = this.failedAttempts.get(address)
-
-    if (failed && failed.count >= MAX_UNLOCK_ATTEMPTS) {
-      const lockoutMs = BASE_LOCKOUT_MS * 2 ** (failed.count - MAX_UNLOCK_ATTEMPTS)
-      const elapsed = Date.now() - failed.lastAttemptAt
-
-      if (elapsed < lockoutMs) {
-        const remainingSec = Math.ceil((lockoutMs - elapsed) / 1000)
-        throw new Error(`Too many attempts. Try again in ${remainingSec} seconds.`)
-      }
-    }
+    this.assertNotLockedOut(address)
 
     const data = await this.storage.get<WalletStorage>(STORAGE_KEY)
     const wallet = data?.wallets.find((w) => w.baseAddress === address)
@@ -156,13 +183,47 @@ export class WalletService {
         }
       }
     } catch {
-      const current = this.failedAttempts.get(address) ?? { count: 0, lastAttemptAt: 0 }
-      this.failedAttempts.set(address, {
-        count: current.count + 1,
-        lastAttemptAt: Date.now(),
-      })
+      this.recordFailedAttempt(address)
       throw new Error('Invalid password')
     }
+  }
+
+  // Writes the wallet storage for operations that do not change a key file.
+  // Only changePassword, restoreWallet, the KDF upgrade on unlock and saveWallet
+  // may write `encryptedKeyFile`. This re-reads the storage right before the write and
+  // keeps each wallet's stored key file, so a copy loaded before another
+  // document changed the password cannot bring the old key file back.
+  private async writeKeepingKeyFiles(data: WalletStorage): Promise<void> {
+    const latest = await this.storage.get<WalletStorage>(STORAGE_KEY)
+    if (latest) {
+      for (const wallet of data.wallets) {
+        const stored = latest.wallets.find((w) => w.baseAddress === wallet.baseAddress)
+        if (stored) wallet.encryptedKeyFile = stored.encryptedKeyFile
+      }
+    }
+    await this.storage.set(STORAGE_KEY, data)
+  }
+
+  private assertNotLockedOut(address: string): void {
+    const failed = this.failedAttempts.get(address)
+
+    if (failed && failed.count >= MAX_UNLOCK_ATTEMPTS) {
+      const lockoutMs = BASE_LOCKOUT_MS * 2 ** (failed.count - MAX_UNLOCK_ATTEMPTS)
+      const elapsed = Date.now() - failed.lastAttemptAt
+
+      if (elapsed < lockoutMs) {
+        const remainingSec = Math.ceil((lockoutMs - elapsed) / 1000)
+        throw new Error(`Too many attempts. Try again in ${remainingSec} seconds.`)
+      }
+    }
+  }
+
+  private recordFailedAttempt(address: string): void {
+    const current = this.failedAttempts.get(address) ?? { count: 0, lastAttemptAt: 0 }
+    this.failedAttempts.set(address, {
+      count: current.count + 1,
+      lastAttemptAt: Date.now(),
+    })
   }
 
   // Lock wallet
@@ -208,19 +269,80 @@ export class WalletService {
 
     // Update wallet
     wallet.accounts.push(newAccount)
-    await this.storage.set(STORAGE_KEY, data!)
+    await this.writeKeepingKeyFiles(data!)
 
     return newAccount
   }
 
-  // Export mnemonic (requires unlocked wallet)
-  exportMnemonic(walletAddress: string): string {
-    const keyStore = sessionManager.getKeyStore(walletAddress)
-    if (!keyStore) {
-      throw new Error('Wallet is locked')
+  // Export the mnemonic of a wallet after decrypting its stored key file with
+  // the password. The session is never read, so a wallet that is unlocked
+  // (possibly by another extension document) still needs the password. Wrong
+  // passwords count against the same backoff as unlockWallet.
+  async exportMnemonicWithPassword(address: string, password: string): Promise<string> {
+    this.assertNotLockedOut(address)
+
+    const data = await this.storage.get<WalletStorage>(STORAGE_KEY)
+    const wallet = data?.wallets.find((w) => w.baseAddress === address)
+
+    if (!wallet) {
+      throw new Error('Wallet not found')
     }
 
-    return keyStore.mnemonic
+    try {
+      const keyStore = await KeyFile.setPassword(password).decrypt(wallet.encryptedKeyFile)
+      this.failedAttempts.delete(address)
+      return keyStore.mnemonic
+    } catch {
+      this.recordFailedAttempt(address)
+      throw new Error('Invalid password')
+    }
+  }
+
+  // Re-encrypt a wallet's key file under a new password. The key does not
+  // change, so unlocked sessions stay valid. Only this wallet's keyfile is
+  // replaced, and only if it is still the one that was decrypted.
+  async changePassword(address: string, current: string, next: string): Promise<void> {
+    this.assertNotLockedOut(address)
+
+    if (next === current) throw new Error('The new password must differ from the current one')
+    if (!(await estimatePasswordStrength(next)).meetsFloor) {
+      throw new Error('Please choose a stronger password')
+    }
+
+    const data = await this.storage.get<WalletStorage>(STORAGE_KEY)
+    const wallet = data?.wallets.find((w) => w.baseAddress === address)
+    if (!wallet) throw new Error('Wallet not found')
+
+    let keyStore: KeyStore
+    try {
+      keyStore = await KeyFile.setPassword(current).decrypt(wallet.encryptedKeyFile)
+    } catch {
+      this.recordFailedAttempt(address)
+      throw new Error('Invalid password')
+    }
+    this.failedAttempts.delete(address)
+
+    const encrypted = await KeyFile.setPassword(next).encrypt(keyStore, KDF_CONFIG)
+
+    const latest = await this.storage.get<WalletStorage>(STORAGE_KEY)
+    const target = latest?.wallets.find((w) => w.baseAddress === address)
+    if (
+      !latest ||
+      !target ||
+      JSON.stringify(target.encryptedKeyFile) !== JSON.stringify(wallet.encryptedKeyFile)
+    ) {
+      throw new Error('This wallet changed in another window. Try again.')
+    }
+    target.encryptedKeyFile = encrypted
+    await this.storage.set(STORAGE_KEY, latest)
+
+    // Another document may have written its older copy of the storage between
+    // the re-read and the write, which would restore the old-password keyfile.
+    const written = await this.storage.get<WalletStorage>(STORAGE_KEY)
+    const saved = written?.wallets.find((w) => w.baseAddress === address)
+    if (!saved || JSON.stringify(saved.encryptedKeyFile) !== JSON.stringify(encrypted)) {
+      throw new Error('This wallet changed in another window. Try again.')
+    }
   }
 
   // Rename wallet
@@ -232,7 +354,7 @@ export class WalletService {
     if (!wallet) throw new Error('Wallet not found')
 
     wallet.name = newName
-    await this.storage.set(STORAGE_KEY, data)
+    await this.writeKeepingKeyFiles(data)
   }
 
   // Rename account
@@ -251,7 +373,7 @@ export class WalletService {
     if (!account) throw new Error('Account not found')
 
     account.label = newLabel
-    await this.storage.set(STORAGE_KEY, data)
+    await this.writeKeepingKeyFiles(data)
   }
 
   // Hide / show account
@@ -286,7 +408,7 @@ export class WalletService {
       data.activeAccountAddress = nextVisible?.address ?? null
     }
 
-    await this.storage.set(STORAGE_KEY, data)
+    await this.writeKeepingKeyFiles(data)
   }
 
   // Delete wallet
@@ -302,7 +424,7 @@ export class WalletService {
       data.activeAccountAddress = data.wallets[0]?.accounts[0]?.address ?? null
     }
 
-    await this.storage.set(STORAGE_KEY, data)
+    await this.writeKeepingKeyFiles(data)
 
     // Lock the wallet session
     sessionManager.lock(address)
@@ -319,7 +441,7 @@ export class WalletService {
     data.activeWalletAddress = address
     data.activeAccountAddress = wallet.accounts[0]?.address ?? null
 
-    await this.storage.set(STORAGE_KEY, data)
+    await this.writeKeepingKeyFiles(data)
   }
 
   // Set active account
@@ -342,7 +464,7 @@ export class WalletService {
       throw new Error('Account not found')
     }
 
-    await this.storage.set(STORAGE_KEY, data)
+    await this.writeKeepingKeyFiles(data)
   }
 
   // Sign data with account

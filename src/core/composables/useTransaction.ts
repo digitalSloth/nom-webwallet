@@ -2,7 +2,10 @@ import {ref} from 'vue'
 import {TransactionService} from '../transaction-service'
 import {sessionManager} from '../session-manager'
 import {runActivity} from './useActivity'
+import {trackTransaction} from './useTxTracker'
+import type {TxMeta} from '../send-recorder'
 import type {Wallet} from '@/types'
+import type {AccountBlockTemplate} from 'znn-typescript-sdk'
 
 // Module-level reactive state — shared across every useTransaction() caller
 const isSending = ref(false)
@@ -18,8 +21,9 @@ export function useTransaction() {
     accountAddress: string,
     recipient: string,
     tokenStandard: string,
-    amount: bigint
-  ): Promise<void> {
+    amount: bigint,
+    meta?: TxMeta
+  ): Promise<AccountBlockTemplate> {
     isSending.value = true
     error.value = null
 
@@ -40,8 +44,17 @@ export function useTransaction() {
       const keyPair = keyStore.getKeyPair(account.index)
 
       // Send transaction
-      await runActivity('Sending transaction', async () => {
-        await transactionService.sendTransaction(recipient, tokenStandard, amount, keyPair)
+      const context = meta ? { ...meta, from: accountAddress } : undefined
+      return await runActivity('Sending transaction', async () => {
+        const block = await transactionService.sendTransaction(
+          recipient,
+          tokenStandard,
+          amount,
+          keyPair,
+          context
+        )
+        void trackTransaction(meta?.title ?? 'Send', block, meta)
+        return block
       })
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to send transaction'
@@ -55,8 +68,10 @@ export function useTransaction() {
   async function receiveTransaction(
     wallet: Wallet,
     accountAddress: string,
-    blockHash: string
-  ): Promise<void> {
+    blockHash: string,
+    meta?: TxMeta,
+    beforePublish?: () => unknown
+  ): Promise<AccountBlockTemplate> {
     isReceiving.value = true
     error.value = null
 
@@ -77,8 +92,16 @@ export function useTransaction() {
       const keyPair = keyStore.getKeyPair(account.index)
 
       // Receive transaction
-      await runActivity('Receiving transaction', async () => {
-        await transactionService.receiveTransaction(blockHash, keyPair)
+      const context = meta ? { ...meta, from: accountAddress } : undefined
+      return await runActivity('Receiving transaction', async () => {
+        const block = await transactionService.receiveTransaction(
+          blockHash,
+          keyPair,
+          context,
+          beforePublish
+        )
+        void trackTransaction(meta?.title ?? 'Receive', block, meta)
+        return block
       })
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to receive transaction'

@@ -1,135 +1,103 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
-import { useDappApprovals, useNetwork, useUnlockTarget, useWallet } from '@/core'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useDappApprovals, useNetwork, useWallet } from '@/core'
 import { watchWalletStorage } from '@/core/composables/useDappApprovals'
 import { startInboxBridge } from '@/core/inpage-approval-bridge'
-import { APPROVAL_WINDOW_IDLE_MS } from '@/config'
-import { Button, Heading, Toaster, TooltipProvider, useTheme, useToast } from 'nom-ui'
-import DappApprovalDialog from '@/components/DappApprovalDialog.vue'
-import UnlockWalletDialog from '@/components/UnlockWalletDialog.vue'
+import { whenKeyCacheIdle } from '@/core/key-cache'
+import { Button, Heading, Toaster, TooltipProvider, useTheme } from 'nom-ui'
 import { LockIcon } from 'lucide-vue-next'
+import ApprovalHost from '@/apps/extension/approval/ApprovalHost.vue'
+import PopupFrame from '@/apps/extension/components/PopupFrame.vue'
+import PowOverlay from '@/apps/small/components/PowOverlay.vue'
+import { provideExtensionHost } from '@/apps/extension/small-host'
+import { createIdleWatch } from '@/apps/extension/approval/idle-watch'
 
 /**
- * Root of the approval window (approve.html, §1.8). No router, no header, no
- * WalletConnect — this stays light so it never pays for the pieces only the
- * main app needs (Risk 4).
+ * Root of the approval window (approve.html). No router and no header. A
+ * transaction request loads the signer's plasma, which opens the node
+ * connection. Connect and sign requests never wait on the node.
  */
 
-// A fresh page starts locked, and unlocking costs an Argon2 run — this waits
-// briefly on an empty-and-locked queue rather than closing (and re-charging
-// that cost) the instant the last request settles (§6.6).
+// The window shares the unlock with the popup through the key cache. The
+// grace period keeps the window open briefly on an empty, locked queue so a
+// request that follows at once reuses it.
 const EMPTY_LOCKED_CLOSE_GRACE_MS = 1200
-// How often the idle timer checks elapsed time against APPROVAL_WINDOW_IDLE_MS.
-const IDLE_CHECK_INTERVAL_MS = 5000
-// Input that counts as the user still being here, e.g. reading and scrolling
-// through a long contract call. Captured at the window, since scroll does
-// not bubble out of the dialog's scroll box.
-const ACTIVITY_EVENTS = ['pointerdown', 'pointermove', 'keydown', 'wheel', 'scroll'] as const
+
+// The approval window unlocks through its own approval screens and renders no
+// small page that asks for an unlock.
+provideExtensionHost(() => {})
 
 const wallet = useWallet()
 const { currentApproval, isBusy, settleEmptyLocked } = useDappApprovals()
 const { initTheme } = useTheme()
-const toast = useToast()
 
 const isReady = ref(false)
 const lastOrigin = ref<string | null>(null)
+// The hash of an approved send whose result screen is showing.
+const lastResult = ref<string | null>(null)
 
 watch(currentApproval, (approval) => {
   if (approval) lastOrigin.value = approval.origin
 })
 
-// --- Unlock dialog, matching App.vue's requestUnlock contract ---
-const showUnlockDialog = ref(false)
-const unlockError = ref<string | null>(null)
-const { unlockTarget, pinActiveWallet } = useUnlockTarget(handleCancelUnlock)
-
-function requestUnlock(): void {
-  unlockError.value = null
-  pinActiveWallet()
-  showUnlockDialog.value = true
-}
-provide('requestUnlock', requestUnlock)
-
-async function handleQuickUnlock(password: string) {
-  if (!unlockTarget.value) return
-  try {
-    unlockError.value = null
-    await wallet.unlockWallet(unlockTarget.value.baseAddress, password)
-    toast.show('Wallet unlocked!', 'success')
-    showUnlockDialog.value = false
-  } catch (error) {
-    unlockError.value =
-      error instanceof Error ? error.message : 'Failed to unlock wallet. Please check your password.'
-  }
-}
-
-function handleCancelUnlock(): void {
-  showUnlockDialog.value = false
-  unlockError.value = null
-}
-
 // --- Window lifetime (§6.6) ---
-let lastActivityAt = Date.now()
-let idleTimer: ReturnType<typeof setInterval> | undefined
 let emptyLockedTimer: ReturnType<typeof setTimeout> | undefined
 let stopWalletStorage: (() => void) | undefined
 
-function noteActivity(): void {
-  lastActivityAt = Date.now()
-}
+const idleWatch = createIdleWatch({
+  isBusy: () => isBusy.value,
+  onIdle: () => window.close(),
+})
+const noteActivity = idleWatch.touch
 
-function lockAndClose(): void {
-  if (wallet.activeWallet.value && wallet.isActiveWalletUnlocked.value) {
-    wallet.lockWallet(wallet.activeWallet.value.baseAddress)
-  }
+function closeWindow(): void {
   window.close()
 }
 
-watch([currentApproval, () => wallet.isActiveWalletUnlocked.value], ([approval, unlocked]) => {
-  noteActivity()
-  if (emptyLockedTimer) {
-    clearTimeout(emptyLockedTimer)
-    emptyLockedTimer = undefined
-  }
-  // Queue empty and locked → close after a short grace period. Queue empty
-  // and unlocked → stay open in the idle state below. After a refused
-  // approve the window stays open so the explanation stays readable, and
-  // the idle timer or "Lock and close" closes it.
-  if (!approval && !unlocked) {
-    emptyLockedTimer = setTimeout(() => {
-      settleEmptyLocked(() => window.close())
-    }, EMPTY_LOCKED_CLOSE_GRACE_MS)
-  }
-})
+async function lockAndClose(): Promise<void> {
+  wallet.lockAllWallets()
+  await whenKeyCacheIdle()
+  window.close()
+}
 
-watch(showUnlockDialog, noteActivity)
+watch(
+  [currentApproval, () => wallet.isActiveWalletUnlocked.value, lastResult],
+  ([approval, unlocked, result]) => {
+    noteActivity()
+    if (emptyLockedTimer) {
+      clearTimeout(emptyLockedTimer)
+      emptyLockedTimer = undefined
+    }
+    // Queue empty and locked → close after a short grace period. Queue empty
+    // and unlocked → stay open in the idle state below. After a refused
+    // approve the window stays open so the explanation stays readable, and
+    // the idle timer or "Lock and close" closes it.
+    // A result on screen keeps the window open until Close, Next or the idle
+    // close.
+    if (!approval && !unlocked && result === null) {
+      emptyLockedTimer = setTimeout(() => {
+        settleEmptyLocked(() => window.close())
+      }, EMPTY_LOCKED_CLOSE_GRACE_MS)
+    }
+  }
+)
 
 onMounted(async () => {
-  for (const name of ACTIVITY_EVENTS) {
-    window.addEventListener(name, noteActivity, { capture: true, passive: true })
-  }
   stopWalletStorage = watchWalletStorage()
 
   await initTheme()
   await wallet.ensureLoaded()
-  // The saved chain and node, for display only — no node connection, so an
-  // unreachable node never holds up a connect or sign request.
+  // The saved chain and node, for display only. No node connection opens
+  // here, so an unreachable node never holds up a connect or sign request.
   await useNetwork().loadConfig()
-  startInboxBridge()
+  startInboxBridge({ kind: 'window' })
   isReady.value = true
 
-  idleTimer = setInterval(() => {
-    if (!isBusy.value && Date.now() - lastActivityAt >= APPROVAL_WINDOW_IDLE_MS) {
-      lockAndClose()
-    }
-  }, IDLE_CHECK_INTERVAL_MS)
+  idleWatch.start()
 })
 
 onBeforeUnmount(() => {
-  for (const name of ACTIVITY_EVENTS) {
-    window.removeEventListener(name, noteActivity, { capture: true })
-  }
-  if (idleTimer) clearInterval(idleTimer)
+  idleWatch.stop()
   if (emptyLockedTimer) clearTimeout(emptyLockedTimer)
   stopWalletStorage?.()
 })
@@ -137,37 +105,33 @@ onBeforeUnmount(() => {
 
 <template>
   <TooltipProvider disable-hoverable-content>
-    <div class="flex min-h-screen flex-col bg-background p-4">
-      <Toaster class="pointer-events-auto" />
-
-      <template v-if="isReady">
-        <!-- Idle state: no pending approval, wallet unlocked — stay open (§6.6). -->
-        <div
-          v-if="!currentApproval && !showUnlockDialog"
-          class="flex flex-1 flex-col items-center justify-center gap-3 text-center"
-        >
-          <Heading as="h3" :level="4">Connected</Heading>
-          <p class="text-sm text-muted-foreground">
-            {{ lastOrigin ? `Waiting for requests from ${lastOrigin}` : 'Waiting for requests' }}
-          </p>
-          <Button variant="outline" :disabled="isBusy" @click="lockAndClose">
+    <Toaster class="pointer-events-auto" />
+    <PopupFrame>
+      <ApprovalHost v-model:result="lastResult" close-label="Close" @close="closeWindow">
+        <template #result-actions>
+          <Button variant="ghost" class="w-full" :disabled="isBusy" @click="lockAndClose">
             <LockIcon class="h-4 w-4" />
             Lock and close
           </Button>
-        </div>
-
-        <DappApprovalDialog :unlock-dialog-open="showUnlockDialog" />
-
-        <UnlockWalletDialog
-          v-if="unlockTarget"
-          v-model:open="showUnlockDialog"
-          :wallet-address="unlockTarget.baseAddress"
-          :wallet-name="unlockTarget.name"
-          :unlock-error="unlockError"
-          @unlock="handleQuickUnlock"
-          @cancel="handleCancelUnlock"
-        />
-      </template>
-    </div>
+        </template>
+        <template #idle>
+          <!-- Idle state: no pending approval, wallet unlocked. Stay open. -->
+          <div
+            v-if="isReady"
+            class="flex flex-1 flex-col items-center justify-center gap-3 p-4 text-center"
+          >
+            <Heading as="h3" :level="4">Connected</Heading>
+            <p class="text-sm text-muted-foreground">
+              {{ lastOrigin ? `Waiting for requests from ${lastOrigin}` : 'Waiting for requests' }}
+            </p>
+            <Button variant="outline" :disabled="isBusy" @click="lockAndClose">
+              <LockIcon class="h-4 w-4" />
+              Lock and close
+            </Button>
+          </div>
+        </template>
+      </ApprovalHost>
+      <PowOverlay />
+    </PopupFrame>
   </TooltipProvider>
 </template>

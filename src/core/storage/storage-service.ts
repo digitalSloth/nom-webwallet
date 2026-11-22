@@ -58,6 +58,13 @@ class StorageService implements StorageAdapter {
   }
 
   /**
+   * Subscribe to key changes. Returns the unsubscribe function.
+   */
+  onChange(listener: (key: string, value: unknown) => void): () => void {
+    return this.adapter.onChange(listener)
+  }
+
+  /**
    * Get the current adapter type for debugging purposes
    */
   getAdapterType(): string {

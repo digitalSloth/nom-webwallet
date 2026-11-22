@@ -5,6 +5,17 @@ import type { IWalletConnectClient, WalletConnectClientHandlers } from '@/core/w
 const ACCOUNT = 'z1qyqszqgpqyqszqgpqyqszqgpqyqszqgp3cfdqg'
 const stored = { chainId: 1 }
 const toastError = vi.fn()
+const mocks = vi.hoisted(() => ({ store: new Map<string, unknown>() }))
+const META_KEY = 'nom-wallet-wc-session-meta'
+
+vi.mock('@/core/storage/storage-service', () => ({
+  storageService: {
+    get: async (key: string) => (mocks.store.has(key) ? mocks.store.get(key) : null),
+    set: async (key: string, value: unknown) => {
+      mocks.store.set(key, structuredClone(value))
+    },
+  },
+}))
 
 vi.mock('vue-sonner', () => ({ toast: { error: toastError } }))
 vi.mock('@/core/wallet-service', () => ({
@@ -63,12 +74,18 @@ function proposal(overrides: Record<string, unknown> = {}, verifyContext: unknow
   } as unknown as Parameters<WalletConnectClientHandlers['onProposal']>[0]
 }
 
+/** Lets the un-awaited storage work run to completion. */
+async function settleMeta(): Promise<void> {
+  for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0))
+}
+
 /** Lets the un-awaited handler promises run. */
 async function flush(): Promise<void> {
   for (let i = 0; i < 10; i++) await Promise.resolve()
 }
 
 beforeEach(async () => {
+  mocks.store.clear()
   vi.resetModules()
   vi.stubGlobal('__IS_EXTENSION__', false)
   stored.chainId = 1
@@ -78,7 +95,7 @@ beforeEach(async () => {
     }),
     pair: vi.fn(),
     listSessions: vi.fn(() => [session('t'), session('u')]),
-    approveProposal: vi.fn(async () => {}),
+    approveProposal: vi.fn(async () => 'topic-new'),
     rejectProposal: vi.fn(async () => {}),
     respond: vi.fn(async () => {}),
     respondError: vi.fn(async () => {}),
@@ -282,5 +299,121 @@ describe('WalletConnect initialize', () => {
     await expect(fresh.initialize(client)).rejects.toThrow('relay unreachable')
     await expect(fresh.initialize(client)).resolves.toBeUndefined()
     expect(client.init).toHaveBeenCalledTimes(3) // once in beforeEach, twice here
+  })
+})
+
+describe('WalletConnect session meta', () => {
+  it('stores the verification and approval time under the new session topic', async () => {
+    client.listSessions.mockReturnValue([session('topic-new')])
+    handlers.onProposal(proposal())
+    await flush()
+    const [pending] = approvals.listApprovals()
+
+    await approvals.getHandlers(pending.id)?.resolve({ kind: 'connect', address: ACCOUNT })
+
+    expect(mocks.store.get(META_KEY)).toEqual({
+      'topic-new': { verification: 'valid', approvedAt: expect.any(Number) },
+    })
+    const stored = mocks.store.get(META_KEY) as Record<string, { approvedAt: number }>
+    expect(stored['topic-new'].approvedAt).toBeGreaterThan(0)
+  })
+
+  it('stores nothing when the proposal is rejected', async () => {
+    handlers.onProposal(proposal())
+    await flush()
+    const [pending] = approvals.listApprovals()
+
+    await approvals.getHandlers(pending.id)?.reject({ reason: 'userRejected' })
+    await settleMeta()
+
+    expect(client.rejectProposal).toHaveBeenCalled()
+    expect(mocks.store.has(META_KEY)).toBe(false)
+  })
+
+  it('still approves the session when the meta cannot be stored', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const meta = await import('@/core/walletconnect-session-meta')
+    vi.spyOn(meta, 'recordSessionMeta').mockRejectedValueOnce(new Error('disk'))
+    client.listSessions.mockReturnValue([session('topic-new')])
+    handlers.onProposal(proposal())
+    await flush()
+    const [pending] = approvals.listApprovals()
+
+    await approvals.getHandlers(pending.id)?.resolve({ kind: 'connect', address: ACCOUNT })
+
+    expect(client.approveProposal).toHaveBeenCalled()
+    expect(console.error).toHaveBeenCalled()
+  })
+
+  describe('pruning', () => {
+    const live = { verification: 'valid', approvedAt: 5 }
+
+    async function freshService(): Promise<{
+      deliver(list: unknown[]): void
+      finishInit(): void
+      initialized: Promise<void>
+    }> {
+      vi.resetModules()
+      const { WalletConnectService } = await import('@/core/walletconnect-service')
+      const fresh = WalletConnectService.getInstance()
+      let capture!: WalletConnectClientHandlers
+      let finish!: () => void
+      const gate = new Promise<void>((resolve) => (finish = resolve))
+      const slow = {
+        ...client,
+        init: vi.fn(async (h: WalletConnectClientHandlers) => {
+          capture = h
+          h.onSessionsChanged([])
+          await gate
+        }),
+      } as unknown as IWalletConnectClient
+      const initialized = fresh.initialize(slow)
+      await flush()
+      return {
+        deliver: (list) => capture.onSessionsChanged(list as never),
+        finishInit: finish,
+        initialized,
+      }
+    }
+
+    it('prunes nothing for lists delivered before init resolves', async () => {
+      mocks.store.set(META_KEY, { t: live })
+      const svc = await freshService()
+      svc.deliver([])
+      await settleMeta()
+
+      expect(mocks.store.get(META_KEY)).toEqual({ t: live })
+
+      svc.finishInit()
+      await svc.initialized
+    })
+
+    it('keeps the meta of a session restored by init and removes it when the session ends', async () => {
+      mocks.store.set(META_KEY, { t: live })
+      const svc = await freshService()
+      svc.deliver([session('t')])
+
+      svc.finishInit()
+      await svc.initialized
+      await settleMeta()
+      expect(mocks.store.get(META_KEY)).toEqual({ t: live })
+
+      svc.deliver([])
+      await settleMeta()
+
+      expect(mocks.store.get(META_KEY)).toEqual({})
+    })
+
+    it('prunes the meta of a session that is not in the restored list', async () => {
+      mocks.store.set(META_KEY, { t: live, gone: live })
+      const svc = await freshService()
+      svc.deliver([session('t')])
+
+      svc.finishInit()
+      await svc.initialized
+      await settleMeta()
+
+      expect(mocks.store.get(META_KEY)).toEqual({ t: live })
+    })
   })
 })

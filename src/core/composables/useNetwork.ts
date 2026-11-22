@@ -1,8 +1,15 @@
-import {ref} from 'vue'
-import {readPersistedChainId, readPersistedNetworkId, ZenonService} from '../zenon-service'
-import {TransactionService} from '../transaction-service'
-import {DEFAULT_NODE_URL, STORAGE_KEY_CHAIN_ID, STORAGE_KEY_NETWORK_ID, STORAGE_KEY_SELECTED_NODE,} from '@/config'
-import {storageService} from '../storage/storage-service'
+import { ref } from 'vue'
+import { readPersistedChainId, readPersistedNetworkId, ZenonService } from '../zenon-service'
+import { TransactionService } from '../transaction-service'
+import {
+  DEFAULT_NODE_URL,
+  STORAGE_KEY_CHAIN_ID,
+  STORAGE_KEY_NETWORK_ID,
+  STORAGE_KEY_SELECTED_NODE,
+} from '@/config'
+import { storageService } from '../storage/storage-service'
+import type { NodeEntry } from '@/types'
+import { nodeDown, reportNodeFailure, reportNodeSuccess, startNodeRetry } from '../node-health'
 
 // Module-level reactive state — shared across every useNetwork() caller
 const isConnected = ref(false)
@@ -13,12 +20,30 @@ const currentMomentum = ref<number>(0)
 const chainId = ref<number>(1)
 const networkId = ref<number>(1)
 
+/** Opt-in behaviour. Defaults to false; each app turns it on in its init. */
+let networkOptions = { nodeRetry: false }
+
+export function configureNetwork(options: { nodeRetry: boolean }): void {
+  networkOptions = { ...options }
+}
+
+export class NodeChainMismatchError extends Error {
+  constructor(
+    readonly nodeChainId: number,
+    readonly expectedChainId: number
+  ) {
+    super(`Node is on chain ID ${nodeChainId}, expected chain ID ${expectedChainId}`)
+    this.name = 'NodeChainMismatchError'
+  }
+}
+
 export function useNetwork() {
   const zenonService = ZenonService.getInstance()
   const transactionService = TransactionService.getInstance()
 
   // Verify connection by making a real API call
-  async function checkConnection() {
+  // Returns the node's chain id, or null when the node did not answer.
+  async function checkConnection(): Promise<number | null> {
     isChecking.value = true
     error.value = null
 
@@ -27,66 +52,94 @@ export function useNetwork() {
       const momentum = await zenonService.getZenon().ledger.getFrontierMomentum()
       currentMomentum.value = momentum.height
       isConnected.value = true
+      reportNodeSuccess()
+      return momentum.chainIdentifier
     } catch (err) {
       isConnected.value = false
+      reportNodeFailure()
       error.value = err instanceof Error ? err.message : 'Connection failed'
       console.error('Failed to check connection:', err)
+      return null
     } finally {
       isChecking.value = false
     }
   }
 
-  // Change node and persist
-  async function changeNode(nodeUrl: string) {
+  // Connect to a node, check it serves the entry's chain, then persist the
+  // node with its chain and network ID and apply them. A failure at any step
+  // restores the previous node and IDs.
+  async function selectNode(entry: NodeEntry) {
     isChecking.value = true
     error.value = null
 
-    const previousNode = currentNode.value
+    const previous = {
+      url: currentNode.value,
+      chainId: chainId.value,
+      networkId: networkId.value,
+    }
+    let persistStarted = false
+    let reachedNode = false
     try {
-      currentNode.value = nodeUrl
-      await zenonService.changeNode(nodeUrl)
-      await checkConnection()
-      if (!isConnected.value) {
+      currentNode.value = entry.url
+      await zenonService.changeNode(entry.url)
+      const nodeChainId = await checkConnection()
+      if (nodeChainId === null) {
         // checkConnection() swallows its error but records the reason in
         // error.value — surface it so the caller can report the failure.
         throw new Error(error.value ?? 'Failed to connect to node')
       }
+      reachedNode = true
+      if (nodeChainId !== entry.chainId) {
+        throw new NodeChainMismatchError(nodeChainId, entry.chainId)
+      }
       // Persist only after the node is proven reachable, so a node that can't
-      // connect is never stored and reapplied on next boot.
-      await storageService.set(STORAGE_KEY_SELECTED_NODE, nodeUrl)
+      // connect is never stored and reapplied on next boot. The IDs apply to
+      // the live session only once they are stored.
+      persistStarted = true
+      await Promise.all([
+        storageService.set(STORAGE_KEY_SELECTED_NODE, entry.url),
+        storageService.set(STORAGE_KEY_CHAIN_ID, entry.chainId),
+        storageService.set(STORAGE_KEY_NETWORK_ID, entry.networkId),
+      ])
+      ZenonService.updateNetworkConfig(entry.chainId, entry.networkId)
+      chainId.value = entry.chainId
+      networkId.value = entry.networkId
     } catch (err) {
-      currentNode.value = previousNode
+      currentNode.value = previous.url
       isConnected.value = false
-      error.value = err instanceof Error ? err.message : 'Failed to change node'
-      // The service may have connected to the new (unverified) node before the
-      // verification call failed. Restore the previous node so the service and UI
-      // don't disagree, and so the next operation doesn't silently reuse the bad
-      // node. Best-effort — never mask the original failure.
-      if (zenonService.getNodeUrl() !== previousNode) {
+      const failure = err instanceof Error ? err.message : 'Failed to change node'
+      error.value = failure
+      if (persistStarted) {
         try {
-          await zenonService.changeNode(previousNode)
-          isConnected.value = zenonService.isConnected()
+          await Promise.all([
+            storageService.set(STORAGE_KEY_SELECTED_NODE, previous.url),
+            storageService.set(STORAGE_KEY_CHAIN_ID, previous.chainId),
+            storageService.set(STORAGE_KEY_NETWORK_ID, previous.networkId),
+          ])
         } catch {
           // ignore — surfacing the original error is what matters
         }
       }
+      // The service may have connected to the new (unverified) node before the
+      // verification call failed. Restore the previous node so the service and UI
+      // don't disagree, and so the next operation doesn't silently reuse the bad
+      // node. Best-effort — never mask the original failure.
+      if (zenonService.getNodeUrl() !== previous.url) {
+        try {
+          await zenonService.changeNode(previous.url)
+          await checkConnection()
+        } catch {
+          // ignore — surfacing the original error is what matters
+        }
+      } else if (reachedNode) {
+        isConnected.value = true
+      }
+      // checkConnection() clears error.value; keep the original failure.
+      error.value = failure
       throw err
     } finally {
       isChecking.value = false
     }
-  }
-
-  // Persist chain/network IDs, then apply them to the SDK and reactive state.
-  // Writing first means a failed save (which rejects to the caller) never leaves
-  // the live session on un-persisted IDs that would silently revert on reboot.
-  async function updateNetworkConfig(newChainId: number, newNetworkId: number) {
-    await Promise.all([
-      storageService.set(STORAGE_KEY_CHAIN_ID, newChainId),
-      storageService.set(STORAGE_KEY_NETWORK_ID, newNetworkId),
-    ])
-    ZenonService.updateNetworkConfig(newChainId, newNetworkId)
-    chainId.value = newChainId
-    networkId.value = newNetworkId
   }
 
   // Load frontier momentum
@@ -113,6 +166,7 @@ export function useNetwork() {
     currentNode.value = zenonService.getNodeUrl()
     chainId.value = zenonService.getChainId()
     networkId.value = zenonService.getNetworkId()
+    if (networkOptions.nodeRetry) startNodeRetry(checkConnection)
   }
 
   // Mirror the persisted node + network config into reactive state without
@@ -126,7 +180,7 @@ export function useNetwork() {
 
   // Adopt the chain/network IDs another extension window persisted, without
   // writing them back. Applies them to the SDK and reactive state, as
-  // updateNetworkConfig() does after its own write.
+  // selectNode() does after its own write.
   async function syncNetworkConfig() {
     const [storedChainId, storedNetworkId] = await Promise.all([
       readPersistedChainId(),
@@ -142,6 +196,7 @@ export function useNetwork() {
     isConnected,
     currentNode,
     isChecking,
+    nodeDown,
     error,
     currentMomentum,
     chainId,
@@ -149,8 +204,7 @@ export function useNetwork() {
 
     // Methods
     checkConnection,
-    changeNode,
-    updateNetworkConfig,
+    selectNode,
     initialize,
     loadConfig,
     syncNetworkConfig,

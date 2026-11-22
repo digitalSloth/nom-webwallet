@@ -25,4 +25,19 @@ export class ChromeStorageAdapter implements StorageAdapter {
 
     await chrome.storage.local.remove(key)
   }
+
+  onChange(listener: (key: string, value: unknown) => void): () => void {
+    if (typeof chrome === 'undefined' || !chrome.storage) {
+      throw new Error('Chrome storage API not available')
+    }
+
+    const handle = (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => {
+      if (areaName !== 'local') return
+      for (const [key, change] of Object.entries(changes)) {
+        listener(key, change.newValue ?? null)
+      }
+    }
+    chrome.storage.onChanged.addListener(handle)
+    return () => chrome.storage.onChanged.removeListener(handle)
+  }
 }

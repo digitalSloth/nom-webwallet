@@ -3,7 +3,10 @@ import {PillarService} from '../pillar-service'
 import {TransactionService} from '../transaction-service'
 import {sessionManager} from '../session-manager'
 import {runActivity} from './useActivity'
-import type {PillarInfo} from 'znn-typescript-sdk'
+import {trackTransaction} from './useTxTracker'
+import {AccountService} from '../account-service'
+import type {TxMeta} from '../send-recorder'
+import type {AccountBlockTemplate, PillarInfo} from 'znn-typescript-sdk'
 import type {Wallet} from '@/types'
 
 // Constants for APR calculation
@@ -19,11 +22,20 @@ export interface PillarWithApr extends PillarInfo {
   delegateApr: number
 }
 
+export interface Delegation {
+  name: string
+  /** Raw ZNN base units, from DelegationInfo.weight. */
+  weight: string
+}
+
 // Module-level reactive state — shared across every usePillar() caller
 const pillars = ref<PillarWithApr[]>([])
 const isLoading = ref(false)
 const isDelegating = ref(false)
 const error = ref<string | null>(null)
+const delegation = ref<Delegation | null>(null)
+const delegationFor = ref<string | null>(null)
+let latestDelegationLoad = 0
 
 export function usePillar() {
   const pillarService = PillarService.getInstance()
@@ -140,13 +152,69 @@ export function usePillar() {
     }
   }
 
+  // Load the pillar the address delegates to
+  async function loadDelegation(address: string) {
+    const load = ++latestDelegationLoad
+    const info = await AccountService.getInstance().getDelegatedPillar(address)
+    // A newer load owns the state; an older response must not overwrite it.
+    if (load !== latestDelegationLoad) return
+    delegation.value = info?.name ? { name: info.name, weight: info.weight.toString() } : null
+    delegationFor.value = address
+  }
+
+  // Undelegate from the current pillar
+  async function undelegate(
+    wallet: Wallet,
+    accountAddress: string,
+    meta?: TxMeta
+  ): Promise<AccountBlockTemplate> {
+    isDelegating.value = true
+    error.value = null
+
+    try {
+      // Get keyStore
+      const keyStore = sessionManager.getKeyStore(wallet.baseAddress)
+      if (!keyStore) {
+        throw new Error('Wallet is locked. Please unlock it first.')
+      }
+
+      // Find account
+      const account = wallet.accounts.find((acc) => acc.address === accountAddress)
+      if (!account) {
+        throw new Error('Account not found')
+      }
+
+      // Get keypair
+      const keyPair = keyStore.getKeyPair(account.index)
+
+      const context = meta ? { ...meta, from: accountAddress } : undefined
+      return await runActivity('Undelegating', async () => {
+        const block = pillarService.createUndelegateBlock()
+        const sent = await transactionService.sendEmbeddedContractBlock(
+          block,
+          keyPair,
+          undefined,
+          context
+        )
+        void trackTransaction(meta?.title ?? 'Undelegate', sent, meta)
+        return sent
+      })
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to undelegate'
+      throw err
+    } finally {
+      isDelegating.value = false
+    }
+  }
+
   // Delegate to a pillar (with optional auto-undelegate)
   async function delegateToPillar(
     wallet: Wallet,
     accountAddress: string,
     pillarName: string,
-    shouldUndelegate: boolean = false
-  ): Promise<void> {
+    shouldUndelegate: boolean = false,
+    meta?: TxMeta
+  ): Promise<AccountBlockTemplate> {
     isDelegating.value = true
     error.value = null
 
@@ -170,17 +238,29 @@ export function usePillar() {
         ? 'Step 1/2: Removing current delegation'
         : `Delegating to ${pillarName}`
 
-      await runActivity(initialStep, async ({ setStep }) => {
+      const context = meta ? { ...meta, from: accountAddress } : undefined
+      return await runActivity(initialStep, async ({ setStep }) => {
         // First undelegate if needed
         if (shouldUndelegate) {
           const undelegateBlock = pillarService.createUndelegateBlock()
-          await transactionService.sendEmbeddedContractBlock(undelegateBlock, keyPair)
+          const undelegated = await transactionService.sendEmbeddedContractBlock(
+            undelegateBlock,
+            keyPair
+          )
+          trackTransaction('Undelegate', undelegated)
           setStep(`Step 2/2: Delegating to ${pillarName}`)
         }
 
         // Then delegate to new pillar
         const delegateBlock = pillarService.createDelegateBlock(pillarName)
-        await transactionService.sendEmbeddedContractBlock(delegateBlock, keyPair)
+        const delegated = await transactionService.sendEmbeddedContractBlock(
+          delegateBlock,
+          keyPair,
+          undefined,
+          context
+        )
+        void trackTransaction(meta?.title ?? `Delegate to ${pillarName}`, delegated, meta)
+        return delegated
       })
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to delegate to pillar'
@@ -196,9 +276,13 @@ export function usePillar() {
     isLoading,
     isDelegating,
     error,
+    delegation,
+    delegationFor,
 
     // Methods
     loadPillars,
+    loadDelegation,
+    undelegate,
     delegateToPillar,
   }
 }

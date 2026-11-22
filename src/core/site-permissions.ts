@@ -17,6 +17,8 @@ export interface SitePermission {
   favicon?: string
   connectedAt: number
   lastUsedAt: number
+  /** Accounts whose encrypted messages and inscriptions this origin may decrypt. */
+  messageAccounts?: string[]
 }
 
 type PermissionsMap = Record<string, SitePermission>
@@ -49,6 +51,7 @@ export function grant(
       favicon: meta.favicon ?? existing?.favicon,
       connectedAt: existing?.connectedAt ?? now,
       lastUsedAt: now,
+      ...(existing?.messageAccounts && { messageAccounts: existing.messageAccounts }),
     }
     await writeAll(map)
   })
@@ -59,6 +62,34 @@ export function revoke(origin: string): Promise<void> {
   return exclusive(async () => {
     const map = await readAll()
     delete map[origin]
+    await writeAll(map)
+  })
+}
+
+/** Lets a connected origin decrypt the account's messages. A no-op when the origin has no entry. */
+export function grantMessages(origin: string, account: string): Promise<void> {
+  if (!__IS_EXTENSION__) return Promise.resolve()
+  return exclusive(async () => {
+    const map = await readAll()
+    const existing = map[origin]
+    if (!existing) return
+    const accounts = existing.messageAccounts ?? []
+    if (accounts.includes(account)) return
+    map[origin] = { ...existing, messageAccounts: [...accounts, account] }
+    await writeAll(map)
+  })
+}
+
+/** Removes the origin's message access only. The site stays connected. */
+export function revokeMessages(origin: string): Promise<void> {
+  if (!__IS_EXTENSION__) return Promise.resolve()
+  return exclusive(async () => {
+    const map = await readAll()
+    const existing = map[origin]
+    if (!existing?.messageAccounts) return
+    const rest = { ...existing }
+    delete rest.messageAccounts
+    map[origin] = rest
     await writeAll(map)
   })
 }
@@ -90,6 +121,33 @@ export async function isGranted(origin: string): Promise<boolean> {
   if (!__IS_EXTENSION__) return false
   const map = await readAll()
   return origin in map
+}
+
+/**
+ * Whether an origin may hold or use message access: `https:`, or a loopback
+ * host (`localhost`, `127.0.0.1`, `[::1]`, `*.localhost`) on http or https.
+ * A plain-http origin can be rewritten by anyone on the network path, and the
+ * opaque origin `null` is shared by every sandboxed frame.
+ */
+export function isSecureMessageOrigin(origin: string): boolean {
+  let url: URL
+  try {
+    url = new URL(origin)
+  } catch {
+    return false
+  }
+  if (url.protocol === 'https:') return true
+  if (url.protocol !== 'http:') return false
+  const host = url.hostname
+  return (
+    host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host.endsWith('.localhost')
+  )
+}
+
+export async function canReadMessages(origin: string, account: string): Promise<boolean> {
+  if (!__IS_EXTENSION__) return false
+  const map = await readAll()
+  return map[origin]?.messageAccounts?.includes(account) === true
 }
 
 export async function list(): Promise<SitePermission[]> {

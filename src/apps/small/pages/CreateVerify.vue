@@ -1,0 +1,110 @@
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { Button } from 'nom-ui'
+import { useWallet } from '@/core'
+import SetupHeader from '../components/SetupHeader.vue'
+import { clearSetupDraft, getSetupDraft } from '@/shared/lib/create-draft'
+import { allChallengesPassed, cryptoRandom, pickChallenges } from '@/shared/lib/verify-phrase'
+
+const router = useRouter()
+const wallet = useWallet()
+
+// Read once. A remount after the draft was cleared renders nothing.
+const draft = getSetupDraft()
+const createDraft = draft?.kind === 'create' && draft.mnemonic !== null ? draft : null
+const words = createDraft?.mnemonic?.split(' ') ?? []
+const challenges = createDraft ? pickChallenges(words, cryptoRandom) : []
+
+// Picked word per 1-based position
+const picks = ref<Record<number, string>>({})
+const busy = ref(false)
+const error = ref<string | null>(null)
+
+function isRight(position: number, pick: string): boolean {
+  return pick === words[position - 1]
+}
+
+const allRight = computed(() => allChallengesPassed(words, challenges, picks.value))
+
+function pickClass(position: number, choice: string): string {
+  const pick = picks.value[position]
+  if (pick !== choice) return 'border-border'
+  return isRight(position, choice) ? 'border-primary bg-accent' : 'border-destructive'
+}
+
+async function create(): Promise<void> {
+  if (!createDraft || !allRight.value || busy.value) return
+  busy.value = true
+  error.value = null
+  try {
+    await wallet.importWallet(
+      createDraft.mnemonic!,
+      createDraft.password,
+      createDraft.name || 'Main wallet'
+    )
+    clearSetupDraft()
+    await router.replace('/')
+  } catch (err) {
+    error.value = `Could not create the wallet: ${err instanceof Error ? err.message : 'unknown error'}`
+  } finally {
+    busy.value = false
+  }
+}
+</script>
+
+<template>
+  <div v-if="createDraft" class="flex h-full flex-col">
+    <SetupHeader
+      label="Create wallet · Step 3 of 3"
+      :step="3"
+      :steps="3"
+      :back-disabled="busy"
+      @back="router.push({ name: 'create-phrase' })"
+    />
+
+    <div class="flex flex-1 flex-col gap-4 overflow-y-auto px-5 pt-3 pb-5">
+      <div class="space-y-1">
+        <h1 class="text-xl font-semibold">Confirm your phrase</h1>
+        <p class="text-sm text-muted-foreground">Pick the correct word for each position.</p>
+      </div>
+
+      <fieldset v-for="challenge in challenges" :key="challenge.position" class="space-y-2">
+        <legend class="text-sm font-medium">
+          Word <span class="font-mono tabular-nums">#{{ challenge.position }}</span>
+        </legend>
+        <div class="grid grid-cols-3 gap-2">
+          <button
+            v-for="choice in challenge.choices"
+            :key="choice"
+            type="button"
+            class="rounded-md border bg-card px-2 py-2 font-mono text-sm"
+            :class="pickClass(challenge.position, choice)"
+            :aria-pressed="picks[challenge.position] === choice"
+            :disabled="busy"
+            @click="picks[challenge.position] = choice"
+          >
+            {{ choice }}
+          </button>
+        </div>
+        <p
+          v-if="
+            picks[challenge.position] !== undefined &&
+            !isRight(challenge.position, picks[challenge.position])
+          "
+          role="alert"
+          class="text-xs text-destructive"
+        >
+          That's not word #{{ challenge.position }}. Check your written copy.
+        </p>
+      </fieldset>
+
+      <p v-if="error" role="alert" class="text-xs text-destructive">{{ error }}</p>
+
+      <div class="flex-1" />
+      <Button size="lg" class="w-full" :disabled="!allRight || busy" @click="create">
+        {{ busy ? 'Creating…' : 'Create wallet' }}
+      </Button>
+    </div>
+  </div>
+</template>

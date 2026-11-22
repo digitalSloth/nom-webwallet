@@ -1,6 +1,7 @@
 import {computed, ref} from 'vue'
 import {WalletService} from '../wallet-service'
 import type {Wallet} from '@/types'
+import {removeSendRecordsFrom} from '../local-send-recorder'
 
 // Module-level reactive state — shared across every useWallet() caller
 const wallets = ref<Wallet[]>([])
@@ -10,7 +11,7 @@ const unlockedWallets = ref<string[]>([])
 const isLoading = ref(false)
 const error = ref<string | null>(null)
 
-// Cached one-time initial load — shared so the router guard and App.vue
+// Cached one-time initial load — shared so the router guard and the app shell
 // don't each trigger a separate load on startup.
 let loadPromise: Promise<boolean> | null = null
 
@@ -55,23 +56,6 @@ export function useWallet() {
     await (loadPromise ??= loadWalletData())
   }
 
-  // Create new wallet
-  async function createWallet(password: string, name?: string): Promise<Wallet> {
-    isLoading.value = true
-    error.value = null
-
-    try {
-      const wallet = await walletService.createWallet(password, name)
-      await loadWalletData()
-      return wallet
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to create wallet'
-      throw err
-    } finally {
-      isLoading.value = false
-    }
-  }
-
   // Import wallet from mnemonic
   async function importWallet(mnemonic: string, password: string, name?: string): Promise<Wallet> {
     isLoading.value = true
@@ -89,6 +73,23 @@ export function useWallet() {
     }
   }
 
+  // Import a phrase, or restore the existing wallet it belongs to under a new password
+  async function restoreWallet(mnemonic: string, password: string, name?: string): Promise<Wallet> {
+    isLoading.value = true
+    error.value = null
+
+    try {
+      const wallet = await walletService.restoreWallet(mnemonic, password, name)
+      await loadWalletData()
+      return wallet
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to restore wallet'
+      throw err
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   // Unlock wallet
   async function unlockWallet(address: string, password: string): Promise<void> {
     error.value = null
@@ -96,8 +97,6 @@ export function useWallet() {
     try {
       await walletService.unlockWallet(address, password)
       await loadWalletData()
-      // Notify listeners that lock state changed
-      window.dispatchEvent(new CustomEvent('wallet-status-changed'))
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to unlock wallet'
       throw err
@@ -108,16 +107,12 @@ export function useWallet() {
   function lockWallet(address: string): void {
     walletService.lockWallet(address)
     unlockedWallets.value = walletService.getUnlockedWallets()
-    // Notify listeners that lock state changed
-    window.dispatchEvent(new CustomEvent('wallet-status-changed'))
   }
 
   // Lock all wallets
   function lockAllWallets(): void {
     walletService.lockAll()
     unlockedWallets.value = []
-    // Notify listeners that lock state changed
-    window.dispatchEvent(new CustomEvent('wallet-status-changed'))
   }
 
   // Set active wallet
@@ -198,7 +193,12 @@ export function useWallet() {
     error.value = null
 
     try {
+      const removed = wallets.value.find((w) => w.baseAddress === address)
       await walletService.deleteWallet(address)
+      if (removed) {
+        const addresses = new Set(removed.accounts.map((a) => a.address))
+        await removeSendRecordsFrom(addresses)
+      }
       await loadWalletData()
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to delete wallet'
@@ -206,14 +206,15 @@ export function useWallet() {
     }
   }
 
-  // Export mnemonic (requires unlocked wallet)
-  function exportMnemonic(address: string): string {
-    try {
-      return walletService.exportMnemonic(address)
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to export mnemonic'
-      throw err
-    }
+  // Export mnemonic after verifying the wallet password
+  async function exportMnemonicWithPassword(address: string, password: string): Promise<string> {
+    return walletService.exportMnemonicWithPassword(address, password)
+  }
+
+  // Re-encrypt a wallet's key file under a new password
+  async function changePassword(address: string, current: string, next: string): Promise<void> {
+    await walletService.changePassword(address, current, next)
+    await loadWalletData()
   }
 
   // Derive new account
@@ -226,6 +227,15 @@ export function useWallet() {
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to derive account'
       throw err
+    }
+  }
+
+  // Re-reads which wallets are unlocked. Applies session expiry without a storage read.
+  function refreshLockState(): void {
+    const next = walletService.getUnlockedWallets()
+    const current = unlockedWallets.value
+    if (next.length !== current.length || next.some((a, i) => a !== current[i])) {
+      unlockedWallets.value = next
     }
   }
 
@@ -244,9 +254,10 @@ export function useWallet() {
 
     // Methods
     loadWalletData,
+    refreshLockState,
     ensureLoaded,
-    createWallet,
     importWallet,
+    restoreWallet,
     unlockWallet,
     lockWallet,
     lockAllWallets,
@@ -256,7 +267,8 @@ export function useWallet() {
     renameAccount,
     setAccountHidden,
     deleteWallet,
-    exportMnemonic,
+    exportMnemonicWithPassword,
+    changePassword,
     deriveAccount,
   }
 }

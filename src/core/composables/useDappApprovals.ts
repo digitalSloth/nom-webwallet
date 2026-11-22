@@ -4,6 +4,8 @@ import {
   approvalQueue,
   dequeueApproval,
   getHandlers,
+  handledSinceEmpty,
+  rebindApproval,
   type ApprovalHandlers,
   type PendingApproval,
 } from '../dapp-approvals'
@@ -15,6 +17,13 @@ import { readPersistedChainId } from '../zenon-service'
 import { STORAGE_KEY_WALLETS } from '@/config'
 import { useWallet } from './useWallet'
 import { runActivity } from './useActivity'
+import { decodeContractCall, isEmbeddedContract } from '../contract-call'
+import { assertNoUnresolvedCall } from '../contract-guard'
+import { coreTokenSymbol } from '../approval-display'
+import type { TxMeta } from '../send-recorder'
+import type { AccountBlockTemplate } from 'znn-typescript-sdk'
+import { sealMessageBlock } from '../message-send'
+import { trackTransaction } from './useTxTracker'
 
 // Module-level reactive state — shared across every useDappApprovals() caller
 const isBusy = ref(false)
@@ -28,6 +37,10 @@ const notice = ref<ApproveNotice>(null)
 
 const currentApproval = computed<PendingApproval | null>(() => approvalQueue.value[0] ?? null)
 const pendingCount = computed(() => approvalQueue.value.length)
+const queuePosition = computed(() => ({
+  index: handledSinceEmpty.value + 1,
+  total: handledSinceEmpty.value + approvalQueue.value.length,
+}))
 
 /**
  * Settles a pending approval exactly once. A handler failure — relay I/O from
@@ -62,16 +75,35 @@ export function watchWalletStorage(): () => void {
   return () => chrome.storage.onChanged.removeListener(listener)
 }
 
+function dappMeta(block: AccountBlockTemplate, origin: string): TxMeta {
+  const to = block.toAddress.toString()
+  const contract = isEmbeddedContract(to)
+  const decoded = contract ? decodeContractCall(to, block.data) : null
+  const tokenStandard = block.tokenStandard.toString()
+  const symbol = coreTokenSymbol(tokenStandard)
+  return {
+    kind: contract ? 'contract' : 'send',
+    title: decoded ? `${decoded.contract} · ${decoded.method}` : 'dApp transaction',
+    amount: block.amount.toString(),
+    tokenStandard,
+    ...(symbol ? { decimals: 8, symbol } : {}),
+    recipient: to,
+    origin,
+  }
+}
+
 export function useDappApprovals(): {
   approvals: ComputedRef<PendingApproval[]>
   currentApproval: ComputedRef<PendingApproval | null>
   pendingCount: ComputedRef<number>
+  queuePosition: ComputedRef<{ index: number; total: number }>
   isBusy: Ref<boolean>
   notice: Ref<ApproveNotice>
   accountMismatch: ComputedRef<boolean>
   needsUnlockPrompt: ComputedRef<boolean>
   settleEmptyLocked(close: () => void): void
-  approve(id: string): Promise<void>
+  approve(id: string): Promise<{ kind: 'sendBlock'; hash: string } | null>
+  changeConnectAccount(id: string, address: string): Promise<'changed' | 'refused'>
   reject(id: string): Promise<void>
 } {
   const wallet = useWallet()
@@ -92,14 +124,12 @@ export function useDappApprovals(): {
       !accountMismatch.value
   )
 
-  // Runs when the grace period after an empty, locked queue ends. A pending
-  // notice means the window stayed open so the user could read it: locking
-  // every wallet here drops keys that an earlier active wallet may still hold,
-  // and the window then waits for the idle timer or "Lock and close".
+  // Runs when the grace period after an empty, locked queue ends. Sessions
+  // are shared across windows, so this window never locks. A pending notice
+  // keeps the window open until the idle timer or "Lock and close".
   function settleEmptyLocked(close: () => void): void {
     if (currentApproval.value || isBusy.value) return
     if (notice.value) {
-      wallet.lockAllWallets()
       notice.value = null
       return
     }
@@ -111,17 +141,17 @@ export function useDappApprovals(): {
   // click and this call — this is a no-op rather than acting on whatever is
   // now current, so a click can never approve/reject a different request
   // than the one on screen when it was made.
-  async function approve(id: string): Promise<void> {
+  async function approve(id: string): Promise<{ kind: 'sendBlock'; hash: string } | null> {
     notice.value = null
     const approval = currentApproval.value
-    if (!approval || approval.id !== id || isBusy.value) return
+    if (!approval || approval.id !== id || isBusy.value) return null
 
     isBusy.value = true
     try {
       // Guard: expiry. Responding to an expired request is worse than silence.
       if (approval.expiresAt !== undefined && approval.expiresAt <= Date.now()) {
         dequeueApproval(approval.id)
-        return
+        return null
       }
 
       // Guard: missing handlers. Fetched before any handler.reject call below,
@@ -129,7 +159,7 @@ export function useDappApprovals(): {
       const handlers: ApprovalHandlers | undefined = getHandlers(approval.id)
       if (!handlers) {
         dequeueApproval(approval.id)
-        return
+        return null
       }
 
       // The approval can expire, or its session can end and drop it, during
@@ -145,13 +175,13 @@ export function useDappApprovals(): {
       const [loaded, chainId] = await Promise.all([wallet.loadWalletData(), readPersistedChainId()])
       if (!isLive()) {
         dequeueApproval(approval.id)
-        return
+        return null
       }
       // A failed read leaves this window's previous copy in place, which is
       // not the re-read the guard below relies on.
       if (!loaded) {
         await settle(approval.id, () => handlers.reject({ reason: 'walletLocked' }))
-        return
+        return null
       }
       const activeWallet = wallet.activeWallet.value
       const activeAddress = wallet.activeAccountAddress.value
@@ -159,7 +189,7 @@ export function useDappApprovals(): {
 
       if (!activeWallet || !activeAddress || !account) {
         await settle(approval.id, () => handlers.reject({ reason: 'walletLocked' }))
-        return
+        return null
       }
 
       // Guard: binding. The approval signs only with the account and chain
@@ -169,25 +199,31 @@ export function useDappApprovals(): {
       if (account.address !== approval.account || chainId !== approval.chainId) {
         notice.value = 'accountChanged'
         await settle(approval.id, () => handlers.reject({ reason: 'accountChanged' }))
-        return
+        return null
       }
 
       if (approval.action.kind === 'connect') {
         await settle(approval.id, () =>
           handlers.resolve({ kind: 'connect', address: account.address })
         )
-        return
+        return null
       }
 
-      // Guard: locked wallet, for signMessage and sendBlock only. The active
+      // Guard: locked wallet, for messageAccess, signMessage and sendBlock. The active
       // wallet has no session in this window (a session timeout, or a wallet
       // switch that landed after the last refresh), so this keeps the request
-      // and reports needsUnlock. The dialog opens the unlock prompt for the
-      // active wallet.
+      // and reports needsUnlock. The approval screen shows the unlock field
+      // for the active wallet.
       const keyStore = sessionManager.getKeyStore(activeWallet.baseAddress)
       if (!keyStore) {
         notice.value = 'needsUnlock'
-        return
+        return null
+      }
+      if (approval.action.kind === 'messageAccess') {
+        await settle(approval.id, () =>
+          handlers.resolve({ kind: 'messageAccess', address: account.address })
+        )
+        return null
       }
       const keyPair = keyStore.getKeyPair(account.index)
       const action = approval.action
@@ -206,16 +242,30 @@ export function useDappApprovals(): {
             })
           )
         } else {
+          // A message is sealed here, in the trusted context that signs, from
+          // the exact content the approval screen showed.
+          const block =
+            action.kind === 'sendMessage'
+              ? sealMessageBlock(action, keyPair, approval.chainId)
+              : action.block
+          const meta = {
+            ...dappMeta(block, approval.origin),
+            ...(action.kind === 'sendMessage' ? { title: 'Encrypted message' } : {}),
+          }
+          const call = await assertNoUnresolvedCall(block, account.address)
           const sent = await runActivity('Sending dApp transaction', () =>
             TransactionService.getInstance().sendEmbeddedContractBlock(
-              action.block,
+              block,
               keyPair,
               () => {
                 if (!isLive()) throw new ApprovalLapsedError()
-              }
+              },
+              { ...meta, from: account.address, ...(call ? { call } : {}) }
             )
           )
+          void trackTransaction('dApp transaction', sent, meta)
           await settle(approval.id, () => handlers.resolve({ kind: 'sendBlock', block: sent }))
+          return { kind: 'sendBlock', hash: sent.hash.toString() }
         }
       } catch (err) {
         if (err instanceof ApprovalLapsedError) {
@@ -229,6 +279,54 @@ export function useDappApprovals(): {
           await settle(approval.id, () => handlers.reject({ reason: 'sendFailed', detail }))
         }
       }
+      return null
+    } finally {
+      isBusy.value = false
+    }
+  }
+
+  // Re-binds the pending connect to another stored account and makes that
+  // account the active one, so the account on screen, the page entry and
+  // the active account agree again. approve() still re-checks all three.
+  async function changeConnectAccount(id: string, address: string): Promise<'changed' | 'refused'> {
+    notice.value = null
+    const approval = currentApproval.value
+    if (!approval || approval.id !== id || approval.action.kind !== 'connect' || isBusy.value) {
+      return 'refused'
+    }
+
+    isBusy.value = true
+    try {
+      const handlers = getHandlers(id)
+      if (!handlers) return 'refused'
+      const isLive = (): boolean =>
+        (approval.expiresAt === undefined || approval.expiresAt > Date.now()) &&
+        getHandlers(id) === handlers
+      if (!isLive()) return 'refused'
+
+      const loaded = await wallet.loadWalletData()
+      if (!loaded || !isLive()) return 'refused'
+
+      const known = wallet.wallets.value.some((w) => w.accounts.some((a) => a.address === address))
+      if (!known) return 'refused'
+
+      if (handlers.rebind) {
+        let ok = false
+        try {
+          ok = await handlers.rebind(address)
+        } catch {
+          ok = false
+        }
+        if (!ok || !isLive()) return 'refused'
+      }
+
+      try {
+        await wallet.setActiveAccount(address)
+      } catch {
+        return 'refused'
+      }
+
+      return rebindApproval(id, address) ? 'changed' : 'refused'
     } finally {
       isBusy.value = false
     }
@@ -262,12 +360,14 @@ export function useDappApprovals(): {
     approvals: approvalQueue,
     currentApproval,
     pendingCount,
+    queuePosition,
     isBusy,
     notice,
     accountMismatch,
     needsUnlockPrompt,
     settleEmptyLocked,
     approve,
+    changeConnectAccount,
     reject,
   }
 }

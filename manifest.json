@@ -4,11 +4,14 @@
   "version": "1.0.0",
   "description": "A secure cryptocurrency wallet for the Zenon Network of Momentum.",
   "minimum_chrome_version": "116",
-  "permissions": ["storage"],
+  "permissions": ["storage", "alarms", "sidePanel"],
   "host_permissions": ["https://plazma.bot/*"],
   "action": {
-    "default_popup": "index.html",
+    "default_popup": "popup.html",
     "default_title": "NoM Wallet"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
   },
   "background": {
     "service_worker": "src/background.ts",
@@ -29,12 +32,8 @@
       "all_frames": true
     }
   ],
-  "sandbox": {
-    "pages": ["pow-sandbox.html"]
-  },
   "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';",
-    "sandbox": "sandbox allow-scripts; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' blob:; object-src 'self';"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
   },
   "icons": {
     "16": "icons/icon-16.png",

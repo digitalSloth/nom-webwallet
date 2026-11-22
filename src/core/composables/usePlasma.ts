@@ -3,7 +3,9 @@ import {PlasmaService} from '../plasma-service'
 import {TransactionService} from '../transaction-service'
 import {sessionManager} from '../session-manager'
 import {runActivity} from './useActivity'
-import type {FusionEntry} from 'znn-typescript-sdk'
+import {trackTransaction} from './useTxTracker'
+import type {AccountBlockTemplate, FusionEntry} from 'znn-typescript-sdk'
+import type {TxMeta} from '../send-recorder'
 import type {Wallet} from '@/types'
 
 // Module-level reactive state — shared across every usePlasma() caller
@@ -13,6 +15,7 @@ const isFusing = ref(false)
 const isCanceling = ref(false)
 const cancelingFusionId = ref<string | null>(null)
 const error = ref<string | null>(null)
+let latestLoad = 0
 
 export function usePlasma() {
   const plasmaService = PlasmaService.getInstance()
@@ -20,8 +23,10 @@ export function usePlasma() {
 
   // Load fusion entries for an address
   async function loadFusionEntries(address: string, pageIndex: number = 0, pageSize: number = 25) {
+    const load = ++latestLoad
     if (!address) {
       fusionEntries.value = []
+      isLoading.value = false
       return
     }
 
@@ -30,13 +35,15 @@ export function usePlasma() {
 
     try {
       const result = await plasmaService.getFusionEntries(address, pageIndex, pageSize)
-      fusionEntries.value = result.list || []
+      // A newer load owns the list; an older response must not overwrite it.
+      if (load === latestLoad) fusionEntries.value = result.list || []
     } catch (err) {
+      if (load !== latestLoad) return
       error.value = err instanceof Error ? err.message : 'Failed to load fusion entries'
       console.error('Failed to load fusion entries:', err)
       fusionEntries.value = []
     } finally {
-      isLoading.value = false
+      if (load === latestLoad) isLoading.value = false
     }
   }
 
@@ -45,8 +52,9 @@ export function usePlasma() {
     wallet: Wallet,
     accountAddress: string,
     beneficiaryAddress: string,
-    amount: bigint
-  ): Promise<void> {
+    amount: bigint,
+    meta?: TxMeta
+  ): Promise<AccountBlockTemplate> {
     isFusing.value = true
     error.value = null
 
@@ -66,12 +74,20 @@ export function usePlasma() {
       // Get keypair
       const keyPair = keyStore.getKeyPair(account.index)
 
-      await runActivity('Fusing QSR for plasma', async () => {
+      const context = meta ? { ...meta, from: accountAddress } : undefined
+      return await runActivity('Fusing QSR for plasma', async () => {
         // Create fuse block
         const block = plasmaService.createFuseBlock(beneficiaryAddress, amount)
 
         // Send transaction
-        await transactionService.sendEmbeddedContractBlock(block, keyPair)
+        const sent = await transactionService.sendEmbeddedContractBlock(
+          block,
+          keyPair,
+          undefined,
+          context
+        )
+        void trackTransaction(meta?.title ?? 'Fuse QSR', sent, meta)
+        return sent
       })
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to fuse QSR'
@@ -85,8 +101,9 @@ export function usePlasma() {
   async function cancelFusion(
     wallet: Wallet,
     accountAddress: string,
-    fusionId: string
-  ): Promise<void> {
+    fusionId: string,
+    meta?: TxMeta
+  ): Promise<AccountBlockTemplate> {
     isCanceling.value = true
     cancelingFusionId.value = fusionId
     error.value = null
@@ -107,12 +124,20 @@ export function usePlasma() {
       // Get keypair
       const keyPair = keyStore.getKeyPair(account.index)
 
-      await runActivity('Cancelling fusion', async () => {
+      const context = meta ? { ...meta, from: accountAddress } : undefined
+      return await runActivity('Cancelling fusion', async () => {
         // Create cancel block
         const block = plasmaService.createCancelBlock(fusionId)
 
         // Send transaction
-        await transactionService.sendEmbeddedContractBlock(block, keyPair)
+        const sent = await transactionService.sendEmbeddedContractBlock(
+          block,
+          keyPair,
+          undefined,
+          context
+        )
+        void trackTransaction(meta?.title ?? 'Cancel fusion', sent, meta)
+        return sent
       })
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to cancel fusion'

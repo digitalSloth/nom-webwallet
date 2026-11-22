@@ -88,9 +88,9 @@ export class SignClientAdapter implements IWalletConnectClient {
     return this.requireClient().session.getAll()
   }
 
-  async approveProposal(id: number, namespaces: SessionTypes.Namespaces): Promise<void> {
+  async approveProposal(id: number, namespaces: SessionTypes.Namespaces): Promise<string> {
     const { acknowledged } = await this.requireClient().approve({ id, namespaces })
-    await acknowledged()
+    return (await acknowledged()).topic
   }
 
   async rejectProposal(id: number, error: OutgoingError): Promise<void> {

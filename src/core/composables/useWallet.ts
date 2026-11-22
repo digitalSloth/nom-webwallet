@@ -12,7 +12,7 @@ const error = ref<string | null>(null)
 
 // Cached one-time initial load — shared so the router guard and App.vue
 // don't each trigger a separate load on startup.
-let loadPromise: Promise<void> | null = null
+let loadPromise: Promise<boolean> | null = null
 
 // Computed
 const isActiveWalletUnlocked = computed(() => {
@@ -25,24 +25,25 @@ export function useWallet() {
   const walletService = WalletService.getInstance()
 
   // Load all wallet data
-  async function loadWalletData() {
+  // Resolves true when the storage read succeeded, false when it failed.
+  // Callers that must know their own call's outcome read this, not the
+  // shared `error` ref, which a concurrent load resets.
+  async function loadWalletData(): Promise<boolean> {
     isLoading.value = true
     error.value = null
 
     try {
-      const [allWallets, active, activeAccount] = await Promise.all([
-        walletService.getWallets(),
-        walletService.getActiveWallet(),
-        walletService.getActiveAccount(),
-      ])
+      const snapshot = await walletService.getSnapshot()
 
-      wallets.value = allWallets
-      activeWallet.value = active
-      activeAccountAddress.value = activeAccount
+      wallets.value = snapshot.wallets
+      activeWallet.value = snapshot.activeWallet
+      activeAccountAddress.value = snapshot.activeAccount
       unlockedWallets.value = walletService.getUnlockedWallets()
+      return true
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to load wallet data'
       console.error('Failed to load wallet data:', err)
+      return false
     } finally {
       isLoading.value = false
     }
@@ -50,8 +51,8 @@ export function useWallet() {
 
   // Load wallet data once; subsequent callers reuse the same promise.
   // Lets the router guard read accurate state even on a hard refresh.
-  function ensureLoaded(): Promise<void> {
-    return (loadPromise ??= loadWalletData())
+  async function ensureLoaded(): Promise<void> {
+    await (loadPromise ??= loadWalletData())
   }
 
   // Create new wallet

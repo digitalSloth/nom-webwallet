@@ -5,12 +5,18 @@ import WalletList from './WalletList.vue'
 import UnlockWalletDialog from './UnlockWalletDialog.vue'
 import ExportMnemonicDialog from './ExportMnemonicDialog.vue'
 import NetworkSelector from './NetworkSelector.vue'
+import {useConnectedSites} from '@/core/composables/useConnectedSites'
 import {
   Button,
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemTitle,
   Tabs,
   TabsContent,
   TabsList,
@@ -46,6 +52,21 @@ const emit = defineEmits<{
 }>()
 
 const { mode, setTheme } = useTheme()
+
+// Connected-sites (§6.7) — extension only. useConnectedSites.ts's underlying
+// storage calls already no-op in the web app, but it's imported by path here
+// rather than from the composables barrel so no other page pulls it in.
+// Bound to a local const because the template compiler can't resolve the
+// ambient __IS_EXTENSION__ global directly.
+const isExtension = __IS_EXTENSION__
+const connectedSites = useConnectedSites()
+
+watch(
+  () => props.open,
+  (open) => {
+    if (open && isExtension) void connectedSites.refresh()
+  }
+)
 
 const isOpen = computed({
   get: () => props.open,
@@ -135,9 +156,10 @@ defineExpose({
       </DialogHeader>
 
       <Tabs default-value="wallet" class="w-full">
-        <TabsList class="mb-4 grid w-full grid-cols-3">
+        <TabsList class="mb-4 grid w-full" :class="isExtension ? 'grid-cols-4' : 'grid-cols-3'">
           <TabsTrigger value="wallet"> Wallet </TabsTrigger>
           <TabsTrigger value="network"> Network </TabsTrigger>
+          <TabsTrigger v-if="isExtension" value="sites"> Connected Sites </TabsTrigger>
           <TabsTrigger value="ui"> Appearance </TabsTrigger>
         </TabsList>
 
@@ -176,6 +198,37 @@ defineExpose({
           />
         </TabsContent>
 
+        <TabsContent v-if="isExtension" value="sites">
+          <div class="space-y-3">
+            <div v-if="connectedSites.sites.value.length === 0" class="py-8 text-center text-muted-foreground">
+              <p>No connected sites</p>
+            </div>
+
+            <template v-else>
+              <Item v-for="site in connectedSites.sites.value" :key="site.origin" variant="muted">
+                <ItemContent class="min-w-0 flex-1">
+                  <ItemTitle>{{ site.title || site.origin }}</ItemTitle>
+                  <ItemDescription>{{ site.origin }}</ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <Button variant="outline" size="sm" @click="connectedSites.revokeOrigin(site.origin)">
+                    Revoke
+                  </Button>
+                </ItemActions>
+              </Item>
+
+              <Button
+                variant="outline"
+                class="w-full"
+                :disabled="connectedSites.isLoading.value"
+                @click="connectedSites.revokeAllSites()"
+              >
+                Revoke all
+              </Button>
+            </template>
+          </div>
+        </TabsContent>
+
         <TabsContent value="ui">
           <div class="space-y-3">
             <label class="text-sm font-medium">Theme</label>
@@ -206,6 +259,12 @@ defineExpose({
               </Button>
             </div>
           </div>
+
+          <p class="mt-6 text-xs text-muted-foreground">
+            Portions © 2025 Reown, Inc. All Rights Reserved. WalletConnect pairing uses
+            <code>@walletconnect/sign-client</code> under the WalletConnect Community License
+            Agreement.
+          </p>
         </TabsContent>
       </Tabs>
     </DialogContent>

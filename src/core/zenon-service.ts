@@ -35,6 +35,19 @@ function sanitizeId(value: unknown): number {
 }
 
 /**
+ * The chain id in storage right now. Another extension window may have
+ * changed it after this page loaded its own config.
+ */
+export async function readPersistedChainId(): Promise<number> {
+  return sanitizeId(await storageService.get<number>(STORAGE_KEY_CHAIN_ID))
+}
+
+/** The network id in storage right now; see readPersistedChainId. */
+export async function readPersistedNetworkId(): Promise<number> {
+  return sanitizeId(await storageService.get<number>(STORAGE_KEY_NETWORK_ID))
+}
+
+/**
  * Manages the global Zenon connection
  * All other services should use this to access the Zenon instance
  */
@@ -151,22 +164,33 @@ export class ZenonService {
     }
 
     // Start initialization
-    this.initializePromise = (async () => {
+    const attempt = (async () => {
       // Before the very first connection, adopt the persisted node + network
       // config from storage so the initial connect targets the user's saved
       // node directly — no brief default-node round-trip. Skipped once a target
       // has been set explicitly via changeNode().
-      if (!ZenonService.bootConfigResolved) {
-        await this.applyPersistedConfig()
-        ZenonService.bootConfigResolved = true
-      }
+      await this.ensureConfigLoaded()
       // Cap the connect attempt (SDK default is 30s) so an unreachable node
       // surfaces a failure to the UI promptly instead of hanging.
       await this.zenon.initialize(this.nodeUrl, CONNECT_TIMEOUT_MS)
       this.isInitialized = true
     })()
+    this.initializePromise = attempt
 
-    await this.initializePromise
+    try {
+      await attempt
+    } catch (err) {
+      // A failed connect is not cached, so the next call retries. Clearing
+      // the connection also stops the SDK's websocket retrying the dead node
+      // in the background. Skipped if disconnect() and a new initialize()
+      // have already replaced this attempt, so a stale failure never tears
+      // down the newer connection.
+      if (this.initializePromise === attempt) {
+        this.zenon.clearConnection()
+        this.initializePromise = null
+      }
+      throw err
+    }
   }
 
   /**
@@ -191,6 +215,17 @@ export class ZenonService {
     } catch (error) {
       console.warn('Failed to load persisted network config; using defaults.', error)
     }
+  }
+
+  /**
+   * Applies the persisted node + network config without opening a
+   * connection, for pages that need the saved chain id and node URL but may
+   * never talk to the node.
+   */
+  async ensureConfigLoaded(): Promise<void> {
+    if (ZenonService.bootConfigResolved) return
+    await this.applyPersistedConfig()
+    ZenonService.bootConfigResolved = true
   }
 
   async ensureInitialized(): Promise<void> {

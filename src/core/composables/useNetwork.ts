@@ -1,5 +1,5 @@
 import {ref} from 'vue'
-import {ZenonService} from '../zenon-service'
+import {readPersistedChainId, readPersistedNetworkId, ZenonService} from '../zenon-service'
 import {TransactionService} from '../transaction-service'
 import {DEFAULT_NODE_URL, STORAGE_KEY_CHAIN_ID, STORAGE_KEY_NETWORK_ID, STORAGE_KEY_SELECTED_NODE,} from '@/config'
 import {storageService} from '../storage/storage-service'
@@ -115,6 +115,28 @@ export function useNetwork() {
     networkId.value = zenonService.getNetworkId()
   }
 
+  // Mirror the persisted node + network config into reactive state without
+  // connecting, for pages that only display it and must not wait on a node.
+  async function loadConfig() {
+    await zenonService.ensureConfigLoaded()
+    currentNode.value = zenonService.getNodeUrl()
+    chainId.value = zenonService.getChainId()
+    networkId.value = zenonService.getNetworkId()
+  }
+
+  // Adopt the chain/network IDs another extension window persisted, without
+  // writing them back. Applies them to the SDK and reactive state, as
+  // updateNetworkConfig() does after its own write.
+  async function syncNetworkConfig() {
+    const [storedChainId, storedNetworkId] = await Promise.all([
+      readPersistedChainId(),
+      readPersistedNetworkId(),
+    ])
+    ZenonService.updateNetworkConfig(storedChainId, storedNetworkId)
+    chainId.value = storedChainId
+    networkId.value = storedNetworkId
+  }
+
   return {
     // State
     isConnected,
@@ -130,6 +152,8 @@ export function useNetwork() {
     changeNode,
     updateNetworkConfig,
     initialize,
+    loadConfig,
+    syncNetworkConfig,
     loadFrontierMomentum,
   }
 }

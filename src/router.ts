@@ -32,6 +32,11 @@ export const router = createRouter({
       component: () => import('@/pages/TokenDetails.vue'),
       meta: { requiresWallet: true },
     },
+    {
+      path: '/walletconnect',
+      component: () => import('@/pages/WalletConnect.vue'),
+      meta: { requiresWallet: true },
+    },
     // Catch-all: unknown paths fall back to home (which the guard re-routes to
     // /setup if no wallet exists yet).
     { path: '/:pathMatch(.*)*', redirect: '/' },

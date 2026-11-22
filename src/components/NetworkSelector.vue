@@ -74,10 +74,15 @@ watch(
 
 async function loadCustomNodes() {
   try {
-    const stored = await storage.get<string[]>(CUSTOM_NODES_STORAGE_KEY)
-    if (stored) {
-      customNodes.value = stored
-    }
+    // chrome.storage stores a Vue reactive array as an object keyed by index,
+    // so both shapes are read back as a list of URLs.
+    const stored = await storage.get<unknown>(CUSTOM_NODES_STORAGE_KEY)
+    const list = Array.isArray(stored)
+      ? stored
+      : stored && typeof stored === 'object'
+        ? Object.values(stored)
+        : []
+    customNodes.value = list.filter((url): url is string => typeof url === 'string')
   } catch (e) {
     console.error('Failed to load custom nodes:', e)
     customNodes.value = []
@@ -86,7 +91,8 @@ async function loadCustomNodes() {
 
 async function saveCustomNodes() {
   try {
-    await storage.set(CUSTOM_NODES_STORAGE_KEY, customNodes.value)
+    // A plain copy: chrome.storage cannot tell a reactive Proxy is an array.
+    await storage.set(CUSTOM_NODES_STORAGE_KEY, [...customNodes.value])
   } catch (e) {
     console.error('Failed to save custom nodes:', e)
     toast.show('Failed to save custom node', 'error')

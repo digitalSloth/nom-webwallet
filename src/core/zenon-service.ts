@@ -1,28 +1,14 @@
-import {isPowWorkerSupported, Zenon} from 'znn-typescript-sdk'
+import { isPowWorkerSupported, WsClient, Zenon } from 'znn-typescript-sdk'
 import {
-    CONNECT_TIMEOUT_MS,
-    DEFAULT_NODE_URL,
-    STORAGE_KEY_CHAIN_ID,
-    STORAGE_KEY_NETWORK_ID,
-    STORAGE_KEY_SELECTED_NODE,
+  CONNECT_TIMEOUT_MS,
+  DEFAULT_NODE_URL,
+  STORAGE_KEY_CHAIN_ID,
+  STORAGE_KEY_NETWORK_ID,
+  STORAGE_KEY_SELECTED_NODE,
 } from '@/config'
-import {storageService} from './storage/storage-service'
-import {trackPow} from './pow-status'
-import {sandboxPowProvider} from './extension-pow-provider'
-
-/**
- * True when running inside the MV3 browser extension (popup / full page), as
- * opposed to the standalone web app. The extension CSP forbids both the SDK's
- * `blob:` PoW worker and the PoW module's `new Function` init on normal pages,
- * so PoW runs in a sandbox page instead (see {@link sandboxPowProvider}).
- */
-function isExtensionContext(): boolean {
-  return (
-    typeof chrome !== 'undefined' &&
-    typeof chrome.runtime !== 'undefined' &&
-    Boolean(chrome.runtime?.id)
-  )
-}
+import { storageService } from './storage/storage-service'
+import { reportNodeFailure } from './node-health'
+import { trackPow } from './pow-status'
 
 /**
  * Coerce a persisted chain/network ID back to a valid positive integer,
@@ -83,23 +69,22 @@ export class ZenonService {
       ZenonService.powConfigured = true
     }
 
-    // Run PoW off the main page so it no longer blocks the UI or starves the
-    // WebSocket heartbeat (which previously caused the connection to drop while
-    // a block's nonce was being computed), and — in the extension — so its
-    // eval-using emscripten init runs where the CSP allows it.
+    // Run PoW in the SDK's worker so it does not block the UI or starve the
+    // WebSocket heartbeat while a block's nonce is computed. A blob: worker
+    // on an extension page cannot import pow.js, so extension pages start
+    // pow-worker.ts from the extension origin instead. The extension
+    // service worker has no Worker and never generates PoW.
     if (!ZenonService.powWorkerEnabled) {
-      if (isExtensionContext()) {
-        // The SDK PoW module needs `new Function` at init, forbidden on MV3
-        // extension pages. Delegate to the sandbox page, where the sandbox CSP
-        // permits it. Only meaningful in a document context (popup / full page),
-        // not the background service worker, which never generates PoW.
-        if (typeof document !== 'undefined') {
-          Zenon.setPowProvider(trackPow(sandboxPowProvider))
-          ZenonService.powWorkerEnabled = true
-        }
-      } else if (isPowWorkerSupported()) {
+      if (isPowWorkerSupported()) {
         try {
-          const worker = Zenon.usePowWorker()
+          const worker = Zenon.usePowWorker(
+            __IS_EXTENSION__
+              ? {
+                  createWorker: () =>
+                    new Worker(new URL('./pow-worker.ts', import.meta.url), { type: 'module' }),
+                }
+              : {}
+          )
           // Wrap the worker's generator so global isGeneratingPow tracks PoW.
           Zenon.setPowProvider(trackPow(worker.generate))
           ZenonService.powWorkerEnabled = true
@@ -173,6 +158,7 @@ export class ZenonService {
       // Cap the connect attempt (SDK default is 30s) so an unreachable node
       // surfaces a failure to the UI promptly instead of hanging.
       await this.zenon.initialize(this.nodeUrl, CONNECT_TIMEOUT_MS)
+      this.watchSocket()
       this.isInitialized = true
     })()
     this.initializePromise = attempt
@@ -180,17 +166,27 @@ export class ZenonService {
     try {
       await attempt
     } catch (err) {
-      // A failed connect is not cached, so the next call retries. Clearing
-      // the connection also stops the SDK's websocket retrying the dead node
-      // in the background. Skipped if disconnect() and a new initialize()
-      // have already replaced this attempt, so a stale failure never tears
-      // down the newer connection.
+      // A failed connect is not cached, so the next call retries. The SDK
+      // has already closed the failed socket. Skipped if disconnect() and a
+      // new initialize() have already replaced this attempt.
       if (this.initializePromise === attempt) {
-        this.zenon.clearConnection()
         this.initializePromise = null
       }
       throw err
     }
+  }
+
+  /**
+   * Reports a node failure when the open connection drops. The SDK does not
+   * report the close that disconnect() causes, and a replaced client reports
+   * nothing.
+   */
+  private watchSocket(): void {
+    const client = this.zenon.client
+    if (!(client instanceof WsClient)) return
+    client.onClose(() => {
+      if (this.zenon.client === client) reportNodeFailure()
+    })
   }
 
   /**
@@ -265,30 +261,24 @@ export class ZenonService {
 
   // Change node URL and reconnect
   async changeNode(newNodeUrl: string): Promise<void> {
-    // Let any in-flight connection finish before tearing it down. disconnect()
-    // is a no-op while a connect is still pending (isInitialized is false), so
-    // without this await changeNode() would piggyback on the old node's
-    // in-flight initialize() promise and never switch to newNodeUrl.
-    if (this.initializePromise) {
+    // Stop a connect still in flight, then let it settle. The SDK rejects a
+    // connect it has started as soon as disconnect() runs. A connect still
+    // loading the persisted config runs on, and is waited out so it cannot
+    // overwrite nodeUrl after the switch.
+    const pending = this.initializePromise
+    this.disconnect()
+    if (pending) {
       try {
-        await this.initializePromise
+        await pending
       } catch {
         // Ignore — we're replacing this connection anyway.
       }
+      this.disconnect()
     }
-    this.disconnect()
     this.nodeUrl = newNodeUrl
     // An explicit node change is the authoritative target — never let a later
     // first-time initialize() override it with the persisted config.
     ZenonService.bootConfigResolved = true
-    try {
-      await this.initialize()
-    } catch (err) {
-      // A failed connect leaves the SDK's websocket retrying the dead node in
-      // the background (reconnect is unlimited). Tear it down before surfacing
-      // the error so it doesn't leak until the next node change.
-      this.disconnect()
-      throw err
-    }
+    await this.initialize()
   }
 }

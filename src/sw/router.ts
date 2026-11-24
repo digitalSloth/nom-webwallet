@@ -1,5 +1,6 @@
 import {
   accountBlockProblem,
+  encryptedMessageParamsProblem,
   ERR_INVALID_PARAMS,
   ERR_NOT_CONNECTED,
   ERR_TOO_MANY_REQUESTS,
@@ -7,18 +8,24 @@ import {
   ERR_UNKNOWN_METHOD,
   ERR_WALLET_UNAVAILABLE,
   INTERNAL_MESSAGE_CHANNEL,
+  openParamsProblem,
   PROVIDER_MESSAGE_CHANNEL,
   PROVIDER_PORT_NAME,
   sendTransactionParamsProblem,
   ZNN_ACCOUNTS,
   ZNN_CHAIN_ID,
   ZNN_CONNECT,
+  ZNN_DECRYPT_INSCRIPTIONS,
+  ZNN_DECRYPT_MESSAGES,
   ZNN_DISCONNECT,
   ZNN_IS_GRANTED,
   ZNN_NODE_URL,
+  ZNN_REQUEST_MESSAGE_ACCESS,
+  ZNN_SEND_ENCRYPTED_MESSAGE,
   ZNN_SEND_TRANSACTION,
   ZNN_SIGN,
   ZNN_SIGN_AND_SEND_BLOCK,
+  type ApprovalsRebindMessage,
   type ApprovalsSettleMessage,
   type InboxEntry,
   type PortMessageToWorker,
@@ -30,17 +37,36 @@ import {
   type SitesRevokeMessage,
 } from '@/core/inpage-protocol'
 import { messageProblem } from '@/core/message-guard'
-import { grant, isGranted, revoke, revokeAll, touch } from '@/core/site-permissions'
+import { encryptedMessageRequest, type MessageToOpen } from '@/core/message-envelope'
+import { sealParamsProblem, type SealedToOpen } from '@/core/sealed-box'
+import {
+  grant,
+  grantMessages,
+  isGranted,
+  isSecureMessageOrigin,
+  revoke,
+  revokeAll,
+  revokeMessages,
+  touch,
+} from '@/core/site-permissions'
+import {
+  addressOfPublicKey,
+  decryptForOrigin,
+  decryptInscriptionsForOrigin,
+  hexToBytes,
+} from './message-decrypt'
 import { getActiveAccountAddress, getChainId, getNodeUrl, hasAnyWallet } from './public-state'
 import { disconnectAllPorts, disconnectPortsForOrigin, registerPort } from './ports'
 import {
   addToInbox,
   isTracked,
   openOrFocusApprovalWindow,
+  rebindConnect,
   redeliverTo,
   settle,
   trackedIds,
 } from './approval-inbox'
+import { panelWindowFor, rejectClosedPanels } from './side-panel-approvals'
 
 /**
  * Channel routing, permission checks, and answers for both the read-only
@@ -55,7 +81,32 @@ const PROMPTING_METHODS: readonly PromptingMethod[] = [
   ZNN_SIGN,
   ZNN_SEND_TRANSACTION,
   ZNN_SIGN_AND_SEND_BLOCK,
+  ZNN_REQUEST_MESSAGE_ACCESS,
+  ZNN_SEND_ENCRYPTED_MESSAGE,
 ]
+
+// One decrypt at a time per origin: each call runs a key derivation and up to
+// 50 key agreements synchronously, so a flood from one origin must queue.
+const decryptChains = new Map<string, Promise<unknown>>()
+
+function decryptInTurn<T>(origin: string, decrypt: () => Promise<T>): Promise<T> {
+  const previous = decryptChains.get(origin) ?? Promise.resolve()
+  const run = previous.then(decrypt)
+  const tail = run.then(
+    () => undefined,
+    () => undefined
+  )
+  decryptChains.set(origin, tail)
+  void tail.then(() => {
+    if (decryptChains.get(origin) === tail) decryptChains.delete(origin)
+  })
+  return run
+}
+
+const INSECURE_ORIGIN_ERROR = {
+  code: ERR_NOT_CONNECTED,
+  message: 'Message access needs an https page or a localhost page.',
+}
 
 // --- Read-only, one-shot channel (§6.3, §6.4) ---
 
@@ -102,6 +153,49 @@ async function handleReadOnlyRequest(
       }
       return { granted, result: await getNodeUrl() }
 
+    // Answered only for a connected origin whose account has a message
+    // grant; decryptForOrigin re-checks the grant and the unlock on every
+    // call. It never prompts.
+    case ZNN_DECRYPT_MESSAGES: {
+      if (!isSecureMessageOrigin(origin)) return { granted, error: INSECURE_ORIGIN_ERROR }
+      if (!granted) {
+        return {
+          granted,
+          error: { code: ERR_NOT_CONNECTED, message: 'Connect to the wallet to read messages.' },
+        }
+      }
+      const problem = openParamsProblem(message.params)
+      if (problem) {
+        return { granted, error: { code: ERR_INVALID_PARAMS, message: problem } }
+      }
+      void touch(origin)
+      const items = message.params as MessageToOpen[]
+      const outcome = await decryptInTurn(origin, () => decryptForOrigin(origin, items))
+      return { granted, ...outcome }
+    }
+
+    // The same gate and the same per-origin queue as ZNN_DECRYPT_MESSAGES.
+    case ZNN_DECRYPT_INSCRIPTIONS: {
+      if (!isSecureMessageOrigin(origin)) return { granted, error: INSECURE_ORIGIN_ERROR }
+      if (!granted) {
+        return {
+          granted,
+          error: {
+            code: ERR_NOT_CONNECTED,
+            message: 'Connect to the wallet to read inscriptions.',
+          },
+        }
+      }
+      const problem = sealParamsProblem(message.params)
+      if (problem) {
+        return { granted, error: { code: ERR_INVALID_PARAMS, message: problem } }
+      }
+      void touch(origin)
+      const items = message.params as SealedToOpen[]
+      const outcome = await decryptInTurn(origin, () => decryptInscriptionsForOrigin(origin, items))
+      return { granted, ...outcome }
+    }
+
     case ZNN_DISCONNECT:
       if (granted) await revoke(origin)
       return { granted: false }
@@ -109,7 +203,10 @@ async function handleReadOnlyRequest(
     default:
       return {
         granted,
-        error: { code: ERR_UNKNOWN_METHOD, message: `Unknown method '${message.method as string}'.` },
+        error: {
+          code: ERR_UNKNOWN_METHOD,
+          message: `Unknown method '${message.method as string}'.`,
+        },
       }
   }
 }
@@ -120,9 +217,60 @@ function isPromptingMethod(method: string): method is PromptingMethod {
   return (PROMPTING_METHODS as readonly string[]).includes(method)
 }
 
+/** The params check plus the public key to address match, so a bad key opens no window. */
+function encryptedMessageProblem(params: unknown): string | null {
+  const problem = encryptedMessageParamsProblem(params)
+  if (problem) return problem
+  const { to, publicKey } = encryptedMessageRequest(params)
+  return addressOfPublicKey(hexToBytes(publicKey)) === to
+    ? null
+    : 'The public key does not belong to the recipient.'
+}
+
+/**
+ * What the inbox keeps of a request: only the fields the method's validator
+ * knows, re-shaped. A page cannot park an oversized extra field in the
+ * session area, and the approval screens read the same fields as before.
+ * Call it only for params that passed `validateParams`.
+ */
+function inboxParams(method: PromptingMethod, params: unknown): unknown {
+  switch (method) {
+    case ZNN_CONNECT:
+    case ZNN_REQUEST_MESSAGE_ACCESS:
+      return undefined
+    case ZNN_SIGN:
+      return params
+    case ZNN_SEND_TRANSACTION: {
+      const { to, tokenStandard, amount } = params as Record<string, unknown>
+      return { to, tokenStandard, amount }
+    }
+    case ZNN_SIGN_AND_SEND_BLOCK: {
+      const block = params as Record<string, unknown>
+      if (block.blockType === 3) return { blockType: 3, fromBlockHash: block.fromBlockHash }
+      return {
+        blockType: 2,
+        toAddress: block.toAddress,
+        tokenStandard: block.tokenStandard,
+        amount: block.amount,
+        ...(block.data !== undefined && { data: block.data }),
+      }
+    }
+    case ZNN_SEND_ENCRYPTED_MESSAGE: {
+      const { to, publicKey, content } = encryptedMessageRequest(params)
+      return {
+        to,
+        publicKey,
+        body: content.body,
+        ...(content.replyTo !== null && { replyTo: content.replyTo }),
+      }
+    }
+  }
+}
+
 function validateParams(method: PromptingMethod, params: unknown): string | null {
   switch (method) {
     case ZNN_CONNECT:
+    case ZNN_REQUEST_MESSAGE_ACCESS:
       return null
     case ZNN_SIGN:
       return messageProblem(params)
@@ -130,7 +278,19 @@ function validateParams(method: PromptingMethod, params: unknown): string | null
       return sendTransactionParamsProblem(params)
     case ZNN_SIGN_AND_SEND_BLOCK:
       return accountBlockProblem(params)
+    case ZNN_SEND_ENCRYPTED_MESSAGE:
+      return encryptedMessageProblem(params)
   }
+}
+
+// The tab title and favicon URL come from the page, and the inbox keeps them in
+// the session area, so each has a bound. A favicon URL is dropped rather than
+// cut, because a cut URL points somewhere else.
+const MAX_TAB_TITLE_CHARS = 200
+const MAX_FAVICON_URL_CHARS = 2048
+
+function boundedFavicon(url: string | undefined): string | undefined {
+  return url !== undefined && url.length <= MAX_FAVICON_URL_CHARS ? url : undefined
 }
 
 function hostOf(url: string | undefined): string | undefined {
@@ -142,7 +302,10 @@ function hostOf(url: string | undefined): string | undefined {
   }
 }
 
-async function handlePortRequest(port: chrome.runtime.Port, message: PortRequestMessage): Promise<void> {
+async function handlePortRequest(
+  port: chrome.runtime.Port,
+  message: PortRequestMessage
+): Promise<void> {
   const sender = port.sender
   const origin = sender?.origin
   const tabId = sender?.tab?.id
@@ -161,7 +324,11 @@ async function handlePortRequest(port: chrome.runtime.Port, message: PortRequest
   }
 
   if (!isPromptingMethod(method)) {
-    port.postMessage({ kind: 'outcome', id, error: { code: ERR_UNKNOWN_METHOD, message: `Unknown method '${method}'.` } })
+    port.postMessage({
+      kind: 'outcome',
+      id,
+      error: { code: ERR_UNKNOWN_METHOD, message: `Unknown method '${method}'.` },
+    })
     return
   }
 
@@ -169,12 +336,27 @@ async function handlePortRequest(port: chrome.runtime.Port, message: PortRequest
   // ungranted origin by definition, so without this exemption the surface
   // could never bootstrap (§6.4).
   if (method !== ZNN_CONNECT && !(await isGranted(origin))) {
-    port.postMessage({ kind: 'outcome', id, error: { code: ERR_NOT_CONNECTED, message: 'Origin is not connected.' } })
+    port.postMessage({
+      kind: 'outcome',
+      id,
+      error: { code: ERR_NOT_CONNECTED, message: 'Origin is not connected.' },
+    })
+    return
+  }
+
+  const needsSecureOrigin =
+    method === ZNN_REQUEST_MESSAGE_ACCESS || method === ZNN_SEND_ENCRYPTED_MESSAGE
+  if (needsSecureOrigin && !isSecureMessageOrigin(origin)) {
+    port.postMessage({ kind: 'outcome', id, error: INSECURE_ORIGIN_ERROR })
     return
   }
 
   if (!(await hasAnyWallet())) {
-    port.postMessage({ kind: 'outcome', id, error: { code: ERR_WALLET_UNAVAILABLE, message: 'No wallet exists.' } })
+    port.postMessage({
+      kind: 'outcome',
+      id,
+      error: { code: ERR_WALLET_UNAVAILABLE, message: 'No wallet exists.' },
+    })
     return
   }
 
@@ -188,24 +370,30 @@ async function handlePortRequest(port: chrome.runtime.Port, message: PortRequest
 
   const account = await getActiveAccountAddress()
   if (!account) {
-    port.postMessage({ kind: 'outcome', id, error: { code: ERR_WALLET_UNAVAILABLE, message: 'No active account.' } })
+    port.postMessage({
+      kind: 'outcome',
+      id,
+      error: { code: ERR_WALLET_UNAVAILABLE, message: 'No active account.' },
+    })
     return
   }
 
   const tab = sender.tab
+  const panelWindowId = await panelWindowFor(tab?.windowId)
   const entry: InboxEntry = {
     id,
     origin,
     tabId,
     frameId,
     topFrameHost: frameId !== 0 ? hostOf(tab?.url) : undefined,
-    title: tab?.title,
-    favicon: tab?.favIconUrl,
+    title: tab?.title?.slice(0, MAX_TAB_TITLE_CHARS),
+    favicon: boundedFavicon(tab?.favIconUrl),
     method,
-    params,
+    params: inboxParams(method, params),
     account,
     chainId: await getChainId(),
     createdAt: Date.now(),
+    ...(panelWindowId !== undefined && { panelWindowId }),
   }
 
   const added = await addToInbox(entry)
@@ -214,7 +402,11 @@ async function handlePortRequest(port: chrome.runtime.Port, message: PortRequest
     return
   }
   if (added === 'full') {
-    port.postMessage({ kind: 'outcome', id, error: { code: ERR_TOO_MANY_REQUESTS, message: 'Too many pending requests.' } })
+    port.postMessage({
+      kind: 'outcome',
+      id,
+      error: { code: ERR_TOO_MANY_REQUESTS, message: 'Too many pending requests.' },
+    })
     return
   }
 
@@ -227,6 +419,14 @@ async function handlePortRequest(port: chrome.runtime.Port, message: PortRequest
     port.postMessage({ kind: 'accepted', id })
   } catch {
     // The port dropped; the page reconnects and its resync finds the id tracked.
+  }
+
+  // The side panel claims its own entries from the inbox, so no window opens.
+  // A panel that closed while the entry was being added missed the entry's
+  // close sweep, so check again now that the entry is in the inbox.
+  if (entry.panelWindowId !== undefined) {
+    await rejectClosedPanels()
+    return
   }
 
   // The entry is in the inbox now, so a window failure must settle it: an
@@ -243,7 +443,10 @@ async function handlePortRequest(port: chrome.runtime.Port, message: PortRequest
   }
 }
 
-async function handlePortResync(port: chrome.runtime.Port, message: PortResyncMessage): Promise<void> {
+async function handlePortResync(
+  port: chrome.runtime.Port,
+  message: PortResyncMessage
+): Promise<void> {
   const sender = port.sender
   const tabId = sender?.tab?.id
   const frameId = sender?.frameId
@@ -264,7 +467,12 @@ async function handlePortResync(port: chrome.runtime.Port, message: PortResyncMe
 
 function isApprovalsSettleMessage(message: unknown): message is ApprovalsSettleMessage {
   const m = message as Partial<ApprovalsSettleMessage> | undefined
-  return !!m && m.channel === INTERNAL_MESSAGE_CHANNEL && m.kind === 'approvals.settle' && typeof m.id === 'string'
+  return (
+    !!m &&
+    m.channel === INTERNAL_MESSAGE_CHANNEL &&
+    m.kind === 'approvals.settle' &&
+    typeof m.id === 'string'
+  )
 }
 
 /**
@@ -288,7 +496,21 @@ async function handleApprovalsSettle(message: ApprovalsSettleMessage): Promise<v
       // granted-origin condition once the request completes (§6.5).
       await grant(entry.origin, { title: entry.title, favicon: entry.favicon })
     }
+    if (entry.method === ZNN_REQUEST_MESSAGE_ACCESS && !message.error) {
+      await grantMessages(entry.origin, entry.account)
+    }
   })
+}
+
+function isApprovalsRebindMessage(message: unknown): message is ApprovalsRebindMessage {
+  const m = message as Partial<ApprovalsRebindMessage> | undefined
+  return (
+    !!m &&
+    m.channel === INTERNAL_MESSAGE_CHANNEL &&
+    m.kind === 'approvals.rebind' &&
+    typeof m.id === 'string' &&
+    typeof m.account === 'string'
+  )
 }
 
 // --- useConnectedSites.ts's internal revoke request (§6.7) ---
@@ -299,7 +521,9 @@ function isSitesRevokeMessage(message: unknown): message is SitesRevokeMessage {
 }
 
 async function handleSitesRevoke(message: SitesRevokeMessage): Promise<void> {
-  if (message.origin) {
+  if (message.messagesOnly) {
+    if (message.origin) await revokeMessages(message.origin)
+  } else if (message.origin) {
     await revoke(message.origin)
     disconnectPortsForOrigin(message.origin)
   } else {
@@ -320,7 +544,10 @@ function failRequest(port: chrome.runtime.Port, id: string, err: unknown): void 
     port.postMessage({
       kind: 'outcome',
       id,
-      error: { code: ERR_TRANSPORT_OR_SEND_FAILED, message: 'The wallet could not handle this request.' },
+      error: {
+        code: ERR_TRANSPORT_OR_SEND_FAILED,
+        message: 'The wallet could not handle this request.',
+      },
     })
   } catch {
     // The port is gone; the page's resync reports the id unknown and re-sends it.
@@ -339,6 +566,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (isApprovalsSettleMessage(message)) {
     void handleApprovalsSettle(message).then(() => sendResponse({ ok: true }))
+    return true
+  }
+
+  if (isApprovalsRebindMessage(message)) {
+    rebindConnect(message.id, message.account).then(
+      (ok) => sendResponse({ ok }),
+      (err: unknown) => {
+        console.error('Re-binding a connect request failed', err)
+        sendResponse({ ok: false })
+      }
+    )
     return true
   }
 

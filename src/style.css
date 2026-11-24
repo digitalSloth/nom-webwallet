@@ -2,13 +2,31 @@
 @import "nom-ui/style.css";
 @source "../node_modules/nom-ui/src";
 
-/* Browser-extension popup: give the document a fixed width (and a sensible
-   min-height) so Chrome doesn't size the popup to content — which otherwise
-   collapses narrow pages like /setup into a tall, clipped sliver. Scoped to the
-   extension build via the `is-extension` class set in main.ts; the web app is
-   unaffected. */
-html.is-extension,
-html.is-extension body {
-  width: 420px;
-  min-height: 600px;
+@custom-variant phone {
+  @media (width < 901px) {
+    @slot;
+  }
+}
+@custom-variant desktop {
+  @media (width >= 901px) {
+    @slot;
+  }
+}
+
+/* Tailwind 4 gives buttons the default cursor. Plain <button> elements
+   (wallet switcher rows, settings footer actions) get the pointer that
+   nom-ui's Button already sets. */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
+  }
+}
+
+/* Action popup: fixed 360×600 document so Chrome does not size the popup to
+   content; the tab and window surfaces size themselves through PopupFrame. */
+html.is-extension[data-surface='popup'] body {
+  width: 360px;
+  height: 600px;
+  margin: 0;
 }

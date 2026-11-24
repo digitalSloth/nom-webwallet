@@ -103,4 +103,68 @@ describe('SessionManager', () => {
     expect(manager.getKeyStore('address-1')).toBeNull()
     expect(manager.getKeyStore('address-2')).toBe(recentKeyStore)
   })
+
+  describe('with a backend', () => {
+    const createBackend = () => ({
+      isExpired: vi.fn(() => false),
+      unlocked: vi.fn(),
+      locked: vi.fn(),
+    })
+
+    it('notifies the backend of unlock, lock and lockAll', () => {
+      const manager = new SessionManager()
+      const backend = createBackend()
+      const keyStore = createOpaqueKeyStore()
+      manager.attach(backend)
+
+      manager.unlock('address-1', keyStore)
+      manager.lock('address-1')
+      manager.lockAll()
+
+      expect(backend.unlocked).toHaveBeenCalledWith('address-1', keyStore)
+      expect(backend.locked).toHaveBeenNthCalledWith(1, 'address-1')
+      expect(backend.locked).toHaveBeenNthCalledWith(2, null)
+    })
+
+    it('restores and drops sessions without calling the backend', () => {
+      const manager = new SessionManager()
+      const backend = createBackend()
+      manager.attach(backend)
+
+      manager.restore('address-1', createOpaqueKeyStore())
+      manager.restore('address-2', createOpaqueKeyStore())
+      expect(manager.isUnlocked('address-1')).toBe(true)
+
+      manager.drop('address-1')
+      expect(manager.isUnlocked('address-1')).toBe(false)
+      expect(manager.isUnlocked('address-2')).toBe(true)
+
+      manager.drop(null)
+      expect(manager.isUnlocked('address-2')).toBe(false)
+      expect(backend.unlocked).not.toHaveBeenCalled()
+      expect(backend.locked).not.toHaveBeenCalled()
+    })
+
+    it('defers expiry to the backend instead of the local timeout', () => {
+      const manager = new SessionManager()
+      const backend = createBackend()
+      manager.attach(backend)
+      manager.unlock('address-1', createOpaqueKeyStore())
+
+      vi.advanceTimersByTime(31 * 60 * 1000)
+
+      expect(manager.isUnlocked('address-1')).toBe(true)
+    })
+
+    it('locks and notifies the backend when it reports expiry', () => {
+      const manager = new SessionManager()
+      const backend = createBackend()
+      manager.attach(backend)
+      manager.unlock('address-1', createOpaqueKeyStore())
+      backend.isExpired.mockReturnValue(true)
+
+      expect(manager.isUnlocked('address-1')).toBe(false)
+      expect(backend.locked).toHaveBeenCalledWith('address-1')
+    })
+  })
 })

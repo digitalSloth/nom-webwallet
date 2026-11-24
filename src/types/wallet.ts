@@ -50,6 +50,11 @@ export interface StorageAdapter {
   get<T>(key: string): Promise<T | null>
   set<T>(key: string, value: T): Promise<void>
   remove(key: string): Promise<void>
+  /**
+   * Calls `listener` on every change to a key, including this document's own
+   * writes. Returns an unsubscribe function.
+   */
+  onChange(listener: (key: string, value: unknown) => void): () => void
 }
 
 // Token balance information
@@ -59,4 +64,11 @@ export interface BalanceInfo {
   decimals: number
   symbol?: string
   name?: string
+}
+
+/** A node the wallet can connect to, with the chain and network it serves. */
+export interface NodeEntry {
+  url: string
+  chainId: number
+  networkId: number
 }

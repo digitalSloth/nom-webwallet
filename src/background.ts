@@ -5,24 +5,25 @@
 // every event source wakes a terminated worker.
 import './sw/router'
 import './sw/public-state'
-import {ERR_USER_REJECTED} from '@/core/inpage-protocol'
+import './sw/side-panel'
+import './sw/side-panel-approvals'
 import {SESSION_KEY_APPROVAL_WINDOW_ID, SESSION_KEY_WALLETCONNECT_WINDOW_ID} from '@/config'
 import {clearStoredWindow} from '@/core/extension-window'
-import {rejectEntriesForWindow} from './sw/approval-inbox'
+import {APPROVAL_CLOSED_ERROR, rejectEntriesForWindow} from './sw/approval-inbox'
+import {lockIfNoWindows} from './sw/auto-lock'
 
 chrome.windows.onRemoved.addListener((windowId) => {
   // The approval window closing without a decision rejects only that
   // window's entries — each one was stamped with the window that showed it
-  // (§6.6).
-  void rejectEntriesForWindow(windowId, {
-    code: ERR_USER_REJECTED,
-    message: 'The approval window was closed.',
-  })
+  // (§6.6). A closing browser window also rejects the entries its side
+  // panel shows.
+  void rejectEntriesForWindow(windowId, APPROVAL_CLOSED_ERROR)
   void clearStoredWindow(SESSION_KEY_APPROVAL_WINDOW_ID, windowId)
-  // The WalletConnect popup window (App.vue's openWalletConnect) is reused
-  // by stored id the same way; forget it once closed so the next open
-  // creates a fresh window instead of trying to focus a dead one.
+  // The WalletConnect window is reused by stored id the same way; forget it
+  // once closed so the next open creates a fresh window instead of trying
+  // to focus a dead one.
   void clearStoredWindow(SESSION_KEY_WALLETCONNECT_WINDOW_ID, windowId)
+  void lockIfNoWindows()
 })
 
 // Restrict chrome.storage.local to trusted extension contexts — the content

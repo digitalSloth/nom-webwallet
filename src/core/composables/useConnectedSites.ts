@@ -18,9 +18,14 @@ const isLoading = ref(false)
  * interleave with the worker's own read-modify-writes of the same map and
  * be overwritten by a stale copy (§6.7).
  */
-async function requestRevoke(origin?: string): Promise<void> {
+async function requestRevoke(origin?: string, messagesOnly = false): Promise<void> {
   if (!__IS_EXTENSION__) return
-  const message: SitesRevokeMessage = { channel: INTERNAL_MESSAGE_CHANNEL, kind: 'sites.revoke', origin }
+  const message: SitesRevokeMessage = {
+    channel: INTERNAL_MESSAGE_CHANNEL,
+    kind: 'sites.revoke',
+    origin,
+    ...(messagesOnly && { messagesOnly }),
+  }
   await chrome.runtime.sendMessage(message)
 }
 
@@ -30,6 +35,7 @@ export function useConnectedSites(): {
   refresh(): Promise<void>
   revokeOrigin(origin: string): Promise<void>
   revokeAllSites(): Promise<void>
+  revokeMessages(origin: string): Promise<void>
 } {
   async function refresh(): Promise<void> {
     isLoading.value = true
@@ -50,5 +56,10 @@ export function useConnectedSites(): {
     await refresh()
   }
 
-  return { sites, isLoading, refresh, revokeOrigin, revokeAllSites }
+  async function revokeMessages(origin: string): Promise<void> {
+    await requestRevoke(origin, true)
+    await refresh()
+  }
+
+  return { sites, isLoading, refresh, revokeOrigin, revokeAllSites, revokeMessages }
 }

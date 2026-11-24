@@ -16,6 +16,7 @@ const networkState = {
     networkState.chainId.value = stored.chainId
   }),
 }
+const sessionsRef = ref<unknown[]>([])
 const service = {
   initialize: vi.fn(async () => {}),
   setActiveAccount: vi.fn(async () => {}),
@@ -28,8 +29,10 @@ vi.mock('@/config', async (importOriginal) => ({
 }))
 vi.mock('@/core/walletconnect-service', () => ({
   WalletConnectService: { getInstance: () => service },
-  walletConnectSessions: ref([]),
+  walletConnectSessions: sessionsRef,
 }))
+const readSessionMeta = vi.hoisted(() => vi.fn(async () => ({})))
+vi.mock('@/core/walletconnect-session-meta', () => ({ readSessionMeta }))
 vi.mock('@/core/composables/useWallet', () => ({ useWallet: () => walletState }))
 vi.mock('@/core/composables/useNetwork', () => ({ useNetwork: () => networkState }))
 
@@ -46,6 +49,7 @@ vi.stubGlobal('chrome', {
 // One module instance for the whole file: its watchers register once.
 const { useWalletConnect } = await import('@/core/composables/useWalletConnect')
 await useWalletConnect().initialize()
+const readsAtInit = readSessionMeta.mock.calls.length
 
 beforeEach(async () => {
   stored.activeAccountAddress = 'z1account-a'
@@ -99,5 +103,14 @@ describe('useWalletConnect in the extension window', () => {
     await storageChanged('nom-wallet-storage', 'session')
 
     expect(walletState.loadWalletData).not.toHaveBeenCalled()
+  })
+
+  it('never reads session meta, including after a session change', async () => {
+    sessionsRef.value = [{ topic: 'a' }]
+    await nextTick()
+
+    expect(readsAtInit).toBe(0)
+    expect(readSessionMeta).not.toHaveBeenCalled()
+    expect(useWalletConnect().sessionMeta.value).toEqual({})
   })
 })

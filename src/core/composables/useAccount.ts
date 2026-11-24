@@ -1,14 +1,19 @@
-import {computed, ref, watch} from 'vue'
-import type {PlasmaLevel} from '../account-service'
-import {AccountService} from '../account-service'
-import {RewardsService} from '../rewards-service'
-import type {BalanceInfo} from '@/types'
-import {addNumberDecimals, QSR_ZTS, ZNN_ZTS} from 'znn-typescript-sdk'
+import { computed, ref, watch } from 'vue'
+import type { PlasmaLevel } from '../account-service'
+import { AccountService } from '../account-service'
+import { RewardsService } from '../rewards-service'
+import { reportNodeFailure } from '../node-health'
+import type { BalanceInfo } from '@/types'
+import { addNumberDecimals, QSR_ZTS, ZNN_ZTS } from 'znn-typescript-sdk'
+
+const nativeTokenStandards = new Set([ZNN_ZTS.toString(), QSR_ZTS.toString()])
 
 // Module-level reactive state — shared across every useAccount() caller
 const balances = ref<BalanceInfo[]>([])
 const plasmaLevel = ref<PlasmaLevel>('low')
 const currentPlasma = ref<number>(0)
+const maxPlasma = ref<number>(0)
+const fusedQsr = ref('0')
 const unreceivedCount = ref(0)
 const isLoading = ref(false)
 const error = ref<string | null>(null)
@@ -16,6 +21,16 @@ const accountHeight = ref<number>(0)
 const delegatedPillar = ref<string | null>(null)
 const totalZnnRewards = ref<string>('0')
 const totalQsrRewards = ref<string>('0')
+// The address whose balances the last successful read covered.
+const loadedFor = ref<string | null>(null)
+
+// The extension popup has no staking UI, so it skips the delegation and
+// rewards reads.
+let stakingEnabled = true
+
+export function configureAccountData(options: { staking: boolean }): void {
+  stakingEnabled = options.staking
+}
 
 // Computed balances
 const znnBalance = computed(() => {
@@ -60,6 +75,14 @@ export function useAccount(accountAddress: string | null | (() => string | null)
     return accountAddress
   })
 
+  const isNewAccount = computed(
+    () =>
+      address.value !== null &&
+      loadedFor.value === address.value &&
+      accountHeight.value === 0 &&
+      balances.value.every((b) => BigInt(b.balance) === 0n)
+  )
+
   // Load account balances
   async function loadBalances() {
     if (!address.value) {
@@ -67,23 +90,27 @@ export function useAccount(accountAddress: string | null | (() => string | null)
       return
     }
 
+    const target = address.value
     isLoading.value = true
     error.value = null
 
     try {
-      const accInfo = await accountService.getAccountInfo(address.value)
+      const accInfo = await accountService.getAccountInfo(target)
 
       balances.value = Object.entries(accInfo?.balanceInfoMap || {}).map(([zts, info]) => ({
         tokenStandard: zts,
         balance: info.balance.toString(),
-        decimals: info.token.decimals,
+        // ZNN and QSR use protocol-defined precision for Send amounts.
+        decimals: nativeTokenStandards.has(zts.toLowerCase()) ? 8 : info.token.decimals,
         symbol: info.token.symbol,
         name: info.token.name,
       }))
 
       // Update account height from blockCount
       accountHeight.value = accInfo?.blockCount || 0
+      loadedFor.value = target
     } catch (err) {
+      reportNodeFailure()
       error.value = err instanceof Error ? err.message : 'Failed to load balances'
       console.error('Failed to load account balances:', err)
     } finally {
@@ -96,17 +123,26 @@ export function useAccount(accountAddress: string | null | (() => string | null)
     if (!address.value) {
       plasmaLevel.value = 'low'
       currentPlasma.value = 0
+      maxPlasma.value = 0
+      fusedQsr.value = '0'
       return
     }
 
     try {
-      const plasmaInfo = await accountService.getPlasmaInfo(address.value)
+      const [plasmaInfo, quote] = await Promise.all([
+        accountService.getPlasmaInfo(address.value),
+        accountService.getBasicSendQuote(address.value),
+      ])
       currentPlasma.value = plasmaInfo.currentPlasma
-      plasmaLevel.value = accountService.getPlasmaLevel(plasmaInfo.currentPlasma)
+      maxPlasma.value = plasmaInfo.maxPlasma
+      fusedQsr.value = plasmaInfo.qsrAmount.toString()
+      plasmaLevel.value = accountService.getPlasmaLevel(quote.available, quote.perSend)
     } catch (err) {
       console.error('Failed to load plasma info:', err)
       plasmaLevel.value = 'low'
       currentPlasma.value = 0
+      maxPlasma.value = 0
+      fusedQsr.value = '0'
     }
   }
 
@@ -197,8 +233,7 @@ export function useAccount(accountAddress: string | null | (() => string | null)
         loadBalances(),
         loadPlasmaInfo(),
         loadUnreceivedCount(),
-        loadDelegationInfo(),
-        loadRewardsInfo(),
+        ...(stakingEnabled ? [loadDelegationInfo(), loadRewardsInfo()] : []),
       ])
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to load account data'
@@ -222,6 +257,8 @@ export function useAccount(accountAddress: string | null | (() => string | null)
       balances.value = []
       plasmaLevel.value = 'low'
       currentPlasma.value = 0
+      maxPlasma.value = 0
+      fusedQsr.value = '0'
       unreceivedCount.value = 0
       accountHeight.value = 0
       delegatedPillar.value = null
@@ -235,6 +272,8 @@ export function useAccount(accountAddress: string | null | (() => string | null)
     balances,
     plasmaLevel,
     currentPlasma,
+    maxPlasma,
+    fusedQsr,
     unreceivedCount,
     isLoading,
     error,
@@ -247,6 +286,7 @@ export function useAccount(accountAddress: string | null | (() => string | null)
     znnBalance,
     qsrBalance,
     tokenCount,
+    isNewAccount,
 
     // Methods
     loadBalances,

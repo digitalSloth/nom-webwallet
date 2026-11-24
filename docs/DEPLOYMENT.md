@@ -120,10 +120,13 @@ Go to GitHub Actions → Deploy Web App → Run workflow
 - Check nginx error logs: `sudo tail -f /var/log/nginx/error.log`
 - Verify nginx config: `sudo nginx -t`
 
-### CORS/COOP errors
+### Wallet import, create or send fails with a CSP error
 
-- Ensure nginx config includes the COOP/COEP headers
-- Clear browser cache
+The browser console names the blocked directive.
+
+- `Compiling or instantiating WebAssembly module violates ... Content Security policy`: add `'wasm-unsafe-eval'` to `script-src`. Wallet encryption (argon2) and PoW both compile WebAssembly.
+- `PoW worker error: failed to load`, or a `worker-src` violation: add `worker-src 'self' blob:`. PoW runs in a worker started from a `blob:` URL.
+- A `connect-src` violation: compare the policy with the one in `nginx.conf.example`.
 
 ## Security Hardening
 
@@ -131,18 +134,22 @@ Go to GitHub Actions → Deploy Web App → Run workflow
 
 The web app stores encrypted wallet data in `localStorage`. An XSS vulnerability
 on the same origin would allow an attacker to exfiltrate the encrypted keyfile
-for offline brute-force. Set a strict CSP header in your nginx config:
+for offline brute-force. `nginx.conf.example` sets this policy:
 
 ```nginx
-add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' wss:; font-src 'self';" always;
+add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' wss: ws://localhost:* ws://127.0.0.1:* https://plazma.bot https://*.walletconnect.org https://*.walletconnect.com;" always;
 ```
 
 Key directives:
 
-- `script-src 'self'` - Blocks inline scripts and third-party JS (prevents XSS)
-- `connect-src 'self' wss:` - Allows WebSocket connections only to same origin and WSS nodes
-- `img-src 'self' data: https:` - Allows inline data URIs and images served over HTTPS
+- `script-src 'self' 'wasm-unsafe-eval'` - Blocks inline scripts and third-party JS (prevents XSS). `'wasm-unsafe-eval'` lets wallet encryption (argon2) and PoW compile WebAssembly; without it no wallet can be created or imported. It does not allow `eval`.
+- `worker-src 'self' blob:` - PoW runs in a worker started from a `blob:` URL; without it every send that needs PoW fails.
+- `connect-src` - `wss:` for nodes and the WalletConnect relay, the WalletConnect APIs, `plazma.bot` for plasma, and `ws://` to a node on the same machine
+- `img-src 'self' data: https:` - Allows inline data URIs and dApp icons served over HTTPS
+- `font-src 'self' data:` - The UI fonts are bundled as `data:` URIs
 - `style-src 'self' 'unsafe-inline'` - Required for Vue/Tailwind inline styles
+
+Serve the wallet from the domain root: PoW loads `/pow.js` and `/pow.wasm` by absolute path. nginx 1.21 or later serves `.wasm` as `application/wasm`.
 
 ### Additional Recommendations
 

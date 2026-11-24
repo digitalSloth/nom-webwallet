@@ -1,10 +1,12 @@
 import { computed, shallowRef } from 'vue'
 import type { AccountBlockTemplate } from 'znn-typescript-sdk'
 import { MAX_PENDING_DAPP_REQUESTS } from '@/config'
+import type { MessageContent } from './message-envelope'
 
 /**
  * The page-side approval queue: the type vocabulary shared by both dApp
- * surfaces, and the FIFO queue that backs the one dialog component. Follows
+ * surfaces, and the FIFO queue that backs the approval screens (the web
+ * dialog and the extension windows). Follows
  * `pow-status.ts` — a module-level ref inside `src/core`, not a composable —
  * because the module is page-only (it names `AccountBlockTemplate`) and every
  * consumer needs the same reactive view regardless of who enqueues.
@@ -14,6 +16,14 @@ export type ApprovalSurface = 'walletconnect' | 'inpage'
 
 export type ApprovalAction =
   | { kind: 'connect' }
+  | { kind: 'messageAccess' }
+  | {
+      kind: 'sendMessage'
+      to: string
+      recipientPublicKey: string
+      content: MessageContent
+      envelopeBytes: number
+    }
   | { kind: 'signMessage'; message: string }
   | { kind: 'sendBlock'; block: AccountBlockTemplate }
 
@@ -40,10 +50,13 @@ export interface PendingApproval {
 export interface ApprovalHandlers {
   resolve(result: ApprovalResult): Promise<void>
   reject(reason: WalletRejection): Promise<void>
+  /** In-page connect only: re-binds the worker's inbox entry. Resolves false when refused. */
+  rebind?(account: string): Promise<boolean>
 }
 
 export type ApprovalResult =
   | { kind: 'connect'; address: string }
+  | { kind: 'messageAccess'; address: string }
   | { kind: 'signMessage'; message: string; address: string; publicKey: string; signature: string }
   | { kind: 'sendBlock'; block: AccountBlockTemplate }
 
@@ -68,6 +81,20 @@ const handlers = new Map<string, ApprovalHandlers>()
 /** Read-only reactive view for useDappApprovals. */
 export const approvalQueue = computed(() => queue.value)
 
+// Requests that left the head since the queue was last empty. With the queue
+// length it gives a stable "i of N" across a run of requests.
+const handled = shallowRef(0)
+
+/** Read-only count of requests handled since the queue was last empty. */
+export const handledSinceEmpty = computed(() => handled.value)
+
+function replaceQueue(next: PendingApproval[]): void {
+  const head = queue.value[0]
+  const headLeft = head !== undefined && !next.some((a) => a.id === head.id)
+  queue.value = next
+  handled.value = next.length === 0 ? 0 : handled.value + (headLeft ? 1 : 0)
+}
+
 function prune(): void {
   const now = Date.now()
   const expired = queue.value.filter((a) => a.expiresAt !== undefined && a.expiresAt <= now)
@@ -76,7 +103,7 @@ function prune(): void {
   for (const approval of expired) {
     handlers.delete(approval.id)
   }
-  queue.value = queue.value.filter((a) => a.expiresAt === undefined || a.expiresAt > now)
+  replaceQueue(queue.value.filter((a) => a.expiresAt === undefined || a.expiresAt > now))
 }
 
 export function enqueueApproval(a: PendingApproval, h: ApprovalHandlers): boolean {
@@ -89,7 +116,7 @@ export function enqueueApproval(a: PendingApproval, h: ApprovalHandlers): boolea
 }
 
 export function dequeueApproval(id: string): void {
-  queue.value = queue.value.filter((a) => a.id !== id)
+  replaceQueue(queue.value.filter((a) => a.id !== id))
   handlers.delete(id)
 }
 
@@ -98,7 +125,15 @@ export function dropApprovals(match: (a: PendingApproval) => boolean): void {
   for (const approval of queue.value) {
     if (match(approval)) handlers.delete(approval.id)
   }
-  queue.value = queue.value.filter((a) => !match(a))
+  replaceQueue(queue.value.filter((a) => !match(a)))
+}
+
+/** Replaces a pending connect's bound account. Returns false for any other entry. */
+export function rebindApproval(id: string, account: string): boolean {
+  const entry = queue.value.find((a) => a.id === id)
+  if (!entry || entry.action.kind !== 'connect') return false
+  replaceQueue(queue.value.map((a) => (a.id === id ? { ...a, account } : a)))
+  return true
 }
 
 export function listApprovals(): PendingApproval[] {

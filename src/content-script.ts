@@ -26,7 +26,14 @@ const TARGET_INPAGE = 'znn-inpage'
 const PROVIDER_PORT_NAME = 'znn-provider'
 const PROVIDER_MESSAGE_CHANNEL = 'znn-provider'
 const ZNN_IS_GRANTED = 'znn_isGranted'
-const READ_ONLY_METHODS = new Set(['znn_accounts', 'znn_chainId', 'znn_nodeUrl', 'znn_disconnect'])
+const READ_ONLY_METHODS = new Set([
+  'znn_accounts',
+  'znn_chainId',
+  'znn_nodeUrl',
+  'znn_disconnect',
+  'znn_decryptMessages',
+  'znn_decryptInscriptions',
+])
 
 // A request whose id comes back `unknown` from a resync this many times in a
 // row is genuinely lost, not just racing a reconnect (§6.4, edge case 32).
@@ -158,10 +165,14 @@ function reconcilePort(granted: boolean): void {
   else closePort()
 }
 
-function sendReadOnly(method: ReadOnlyRequest['method']): Promise<ReadOnlyResponse> {
+function sendReadOnly(
+  method: ReadOnlyRequest['method'],
+  params?: unknown
+): Promise<ReadOnlyResponse> {
   return chrome.runtime.sendMessage<ReadOnlyRequest, ReadOnlyResponse>({
     channel: PROVIDER_MESSAGE_CHANNEL,
     method,
+    params,
   })
 }
 
@@ -200,7 +211,7 @@ window.addEventListener('message', (event: MessageEvent) => {
   const { id, method, params } = event.data
 
   if (READ_ONLY_METHODS.has(method)) {
-    void sendReadOnly(method as ReadOnlyRequest['method']).then((response) => {
+    void sendReadOnly(method as ReadOnlyRequest['method'], params).then((response) => {
       // Re-evaluated on every relayed message, including read-only ones —
       // the router already answered a permission check on this path, so the
       // port opens here if the grant has appeared since load (§6.4).

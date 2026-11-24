@@ -24,6 +24,7 @@ function flakyStorage() {
     async remove(key: string): Promise<void> {
       data.delete(key)
     },
+    onChange: () => () => {},
   }
   return { adapter, data, state }
 }

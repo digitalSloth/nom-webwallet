@@ -15,6 +15,7 @@ import {
   type WalletRejection,
 } from './dapp-approvals'
 import type { IWalletConnectClient, OutgoingError } from './walletconnect-client'
+import { pruneSessionMeta, recordSessionMeta } from './walletconnect-session-meta'
 
 /**
  * Orchestration for the WalletConnect surface — the interop contract (§2.1 in
@@ -143,6 +144,17 @@ export class WalletConnectService {
   private client: IWalletConnectClient | null = null
   private initPromise: Promise<void> | null = null
   private badgeWatcherStarted = false
+  // False until init() delivers the restored session list: a list seen
+  // earlier may be partial, and pruning on it would drop live sessions' meta.
+  private sessionsRestored = false
+
+  private setSessions(list: SessionTypes.Struct[]): void {
+    sessions.value = list
+    if (!this.sessionsRestored) return
+    pruneSessionMeta(list.map((s) => s.topic)).catch((err: unknown) =>
+      console.error('Failed to prune the WalletConnect session meta:', err)
+    )
+  }
 
   // The client is not a defaulted constructor argument: a default would be a
   // static import of the adapter, which statically imports the SDK, putting the
@@ -159,15 +171,16 @@ export class WalletConnectService {
       await impl.init({
         onProposal: (p) => void this.handleProposal(p),
         onRequest: (r) => void this.handleRequest(r),
-        onSessionsChanged: (list) => {
-          sessions.value = list
-        },
+        onSessionsChanged: (list) => this.setSessions(list),
         onSessionEnded: (topic) => {
           // The peer can no longer receive a response, so these are dropped
           // rather than settled.
           dropApprovals((a) => a.id.startsWith(`wc:${topic}:`))
         },
       })
+
+      this.sessionsRestored = true
+      this.setSessions(sessions.value)
 
       this.startBadgeWatcher()
     })()
@@ -192,7 +205,7 @@ export class WalletConnectService {
 
   async disconnect(topic: string): Promise<void> {
     await this.requireClient().disconnect(topic)
-    sessions.value = sessions.value.filter((s) => s.topic !== topic)
+    this.setSessions(sessions.value.filter((s) => s.topic !== topic))
   }
 
   /** §2.3 item 4 — account-switch broadcast, driven by useWalletConnect's watcher. */
@@ -300,7 +313,7 @@ export class WalletConnectService {
       {
         resolve: async (result) => {
           if (result.kind !== 'connect') return
-          await client.approveProposal(p.id, {
+          const topic = await client.approveProposal(p.id, {
             [ZENON_NAMESPACE]: {
               chains: [chain],
               methods: SUPPORTED_METHODS,
@@ -315,7 +328,12 @@ export class WalletConnectService {
           // awaited full settlement, so the new session is in the SDK's own
           // store now; read it directly instead of waiting on an event that
           // may never come on this side.
-          sessions.value = client.listSessions()
+          try {
+            await recordSessionMeta(topic, { verification, approvedAt: Date.now() })
+          } catch (err) {
+            console.error('Failed to record the WalletConnect session meta:', err)
+          }
+          this.setSessions(client.listSessions())
         },
         reject: async () => {
           await client.rejectProposal(p.id, { kind: 'protocol', rejection: 'USER_REJECTED' })

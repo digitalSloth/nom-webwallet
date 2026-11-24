@@ -2,7 +2,10 @@ import {ref} from 'vue'
 import {StakeService} from '../stake-service'
 import {TransactionService} from '../transaction-service'
 import {sessionManager} from '../session-manager'
-import type {StakeEntry} from 'znn-typescript-sdk'
+import {runActivity} from './useActivity'
+import {trackTransaction} from './useTxTracker'
+import type {AccountBlockTemplate, StakeEntry} from 'znn-typescript-sdk'
+import type {TxMeta} from '../send-recorder'
 import type {Wallet} from '@/types'
 
 // Module-level reactive state — shared across every useStake() caller
@@ -12,6 +15,8 @@ const isStaking = ref(false)
 const isCanceling = ref(false)
 const cancelingStakeId = ref<string | null>(null)
 const error = ref<string | null>(null)
+const stakeEntriesFor = ref<string | null>(null)
+let latestLoad = 0
 
 export function useStake() {
   const stakeService = StakeService.getInstance()
@@ -19,8 +24,10 @@ export function useStake() {
 
   // Load stake entries for an address
   async function loadStakeEntries(address: string, pageIndex: number = 0, pageSize: number = 25) {
+    const load = ++latestLoad
     if (!address) {
       stakeEntries.value = []
+      stakeEntriesFor.value = null
       return
     }
 
@@ -29,13 +36,18 @@ export function useStake() {
 
     try {
       const result = await stakeService.getStakeEntries(address, pageIndex, pageSize)
+      // A newer load owns the list; an older response must not overwrite it.
+      if (load !== latestLoad) return
       stakeEntries.value = result.list || []
+      stakeEntriesFor.value = address
     } catch (err) {
+      if (load !== latestLoad) return
       error.value = err instanceof Error ? err.message : 'Failed to load stake entries'
       console.error('Failed to load stake entries:', err)
       stakeEntries.value = []
+      stakeEntriesFor.value = null
     } finally {
-      isLoading.value = false
+      if (load === latestLoad) isLoading.value = false
     }
   }
 
@@ -44,8 +56,9 @@ export function useStake() {
     wallet: Wallet,
     accountAddress: string,
     durationInSec: number,
-    amount: bigint
-  ): Promise<void> {
+    amount: bigint,
+    meta?: TxMeta
+  ): Promise<AccountBlockTemplate> {
     isStaking.value = true
     error.value = null
 
@@ -69,7 +82,17 @@ export function useStake() {
       const block = stakeService.createStakeBlock(durationInSec, amount)
 
       // Send transaction
-      await transactionService.sendEmbeddedContractBlock(block, keyPair)
+      const context = meta ? { ...meta, from: accountAddress } : undefined
+      return await runActivity('Staking ZNN', async () => {
+        const sent = await transactionService.sendEmbeddedContractBlock(
+          block,
+          keyPair,
+          undefined,
+          context
+        )
+        void trackTransaction(meta?.title ?? 'Stake ZNN', sent, meta)
+        return sent
+      })
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to stake ZNN'
       throw err
@@ -82,8 +105,9 @@ export function useStake() {
   async function cancelStake(
     wallet: Wallet,
     accountAddress: string,
-    stakeId: string
-  ): Promise<void> {
+    stakeId: string,
+    meta?: TxMeta
+  ): Promise<AccountBlockTemplate> {
     isCanceling.value = true
     cancelingStakeId.value = stakeId
     error.value = null
@@ -108,7 +132,17 @@ export function useStake() {
       const block = stakeService.createCancelStakeBlock(stakeId)
 
       // Send transaction
-      await transactionService.sendEmbeddedContractBlock(block, keyPair)
+      const context = meta ? { ...meta, from: accountAddress } : undefined
+      return await runActivity('Cancelling stake', async () => {
+        const sent = await transactionService.sendEmbeddedContractBlock(
+          block,
+          keyPair,
+          undefined,
+          context
+        )
+        void trackTransaction(meta?.title ?? 'Cancel stake', sent, meta)
+        return sent
+      })
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to cancel stake'
       throw err
@@ -126,6 +160,7 @@ export function useStake() {
     isCanceling,
     cancelingStakeId,
     error,
+    stakeEntriesFor,
 
     // Methods
     loadStakeEntries,

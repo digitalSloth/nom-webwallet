@@ -2,9 +2,10 @@ import { Buffer } from 'buffer'
 import { createApp } from 'vue'
 import { useToast } from 'nom-ui'
 import ApproveApp from './ApproveApp.vue'
+import { initExtensionDocument } from '@/apps/extension/init'
 import './style.css'
 
-// Same Buffer setup as main.ts — this is its own rollup entry (§5.1), so it
+// Same Buffer setup as app-shell/bootstrap.ts — this is its own rollup entry (§5.1), so it
 // needs its own copy; the SDK is used here too (parsing/sending blocks).
 globalThis.Buffer = Buffer
 
@@ -16,4 +17,4 @@ app.config.errorHandler = (err, _instance, info) => {
   show('Something went wrong. Please try again.', 'error')
 }
 
-app.mount('#app')
+void initExtensionDocument().then(() => app.mount('#app'))

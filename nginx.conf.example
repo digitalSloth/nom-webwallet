@@ -15,28 +15,42 @@ server {
     listen 80;
     server_name your-domain.com;
 
+    # Serve the wallet from the domain root: PoW loads /pow.js and /pow.wasm
+    # by absolute path.
     root /var/www/nom-wallet;
     index index.html;
 
-    # Security headers
+    # Security headers. nginx drops these from any location that sets its
+    # own add_header, so the locations below use `expires` instead.
     add_header X-Frame-Options "DENY" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' wss:; font-src 'self';" always;
-
-    # COOP/COEP headers required by your Vite config
     add_header Cross-Origin-Opener-Policy "same-origin" always;
-    add_header Cross-Origin-Embedder-Policy "require-corp" always;
+
+    # Content-Security-Policy, one directive per line:
+    #   script-src 'wasm-unsafe-eval'  argon2 (wallet encryption) and PoW
+    #                                  compile WebAssembly. No 'unsafe-eval'.
+    #   worker-src blob:               PoW runs in a worker started from a
+    #                                  blob: URL.
+    #   connect-src                    wss: for nodes and the WalletConnect
+    #                                  relay, the WalletConnect APIs,
+    #                                  plazma.bot for plasma, and ws:// to a
+    #                                  node on this machine.
+    #   img-src https:                 dApp icons.
+    #   font-src data:                 fonts bundled as data: URIs.
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' wss: ws://localhost:* ws://127.0.0.1:* https://plazma.bot https://*.walletconnect.org https://*.walletconnect.com;" always;
 
     # Gzip compression
     gzip on;
     gzip_vary on;
     gzip_types text/plain text/css text/xml text/javascript application/javascript application/json application/xml+rss;
 
-    # Cache static assets
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+    # Vite's hashed build output can be cached for good. Files at the root
+    # (index.html, pow.js, pow.wasm) keep their names across releases, so
+    # they are revalidated instead. A missing asset is a 404, not index.html.
+    location ^~ /assets/ {
         expires 1y;
-        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
     }
 
     # SPA routing - always serve index.html for non-file requests

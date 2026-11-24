@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
+import { QSR_ZTS, TokenStandard, ZNN_ZTS } from 'znn-typescript-sdk'
+import { confirmRequest } from '@/shared/lib/send-draft'
 
 const accountService = {
   getAccountInfo: vi.fn(),
@@ -241,6 +243,47 @@ describe('isNewAccount', () => {
     await account.loadBalances()
 
     expect(account.isNewAccount.value).toBe(false)
+  })
+})
+
+describe('loadBalances token precision', () => {
+  it.each([
+    { symbol: 'ZNN', tokenStandard: ZNN_ZTS.toString() },
+    { symbol: 'QSR', tokenStandard: QSR_ZTS.toString() },
+  ])('uses eight decimals for $symbol send amounts', async ({ symbol, tokenStandard }) => {
+    accountService.getAccountInfo.mockResolvedValue({
+      balanceInfoMap: { [tokenStandard]: { balance: 1n, token: { symbol, decimals: 6 } } },
+    })
+    const account = useAccount(ADDRESS)
+
+    await account.loadBalances()
+
+    const [token] = account.balances.value
+    expect(token).toMatchObject({ tokenStandard, balance: '1', decimals: 8 })
+    const request = confirmRequest(
+      {
+        tokenStandard: token.tokenStandard,
+        symbol,
+        decimals: token.decimals,
+        amount: '0.00000001',
+        recipient: 'recipient-1',
+        from: ADDRESS,
+      },
+      ADDRESS
+    )
+    expect(request?.amount).toBe(1n)
+  })
+
+  it('keeps the precision of a custom token with a native symbol', async () => {
+    const tokenStandard = TokenStandard.fromCore(new Uint8Array(10).fill(2)).toString()
+    accountService.getAccountInfo.mockResolvedValue({
+      balanceInfoMap: { [tokenStandard]: { balance: 1n, token: { symbol: 'ZNN', decimals: 6 } } },
+    })
+    const account = useAccount(ADDRESS)
+
+    await account.loadBalances()
+
+    expect(account.balances.value).toMatchObject([{ tokenStandard, balance: '1', decimals: 6 }])
   })
 })
 

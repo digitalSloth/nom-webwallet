@@ -6,6 +6,8 @@ import { reportNodeFailure } from '../node-health'
 import type { BalanceInfo } from '@/types'
 import { addNumberDecimals, QSR_ZTS, ZNN_ZTS } from 'znn-typescript-sdk'
 
+const nativeTokenStandards = new Set([ZNN_ZTS.toString(), QSR_ZTS.toString()])
+
 // Module-level reactive state — shared across every useAccount() caller
 const balances = ref<BalanceInfo[]>([])
 const plasmaLevel = ref<PlasmaLevel>('low')
@@ -98,7 +100,8 @@ export function useAccount(accountAddress: string | null | (() => string | null)
       balances.value = Object.entries(accInfo?.balanceInfoMap || {}).map(([zts, info]) => ({
         tokenStandard: zts,
         balance: info.balance.toString(),
-        decimals: info.token.decimals,
+        // ZNN and QSR use protocol-defined precision for Send amounts.
+        decimals: nativeTokenStandards.has(zts.toLowerCase()) ? 8 : info.token.decimals,
         symbol: info.token.symbol,
         name: info.token.name,
       }))
